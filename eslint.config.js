@@ -15,7 +15,7 @@ export default defineConfig([
       tseslint.configs.recommended,
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
-      jsxA11y.configs.recommended,
+      jsxA11y.flatConfigs.recommended,
     ],
     languageOptions: {
       globals: globals.browser,
