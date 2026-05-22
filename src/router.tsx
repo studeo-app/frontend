@@ -6,6 +6,7 @@ import RegisterPage from './modules/auth/pages/RegisterPage'
 import RoomPage from './modules/rooms/pages/RoomPage'
 import ProfilePage from './modules/users/pages/ProfilePage'
 import PublicLayout from './layouts/PublicLayout'
+import CompleteProfilePage from './modules/users/pages/CompleteProfilePage'
 
 export const Router = createBrowserRouter([
   // PUBLIC ROUTES
@@ -24,7 +25,10 @@ export const Router = createBrowserRouter([
         path: 'register',
         element: <RegisterPage />,
       },
-
+      {
+        path: 'complete-profile',
+        element: <CompleteProfilePage />,
+      }
     ],
   },
 
@@ -41,7 +45,7 @@ export const Router = createBrowserRouter([
         element: <ProfilePage />,
       },
       {
-        
+
       }
     ],
   }
