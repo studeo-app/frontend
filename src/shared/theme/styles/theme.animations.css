@@ -1,0 +1,16 @@
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+  clip-path: circle(0% at var(--x) var(--y));
+  animation: expand-circle 600ms ease-in-out forwards;
+}
+
+@keyframes expand-circle {
+  to {
+    clip-path: circle(150% at var(--x) var(--y));
+  }
+}
