@@ -28,7 +28,8 @@ export default function ThemeToggle() {
     <button
       type="button"
       onClick={handleToggle}
-      aria-label="Toggle theme"
+      aria-label="Cambiar entre modo claro y modo oscuro"
+      aria-pressed={theme === 'dark'}
       className="
         relative
         inline-flex

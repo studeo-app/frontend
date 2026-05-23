@@ -7,6 +7,19 @@ import RoomPage from './modules/rooms/pages/RoomPage'
 import ProfilePage from './modules/users/pages/ProfilePage'
 import PublicLayout from './layouts/PublicLayout'
 import CompleteProfilePage from './modules/users/pages/CompleteProfilePage'
+import DashboardPage from './modules/dashboard/pages/DashboardPage'
+import NotFoundPage from './shared/pages/NotFoundPage'
+
+const appRoutes = [
+  {
+    index: true,
+    element: <DashboardPage />,
+  },
+  {
+    path: 'profile',
+    element: <ProfilePage />,
+  },
+]
 
 export const Router = createBrowserRouter([
   // PUBLIC ROUTES
@@ -28,25 +41,27 @@ export const Router = createBrowserRouter([
       {
         path: 'complete-profile',
         element: <CompleteProfilePage />,
-      }
+      },
+      {
+        path: 'room/:id',
+        element: <RoomPage />,
+      },
+      {
+        path: '*',
+        element: <NotFoundPage />,
+      },
     ],
   },
 
   // APP ROUTES
   {
+    path: 'app',
     element: <AppLayout />,
-    children: [
-      {
-        path: 'rooms/:id',
-        element: <RoomPage />,
-      },
-      {
-        path: 'profile',
-        element: <ProfilePage />,
-      },
-      {
-
-      }
-    ],
-  }
+    children: appRoutes,
+  },
+  {
+    path: 'dashboard',
+    element: <AppLayout />,
+    children: appRoutes,
+  },
 ])
