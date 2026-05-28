@@ -45,3 +45,7 @@
   /* Radius */
   --radius: var(--radius);
 }
+
+body {
+  font-size: 13px;
+}

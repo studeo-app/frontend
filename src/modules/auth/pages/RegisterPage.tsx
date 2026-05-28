@@ -53,14 +53,14 @@ const RegisterPage: React.FC = () => {
       >
         <CardContent className="p-8 md:p-10">
           {/* Logo */}
-          <div className="mb-10 text-center">
+          <div className="mb-6 text-center">
             <span className="bg-linear-to-r from-primary to-primary/70 bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
               Studeo
             </span>
           </div>
 
           {/* Header */}
-          <div className="mb-8 space-y-3 text-center">
+          <div className="mb-8 space-y-2 text-center">
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">
               Crea tu cuenta
             </h1>
