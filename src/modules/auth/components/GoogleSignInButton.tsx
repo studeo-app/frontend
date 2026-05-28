@@ -88,7 +88,7 @@ export default function GoogleSignInButton({
         onClick={handleGoogleSignIn}
         disabled={isSubmitting}
         isLoading={isSubmitting}
-        className="h-12 w-full rounded-xl border-border/60 bg-muted/20 text-foreground hover:bg-muted/40"
+        className="h-12 w-full rounded-xl border-border/60 bg-muted/20 text-foreground hover:bg-muted/40 cursor-pointer"
       >
         <GoogleIcon className="mr-2 h-4 w-4 shrink-0" />
         Continuar con Google
