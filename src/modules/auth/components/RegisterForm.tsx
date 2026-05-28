@@ -1,4 +1,3 @@
-// components/auth/RegisterForm.tsx
 import React, { useMemo, useState } from "react";
 
 import { Button } from "@/shared/components/ui/Button";
@@ -19,6 +18,9 @@ interface RegisterFormProps {
 
   onGoogleRegister: () => Promise<void>;
 }
+
+const inputStyles =
+  "h-10 rounded-2xl border-border/60 bg-card/40 backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
 
 export const RegisterForm: React.FC<
   RegisterFormProps
@@ -102,10 +104,36 @@ export const RegisterForm: React.FC<
     },
   });
 
-  const { validation, passwordsMatch } =
-    usePasswordValidation(
-      fields.password.value,
-      fields.confirmPassword.value
+  const {
+    validation,
+    passwordsMatch,
+  } = usePasswordValidation(
+    fields.password.value,
+    fields.confirmPassword.value
+  );
+
+  /*
+   |--------------------------------------------------------------------------
+   | Errors
+   |--------------------------------------------------------------------------
+   */
+
+  const firstNameError =
+    getFieldError("firstName", true);
+
+  const lastNameError =
+    getFieldError("lastName", true);
+
+  const emailError =
+    getFieldError("email", true);
+
+  const passwordError =
+    getFieldError("password", true);
+
+  const confirmPasswordError =
+    getFieldError(
+      "confirmPassword",
+      true
     );
 
   /*
@@ -115,14 +143,14 @@ export const RegisterForm: React.FC<
    */
 
   const passwordRequirementsVisible =
-    fields.password.value &&
+    !!fields.password.value &&
     (
       passwordFocused ||
       !validation.isValid
     );
 
   const confirmSuccess =
-    fields.confirmPassword.value &&
+    !!fields.confirmPassword.value &&
     passwordsMatch &&
     fields.confirmPassword.value ===
       fields.password.value;
@@ -133,12 +161,22 @@ export const RegisterForm: React.FC<
       fields.lastName.value.trim() &&
       fields.email.value.trim() &&
       validation.isValid &&
-      passwordsMatch
+      passwordsMatch &&
+      !firstNameError &&
+      !lastNameError &&
+      !emailError &&
+      !passwordError &&
+      !confirmPasswordError
     );
   }, [
     fields,
     validation.isValid,
     passwordsMatch,
+    firstNameError,
+    lastNameError,
+    emailError,
+    passwordError,
+    confirmPasswordError,
   ]);
 
   /*
@@ -202,28 +240,36 @@ export const RegisterForm: React.FC<
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-2"
+      className="space-y-4"
+      noValidate
     >
-      {/* Error */}
-      {serverError && (
-        <div
-          className="
-            rounded-2xl
-            border
-            border-destructive/20
-            bg-destructive/10
-            px-4
-            py-3
-            text-sm
-            text-destructive
-          "
-        >
-          {serverError}
-        </div>
-      )}
+      {/* Server Error */}
+      <div
+        aria-live="assertive"
+        role="alert"
+      >
+        {serverError && (
+          <div
+            className="
+              rounded-2xl
+              border
+              border-destructive/20
+              bg-destructive/10
+              px-4
+              py-3
+              text-sm
+              text-destructive
+            "
+          >
+            {serverError}
+          </div>
+        )}
+      </div>
 
       {/* Google */}
-      <GoogleSignInButton onClick={handleGoogle} />
+      <GoogleSignInButton
+        onClick={handleGoogle}
+      />
 
       {/* Divider */}
       <div className="relative">
@@ -261,7 +307,8 @@ export const RegisterForm: React.FC<
       </div>
 
       {/* Names */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* First Name */}
         <div className="space-y-2">
           <label
             htmlFor="firstName"
@@ -276,6 +323,9 @@ export const RegisterForm: React.FC<
             "
           >
             Nombres
+            <span aria-hidden="true">
+              {" "}*
+            </span>
           </label>
 
           <Input
@@ -286,23 +336,24 @@ export const RegisterForm: React.FC<
             onBlur={() =>
               handleBlur("firstName")
             }
-            error={getFieldError(
-              "firstName",
-              true
-            )}
+            error={firstNameError}
             placeholder="Ej. Alex"
             disabled={isLoading}
             autoComplete="given-name"
-            className="
-              h-8
-              rounded-2xl
-              border-border/60
-              bg-card/40
-              backdrop-blur-sm
-            "
+            aria-invalid={
+              !!firstNameError
+            }
+            aria-required="true"
+            aria-describedby={
+              firstNameError
+                ? "firstName-error"
+                : undefined
+            }
+            className={inputStyles}
           />
         </div>
 
+        {/* Last Name */}
         <div className="space-y-2">
           <label
             htmlFor="lastName"
@@ -317,6 +368,9 @@ export const RegisterForm: React.FC<
             "
           >
             Apellidos
+            <span aria-hidden="true">
+              {" "}*
+            </span>
           </label>
 
           <Input
@@ -327,20 +381,20 @@ export const RegisterForm: React.FC<
             onBlur={() =>
               handleBlur("lastName")
             }
-            error={getFieldError(
-              "lastName",
-              true
-            )}
+            error={lastNameError}
             placeholder="Ej. Rivera"
             disabled={isLoading}
             autoComplete="family-name"
-            className="
-              h-8
-              rounded-2xl
-              border-border/60
-              bg-card/40
-              backdrop-blur-sm
-            "
+            aria-invalid={
+              !!lastNameError
+            }
+            aria-required="true"
+            aria-describedby={
+              lastNameError
+                ? "lastName-error"
+                : undefined
+            }
+            className={inputStyles}
           />
         </div>
       </div>
@@ -360,6 +414,9 @@ export const RegisterForm: React.FC<
           "
         >
           Correo electrónico
+          <span aria-hidden="true">
+            {" "}*
+          </span>
         </label>
 
         <Input
@@ -371,20 +428,18 @@ export const RegisterForm: React.FC<
           onBlur={() =>
             handleBlur("email")
           }
-          error={getFieldError(
-            "email",
-            true
-          )}
+          error={emailError}
           placeholder="usuario@universidad.edu"
           disabled={isLoading}
           autoComplete="email"
-          className="
-            h-8
-            rounded-2xl
-            border-border/60
-            bg-card/40
-            backdrop-blur-sm
-          "
+          aria-invalid={!!emailError}
+          aria-required="true"
+          aria-describedby={
+            emailError
+              ? "email-error"
+              : undefined
+          }
+          className={inputStyles}
         />
       </div>
 
@@ -403,6 +458,9 @@ export const RegisterForm: React.FC<
           "
         >
           Contraseña
+          <span aria-hidden="true">
+            {" "}*
+          </span>
         </label>
 
         <Input
@@ -418,16 +476,20 @@ export const RegisterForm: React.FC<
           onFocus={() =>
             setPasswordFocused(true)
           }
+          error={passwordError}
           placeholder="********"
           disabled={isLoading}
           autoComplete="new-password"
-          className="
-            h-8
-            rounded-2xl
-            border-border/60
-            bg-card/40
-            backdrop-blur-sm
-          "
+          aria-invalid={
+            !!passwordError
+          }
+          aria-required="true"
+          aria-describedby={
+            passwordError
+              ? "password-error password-rules"
+              : "password-rules"
+          }
+          className={inputStyles}
         />
 
         {/* Password Rules */}
@@ -443,10 +505,13 @@ export const RegisterForm: React.FC<
             }
           `}
         >
-          <div className="space-y-1 px-1">
+          <div
+            id="password-rules"
+            className="space-y-1 px-1"
+          >
             <PasswordRule
               valid={
-                validation.hasMinLength
+                validation.minLength
               }
               text="Mínimo 8 caracteres"
             />
@@ -459,7 +524,9 @@ export const RegisterForm: React.FC<
             />
 
             <PasswordRule
-              valid={validation.hasNumber}
+              valid={
+                validation.hasNumber
+              }
               text="Incluye un número"
             />
           </div>
@@ -481,6 +548,9 @@ export const RegisterForm: React.FC<
           "
         >
           Confirmar contraseña
+          <span aria-hidden="true">
+            {" "}*
+          </span>
         </label>
 
         <div className="relative">
@@ -497,23 +567,27 @@ export const RegisterForm: React.FC<
                 "confirmPassword"
               )
             }
-            error={getFieldError(
-              "confirmPassword",
-              true
-            )}
+            error={confirmPasswordError}
             placeholder="********"
             disabled={isLoading}
             autoComplete="new-password"
+            aria-invalid={
+              !!confirmPasswordError
+            }
+            aria-required="true"
+            aria-describedby={
+              confirmPasswordError
+                ? "confirmPassword-error"
+                : confirmSuccess
+                ? "confirmPassword-success"
+                : undefined
+            }
             className={`
-              h-8
-              rounded-2xl
-              border-border/60
-              bg-card/40
+              ${inputStyles}
               pr-12
-              backdrop-blur-sm
               ${
                 confirmSuccess
-                  ? "!border-secondary focus:!ring-secondary"
+                  ? "!border-secondary"
                   : ""
               }
             `}
@@ -534,6 +608,7 @@ export const RegisterForm: React.FC<
                 className="h-5 w-5"
                 fill="currentColor"
                 viewBox="0 0 20 20"
+                aria-hidden="true"
               >
                 <path
                   fillRule="evenodd"
@@ -559,6 +634,7 @@ export const RegisterForm: React.FC<
           `}
         >
           <div
+            id="confirmPassword-success"
             className="
               flex
               items-center
@@ -572,6 +648,7 @@ export const RegisterForm: React.FC<
               className="h-3.5 w-3.5"
               fill="currentColor"
               viewBox="0 0 20 20"
+              aria-hidden="true"
             >
               <path
                 fillRule="evenodd"
@@ -589,7 +666,9 @@ export const RegisterForm: React.FC<
       <Button
         type="submit"
         variant="primary"
-        disabled={!isFormValid || isLoading}
+        disabled={
+          !isFormValid || isLoading
+        }
         isLoading={isLoading}
         className="
           h-10
@@ -599,7 +678,10 @@ export const RegisterForm: React.FC<
           font-semibold
           shadow-lg
           shadow-primary/20
-          cursor-pointer
+          focus-visible:outline-none
+          focus-visible:ring-2
+          focus-visible:ring-primary
+          focus-visible:ring-offset-2
         "
       >
         Crear cuenta
@@ -617,10 +699,14 @@ export const RegisterForm: React.FC<
         <a
           href="/login"
           className="
+            rounded-sm
             font-medium
             text-secondary
             transition-colors
             hover:text-secondary/80
+            focus-visible:outline-none
+            focus-visible:ring-2
+            focus-visible:ring-primary
           "
         >
           Iniciar Sesión
@@ -668,6 +754,7 @@ const PasswordRule: React.FC<
         viewBox="0 0 24 24"
         stroke="currentColor"
         strokeWidth={2}
+        aria-hidden="true"
       >
         <path
           strokeLinecap="round"

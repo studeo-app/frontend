@@ -45,3 +45,11 @@
   /* Radius */
   --radius: var(--radius);
 }
+
+/* --- ESTILOS GLOBALES DE ACCESIBILIDAD */
+a:focus-visible, 
+button:focus-visible, 
+input:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
