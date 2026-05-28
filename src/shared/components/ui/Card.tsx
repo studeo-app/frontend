@@ -1,5 +1,3 @@
-
-// shared/components/ui/Card.tsx
 import React from "react";
 
 

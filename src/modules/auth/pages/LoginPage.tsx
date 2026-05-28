@@ -1,7 +1,7 @@
-// pages/LoginPage.tsx
 import React from "react";
 import { Card, CardContent } from "@/shared/components/ui/Card";
 import { LoginForm } from "../components/LoginForm";
+
 
 const LoginPage: React.FC = () => {
   const handleLogin = async (data: {

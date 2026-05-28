@@ -1,5 +1,3 @@
-
-// pages/RegisterPage.tsx
 import React from "react";
 import { Card, CardContent } from "@/shared/components/ui/Card";
 import { RegisterForm } from "../components/RegisterForm";

@@ -1,5 +1,3 @@
-
-// components/auth/RegisterForm.tsx
 import React, { useMemo, useState } from "react";
 
 import { Input } from "@/shared/components/ui/Input";
@@ -511,7 +509,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
       </div>
 
       {/* Google */}
-      <GoogleSignInButton onClick={handleGoogle} />
+      <GoogleSignInButton onSuccess={handleGoogle} />
 
       {/* Login */}
       <p className="pt-2 text-center text-sm text-muted-foreground">

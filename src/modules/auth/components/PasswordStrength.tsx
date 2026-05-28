@@ -1,4 +1,3 @@
-// components/auth/PasswordStrength.tsx
 import React from "react";
 
 interface PasswordStrengthProps {
