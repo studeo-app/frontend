@@ -13,17 +13,20 @@ interface CompleteProfileFormProps {
   }) => Promise<void>;
 }
 
+const inputStyles =
+  "h-14 w-full rounded-2xl border-border/60 bg-card/40 pl-10 backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
+
 export const CompleteProfileForm: React.FC<
   CompleteProfileFormProps
 > = ({
   defaultUsername = "",
   onSubmit,
 }) => {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] =
+    useState(false);
 
-  const [serverError, setServerError] = useState<string | null>(
-    null
-  );
+  const [serverError, setServerError] =
+    useState<string | null>(null);
 
   const {
     fields,
@@ -37,11 +40,12 @@ export const CompleteProfileForm: React.FC<
 
       rules: {
         required: true,
-
         minLength: 3,
 
         custom: (value) => {
-          if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+          if (
+            !/^[a-zA-Z0-9_]+$/.test(value)
+          ) {
             return "Solo letras, números y guiones bajos";
           }
 
@@ -53,14 +57,18 @@ export const CompleteProfileForm: React.FC<
 
   /*
    |--------------------------------------------------------------------------
-   | Validation
+   | Errors
    |--------------------------------------------------------------------------
    */
 
-  const usernameError = getFieldError(
-    "username",
-    true
-  );
+  const usernameError =
+    getFieldError("username", true);
+
+  /*
+   |--------------------------------------------------------------------------
+   | Validation
+   |--------------------------------------------------------------------------
+   */
 
   const usernameAvailable =
     fields.username.value.length >= 3 &&
@@ -71,7 +79,10 @@ export const CompleteProfileForm: React.FC<
       fields.username.value.trim() &&
       !usernameError
     );
-  }, [fields.username.value, usernameError]);
+  }, [
+    fields.username.value,
+    usernameError,
+  ]);
 
   /*
    |--------------------------------------------------------------------------
@@ -110,24 +121,30 @@ export const CompleteProfileForm: React.FC<
     <form
       onSubmit={handleSubmit}
       className="space-y-8"
+      noValidate
     >
-      {/* Error */}
-      {serverError && (
-        <div
-          className="
-            rounded-xl
-            border
-            border-destructive/20
-            bg-destructive/10
-            px-4
-            py-3
-            text-sm
-            text-destructive
-          "
-        >
-          {serverError}
-        </div>
-      )}
+      {/* Server Error */}
+      <div
+        aria-live="assertive"
+        role="alert"
+      >
+        {serverError && (
+          <div
+            className="
+              rounded-xl
+              border
+              border-destructive/20
+              bg-destructive/10
+              px-4
+              py-3
+              text-sm
+              text-destructive
+            "
+          >
+            {serverError}
+          </div>
+        )}
+      </div>
 
       {/* Username */}
       <div className="space-y-3">
@@ -144,18 +161,22 @@ export const CompleteProfileForm: React.FC<
           "
         >
           Username
+          <span aria-hidden="true">
+            {" "}*
+          </span>
         </label>
 
         <div className="relative flex items-center">
-          {/* @ Prefix */}
+          {/* Prefix */}
           <div
             className="
-              absolute
               pointer-events-none
+              absolute
               left-4
               text-sm
               text-muted-foreground
             "
+            aria-hidden="true"
           >
             @
           </div>
@@ -165,17 +186,28 @@ export const CompleteProfileForm: React.FC<
             name="username"
             value={fields.username.value}
             onChange={handleChange}
-            onBlur={() => handleBlur("username")}
+            onBlur={() =>
+              handleBlur("username")
+            }
             error={usernameError}
             placeholder="tu_username"
             disabled={isLoading}
             autoComplete="username"
-            aria-invalid={!!usernameError}
-            className="pl-10 h-14 w-full
-            "
+            aria-invalid={
+              !!usernameError
+            }
+            aria-required="true"
+            aria-describedby={
+              usernameError
+                ? "username-error"
+                : usernameAvailable
+                ? "username-success"
+                : "username-help"
+            }
+            className={inputStyles}
           />
 
-          {/* Validation Icon */}
+          {/* Success Icon */}
           {usernameAvailable && (
             <div
               className="
@@ -194,6 +226,7 @@ export const CompleteProfileForm: React.FC<
                 className="h-5 w-5"
                 fill="currentColor"
                 viewBox="0 0 20 20"
+                aria-hidden="true"
               >
                 <path
                   fillRule="evenodd"
@@ -205,7 +238,39 @@ export const CompleteProfileForm: React.FC<
           )}
         </div>
 
-        {/* Available */}
+        {/* Help Text */}
+        <p
+          id="username-help"
+          className="
+            px-1
+            text-xs
+            text-muted-foreground
+          "
+        >
+          Usa mínimo 3 caracteres.
+          Solo letras, números y "_".
+        </p>
+
+        {/* Error */}
+        <div
+          id="username-error"
+          aria-live="polite"
+        >
+          {usernameError && (
+            <span
+              className="
+                block
+                px-1
+                text-xs
+                text-destructive
+              "
+            >
+              {usernameError}
+            </span>
+          )}
+        </div>
+
+        {/* Success */}
         <div
           className={`
             overflow-hidden
@@ -219,6 +284,7 @@ export const CompleteProfileForm: React.FC<
           `}
         >
           <div
+            id="username-success"
             className="
               flex
               items-center
@@ -232,6 +298,7 @@ export const CompleteProfileForm: React.FC<
               className="h-3.5 w-3.5"
               fill="currentColor"
               viewBox="0 0 20 20"
+              aria-hidden="true"
             >
               <path
                 fillRule="evenodd"
@@ -249,7 +316,9 @@ export const CompleteProfileForm: React.FC<
       <Button
         type="submit"
         variant="primary"
-        disabled={!isFormValid || isLoading}
+        disabled={
+          !isFormValid || isLoading
+        }
         isLoading={isLoading}
         className="
           h-14
@@ -257,6 +326,10 @@ export const CompleteProfileForm: React.FC<
           rounded-2xl
           text-base
           font-semibold
+          focus-visible:outline-none
+          focus-visible:ring-2
+          focus-visible:ring-primary
+          focus-visible:ring-offset-2
         "
       >
         Completar registro
@@ -267,6 +340,7 @@ export const CompleteProfileForm: React.FC<
           viewBox="0 0 24 24"
           stroke="currentColor"
           strokeWidth={2}
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
@@ -278,4 +352,3 @@ export const CompleteProfileForm: React.FC<
     </form>
   );
 };
-
