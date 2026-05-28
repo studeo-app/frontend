@@ -1,82 +1,105 @@
-import { Link } from 'react-router'
-import GoogleSignInButton from '@/modules/auth/components/GoogleSignInButton'
-import useDocumentTitle from '@/shared/hooks/useDocumentTitle'
+// pages/LoginPage.tsx
+import React from "react";
+import { Card, CardContent } from "@/shared/components/ui/Card";
+import { LoginForm } from "../components/LoginForm";
 
-export default function LoginPage() {
-  useDocumentTitle('Login')
+const LoginPage: React.FC = () => {
+  const handleLogin = async (data: {
+    email: string;
+    password: string;
+  }) => {
+    console.log("Login:", data);
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+
+    // window.location.href = "/dashboard";
+  };
+
+  const handleGoogleLogin = async () => {
+    console.log("Google login");
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+  };
 
   return (
-    <section className="space-y-8">
-      <header className="rounded-2xl border border-border bg-gradient-to-r from-primary/90 to-primary p-6 text-primary-foreground shadow-sm">
-        <h1 className="text-3xl font-semibold tracking-tight">Login</h1>
-        <p className="mt-2 text-sm text-primary-foreground/90">
-          Inicia sesión en Studeo para acceder al dashboard.
-        </p>
-      </header>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8">
+      {/* Background Effects */}
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        {/* Glow */}
+        <div className="absolute left-[-10%] top-[-10%] h-105 w-105 rounded-full bg-primary/10 blur-3xl" />
 
-      <article className="mx-auto max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <form
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault()
+        <div className="absolute bottom-[-15%] right-[-10%] h-105 w-105 rounded-full bg-secondary/10 blur-3xl" />
+
+        {/* Grid */}
+        <div
+          className="absolute inset-0 opacity-[0.025]"
+          style={{
+            backgroundImage:
+              "radial-gradient(hsl(var(--foreground)) 0.6px, transparent 0.6px)",
+            backgroundSize: "24px 24px",
           }}
-        >
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium">
-              Correo electrónico
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              placeholder="tu@correo.com"
-              className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
-            />
+        />
+      </div>
+
+      {/* Auth Card */}
+      <Card
+        className="
+          w-full
+          max-w-md
+          border-border/60
+          bg-card/80
+          shadow-2xl
+          backdrop-blur-xl
+        "
+      >
+        <CardContent className="p-8 md:p-10">
+          {/* Logo */}
+          <div className="mb-10 text-center">
+            <span className="bg-linear-to-r from-primary to-primary/70 bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
+              Studeo
+            </span>
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-medium">
-              Contraseña
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
-            />
+          {/* Header */}
+          <div className="mb-8 space-y-3 text-center">
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+              Continúa en Studeo
+            </h1>
+
+            <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground">
+              Accede a tus salas de estudio, sesiones colaborativas y recursos
+              compartidos.
+            </p>
           </div>
 
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Login
-          </button>
-        </form>
+          {/* Form */}
+          <LoginForm
+            onSubmit={handleLogin}
+            onGoogleLogin={handleGoogleLogin}
+          />
 
-        <div className="my-6 flex items-center gap-3">
-          <span className="h-px flex-1 bg-border" aria-hidden="true" />
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            o
-          </span>
-          <span className="h-px flex-1 bg-border" aria-hidden="true" />
-        </div>
+          {/* Footer */}
+          <p className="mt-8 text-center text-xs leading-relaxed text-muted-foreground">
+            Al continuar, aceptas nuestros{" "}
+            <a
+              href="/terms"
+              className="text-foreground transition-colors hover:text-primary"
+            >
+              Términos
+            </a>{" "}
+            y{" "}
+            <a
+              href="/policy"
+              className="text-foreground transition-colors hover:text-primary"
+            >
+              Política de privacidad
+            </a>
+            .
+          </p>
+        </CardContent>
+      </Card>
+    </main>
+  );
+};
 
-        <GoogleSignInButton />
-
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          ¿No tienes cuenta?{' '}
-          <Link
-            to="/register"
-            className="font-semibold text-primary underline-offset-4 hover:underline"
-          >
-            Regístrate
-          </Link>
-        </p>
-      </article>
-    </section>
-  )
-}
+export default LoginPage;

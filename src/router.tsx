@@ -6,7 +6,7 @@ import RegisterPage from './modules/auth/pages/RegisterPage'
 import RoomPage from './modules/rooms/pages/RoomPage'
 import ProfilePage from './modules/users/pages/ProfilePage'
 import PublicLayout from './layouts/PublicLayout'
-import CompleteProfilePage from './modules/users/pages/CompleteProfilePage'
+import CompleteProfilePage from './modules/auth/pages/CompleteProfilePage'
 import DashboardPage from './modules/dashboard/pages/DashboardPage'
 import NotFoundPage from './shared/pages/NotFoundPage'
 
