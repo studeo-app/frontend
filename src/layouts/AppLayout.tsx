@@ -23,7 +23,7 @@ const appLinks = [
 export default function AppLayout() {
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-500">
-      <div className="mx-auto grid min-h-screen max-w-[1500px] md:grid-cols-[280px_1fr]">
+      <div className="mx-auto grid min-h-screen max-w-375 md:grid-cols-[280px_1fr]">
         <aside className="border-r border-border/80 bg-sidebar text-sidebar-foreground">
           <div className="flex h-full flex-col p-5">
             <header className="mb-5">
