@@ -1,88 +1,84 @@
 :root {
-  /* Base (Discord Light-ish) */
-  --background: 220 20% 99%;
-  --foreground: 230 10% 10%;
+  /* ========== MODO CLARO ========== */
+  
+  /* Base */
+  --background: 0 0% 100%;        /* Blanco puro */
+  --foreground: 230 8% 15%;       /* #2E3036 */
 
   /* Surface */
   --card: 0 0% 100%;
-  --card-foreground: 230 10% 10%;
-
+  --card-foreground: 230 8% 15%;
   --popover: 0 0% 100%;
-  --popover-foreground: 230 10% 10%;
+  --popover-foreground: 230 8% 15%;
 
-  /* Brand (Discord Blurple) */
-  --primary: 235 86% 65%; /* #5865F2 */
+  /* Brand */
+  --primary: 235 86% 65%;         /* #5865F2 */
   --primary-foreground: 0 0% 100%;
 
-  /* Secondary (Discord Green) */
-  --secondary: 147 64% 39%; /* #23A559 */
+  /* Secondary */
+  --secondary: 147 64% 39%;       /* #23A559 */
   --secondary-foreground: 0 0% 100%;
 
   /* States */
-  --muted: 220 14% 94%;
-  --muted-foreground: 230 6% 40%;
-
-  --accent: 220 12% 90%;
-  --accent-foreground: 230 10% 10%;
-
-  --destructive: 359 86% 60%; /* Discord red #F23F42 */
+  --muted: 220 14% 96%;           /* #F2F3F5 */
+  --muted-foreground: 220 8% 45%; /* #4E5058 */
+  --accent: 220 12% 94%;
+  --accent-foreground: 230 8% 15%;
+  --destructive: 359 86% 60%;     /* #ED4245 */
   --destructive-foreground: 0 0% 100%;
 
   /* Borders */
-  --border: 220 10% 88%;
-  --input: 220 10% 88%;
+  --border: 220 12% 90%;          /* #E3E5E8 */
+  --input: 220 12% 90%;
   --ring: 235 86% 65%;
 
   /* Radius */
   --radius: 0.75rem;
 
-  /* Sidebar (Discord light panels vibe) */
-  --sidebar: 220 12% 96%;
-  --sidebar-foreground: 230 10% 10%;
-
-  --sidebar-accent: 220 10% 90%;
-  --sidebar-accent-foreground: 230 10% 10%;
+  /* Sidebar */
+  --sidebar: 220 14% 96%;
+  --sidebar-foreground: 230 8% 15%;
+  --sidebar-accent: 220 12% 90%;
+  --sidebar-accent-foreground: 230 8% 15%;
 }
 
 .dark {
-  /* Base (Discord Dark UI) */
-  --background: 230 9% 21%; /* #313338 */
+  /* ========== MODO OSCURO ========== */
+  
+  /* Base */
+  --background: 230 9% 21%;       /* #313338 */
   --foreground: 210 10% 95%;
 
   /* Surface */
-  --card: 228 9% 17%; /* #2b2d31-ish */
+  --card: 228 9% 17%;             /* #2B2D31 */
   --card-foreground: 210 10% 95%;
-
   --popover: 228 9% 17%;
   --popover-foreground: 210 10% 95%;
 
   /* Brand */
-  --primary: 235 86% 67%; /* Blurple brighter in dark */
+  --primary: 235 86% 67%;         /* #5865F2 más brillante */
   --primary-foreground: 0 0% 100%;
 
   /* Secondary */
-  --secondary: 147 64% 42%;
+  --secondary: 147 64% 42%;       /* #23A559 más brillante */
   --secondary-foreground: 0 0% 100%;
 
   /* States */
-  --muted: 228 7% 25%;
+  --muted: 228 7% 25%;            /* #3B3D43 */
   --muted-foreground: 220 10% 65%;
-
-  --accent: 228 6% 28%;
+  --accent: 228 6% 28%;           /* #404249 */
   --accent-foreground: 210 10% 95%;
-
-  --destructive: 359 86% 60%;
+  --destructive: 359 86% 60%;     /* #ED4245 */
   --destructive-foreground: 0 0% 100%;
 
   /* Borders */
-  --border: 228 6% 30%;
+  --border: 228 6% 30%;           /* #4E5058 */
   --input: 228 6% 30%;
   --ring: 235 86% 67%;
 
-  /* Sidebar (Discord channel list feel) */
-  --sidebar: 228 10% 16%; /* #2b2d31 darker zone */
+  /* Sidebar */
+  --sidebar: 228 10% 16%;         /* #2B2D31 más oscuro */
   --sidebar-foreground: 210 10% 95%;
-
-  --sidebar-accent: 228 8% 24%;
+  --sidebar-accent: 228 8% 24%;   /* #383A40 */
   --sidebar-accent-foreground: 210 10% 95%;
 }
