@@ -1,14 +1,13 @@
+// components/auth/RegisterForm.tsx
 import React, { useMemo, useState } from "react";
 
-import { Input } from "@/shared/components/ui/Input";
 import { Button } from "@/shared/components/ui/Button";
+import { Input } from "@/shared/components/ui/Input";
 
 import { useForm } from "@/shared/hooks/useForm";
 import { usePasswordValidation } from "@/shared/hooks/usePasswordValidation";
 
-import { PasswordStrength } from "./PasswordStrength";
-
-import GoogleSignInButton from "../components/GoogleSignInButton";
+import GoogleSignInButton from "./GoogleSignInButton";
 
 interface RegisterFormProps {
   onSubmit: (data: {
@@ -21,17 +20,19 @@ interface RegisterFormProps {
   onGoogleRegister: () => Promise<void>;
 }
 
-export const RegisterForm: React.FC<RegisterFormProps> = ({
+export const RegisterForm: React.FC<
+  RegisterFormProps
+> = ({
   onSubmit,
   onGoogleRegister,
 }) => {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] =
+    useState(false);
 
-  const [serverError, setServerError] = useState<string | null>(
-    null
-  );
+  const [serverError, setServerError] =
+    useState<string | null>(null);
 
-  const [isPasswordFocused, setIsPasswordFocused] =
+  const [passwordFocused, setPasswordFocused] =
     useState(false);
 
   const {
@@ -43,16 +44,12 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   } = useForm({
     firstName: {
       value: "",
-      rules: {
-        required: true,
-      },
+      rules: { required: true },
     },
 
     lastName: {
       value: "",
-      rules: {
-        required: true,
-      },
+      rules: { required: true },
     },
 
     email: {
@@ -85,11 +82,17 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
 
     confirmPassword: {
       value: "",
+
       rules: {
         required: true,
 
-        custom: (value, formValues) => {
-          if (value !== formValues?.password) {
+        custom: (
+          value,
+          formValues
+        ) => {
+          if (
+            value !== formValues?.password
+          ) {
             return "Las contraseñas no coinciden";
           }
 
@@ -107,67 +110,33 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
 
   /*
    |--------------------------------------------------------------------------
-   | Realtime Validation
+   | Validation
    |--------------------------------------------------------------------------
    */
 
-  const firstNameError = getFieldError("firstName", true);
+  const passwordRequirementsVisible =
+    fields.password.value &&
+    (
+      passwordFocused ||
+      !validation.isValid
+    );
 
-  const lastNameError = getFieldError("lastName", true);
-
-  const emailError = getFieldError("email", true);
-
-  const passwordError = getFieldError("password", true);
-
-  const confirmPasswordError = getFieldError(
-    "confirmPassword",
-    true
-  );
-
-  /*
-   |--------------------------------------------------------------------------
-   | Password Strength Visibility
-   |--------------------------------------------------------------------------
-   */
-
-  const shouldShowPasswordStrength =
-    !!fields.password.value &&
-    (!validation.isValid || isPasswordFocused);
-
-  /*
-   |--------------------------------------------------------------------------
-   | Form Validity
-   |--------------------------------------------------------------------------
-   */
+  const confirmSuccess =
+    fields.confirmPassword.value &&
+    passwordsMatch &&
+    fields.confirmPassword.value ===
+      fields.password.value;
 
   const isFormValid = useMemo(() => {
-    const hasRequiredFields =
+    return (
       fields.firstName.value.trim() &&
       fields.lastName.value.trim() &&
       fields.email.value.trim() &&
-      fields.password.value.trim() &&
-      fields.confirmPassword.value.trim();
-
-    const hasFieldErrors =
-      firstNameError ||
-      lastNameError ||
-      emailError ||
-      passwordError ||
-      confirmPasswordError;
-
-    return (
-      hasRequiredFields &&
-      !hasFieldErrors &&
       validation.isValid &&
       passwordsMatch
     );
   }, [
     fields,
-    firstNameError,
-    lastNameError,
-    emailError,
-    passwordError,
-    confirmPasswordError,
     validation.isValid,
     passwordsMatch,
   ]);
@@ -178,14 +147,18 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
    |--------------------------------------------------------------------------
    */
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (
+    e: React.FormEvent
+  ) => {
     e.preventDefault();
 
     setServerError(null);
 
-    if (!validateAll()) return;
-
-    if (!validation.isValid || !passwordsMatch) {
+    if (
+      !validateAll() ||
+      !validation.isValid ||
+      !passwordsMatch
+    ) {
       return;
     }
 
@@ -193,10 +166,16 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
 
     try {
       await onSubmit({
-        firstName: fields.firstName.value,
-        lastName: fields.lastName.value,
+        firstName:
+          fields.firstName.value,
+
+        lastName:
+          fields.lastName.value,
+
         email: fields.email.value,
-        password: fields.password.value,
+
+        password:
+          fields.password.value,
       });
     } catch (err) {
       const errorMessage =
@@ -210,12 +189,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     }
   };
 
-  /*
-   |--------------------------------------------------------------------------
-   | Google Register
-   |--------------------------------------------------------------------------
-   */
-
   const handleGoogle = async () => {
     setIsLoading(true);
 
@@ -227,12 +200,15 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-2">
-      {/* Server Error */}
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-2"
+    >
+      {/* Error */}
       {serverError && (
         <div
           className="
-            rounded-xl
+            rounded-2xl
             border
             border-destructive/20
             bg-destructive/10
@@ -240,30 +216,66 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             py-3
             text-sm
             text-destructive
-            animate-in
-            fade-in-0
-            slide-in-from-top-1
           "
         >
           {serverError}
         </div>
       )}
 
+      {/* Google */}
+      <GoogleSignInButton onClick={handleGoogle} />
+
+      {/* Divider */}
+      <div className="relative">
+        <div
+          className="
+            absolute
+            inset-0
+            flex
+            items-center
+          "
+        >
+          <div className="w-full border-t border-border/60" />
+        </div>
+
+        <div
+          className="
+            relative
+            flex
+            justify-center
+          "
+        >
+          <span
+            className="
+              bg-background
+              px-4
+              text-xs
+              uppercase
+              tracking-[0.2em]
+              text-muted-foreground
+            "
+          >
+            o
+          </span>
+        </div>
+      </div>
+
       {/* Names */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {/* First Name */}
+      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label
             htmlFor="firstName"
             className="
-              text-xs
+              block
+              px-1
+              text-[11px]
               font-medium
               uppercase
-              tracking-wide
+              tracking-[0.2em]
               text-muted-foreground
             "
           >
-            Nombre
+            Nombres
           </label>
 
           <Input
@@ -271,35 +283,40 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             name="firstName"
             value={fields.firstName.value}
             onChange={handleChange}
-            onBlur={() => handleBlur("firstName")}
-            error={firstNameError}
-            placeholder="Alex"
+            onBlur={() =>
+              handleBlur("firstName")
+            }
+            error={getFieldError(
+              "firstName",
+              true
+            )}
+            placeholder="Ej. Alex"
             disabled={isLoading}
             autoComplete="given-name"
-            aria-invalid={!!firstNameError}
             className="
-              h-12
+              h-8
+              rounded-2xl
               border-border/60
-              bg-muted/30
-              hover:border-border
-              focus:bg-background
+              bg-card/40
+              backdrop-blur-sm
             "
           />
         </div>
 
-        {/* Last Name */}
         <div className="space-y-2">
           <label
             htmlFor="lastName"
             className="
-              text-xs
+              block
+              px-1
+              text-[11px]
               font-medium
               uppercase
-              tracking-wide
+              tracking-[0.2em]
               text-muted-foreground
             "
           >
-            Apellido
+            Apellidos
           </label>
 
           <Input
@@ -307,18 +324,22 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             name="lastName"
             value={fields.lastName.value}
             onChange={handleChange}
-            onBlur={() => handleBlur("lastName")}
-            error={lastNameError}
-            placeholder="Rivera"
+            onBlur={() =>
+              handleBlur("lastName")
+            }
+            error={getFieldError(
+              "lastName",
+              true
+            )}
+            placeholder="Ej. Rivera"
             disabled={isLoading}
             autoComplete="family-name"
-            aria-invalid={!!lastNameError}
             className="
-              h-12
+              h-8
+              rounded-2xl
               border-border/60
-              bg-muted/30
-              hover:border-border
-              focus:bg-background
+              bg-card/40
+              backdrop-blur-sm
             "
           />
         </div>
@@ -329,14 +350,16 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         <label
           htmlFor="email"
           className="
-            text-xs
+            block
+            px-1
+            text-[11px]
             font-medium
             uppercase
-            tracking-wide
+            tracking-[0.2em]
             text-muted-foreground
           "
         >
-          Email
+          Correo electrónico
         </label>
 
         <Input
@@ -345,31 +368,37 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           type="email"
           value={fields.email.value}
           onChange={handleChange}
-          onBlur={() => handleBlur("email")}
-          error={emailError}
+          onBlur={() =>
+            handleBlur("email")
+          }
+          error={getFieldError(
+            "email",
+            true
+          )}
           placeholder="usuario@universidad.edu"
           disabled={isLoading}
           autoComplete="email"
-          aria-invalid={!!emailError}
           className="
-            h-12
+            h-8
+            rounded-2xl
             border-border/60
-            bg-muted/30
-            hover:border-border
-            focus:bg-background
+            bg-card/40
+            backdrop-blur-sm
           "
         />
       </div>
 
       {/* Password */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         <label
           htmlFor="password"
           className="
-            text-xs
+            block
+            px-1
+            text-[11px]
             font-medium
             uppercase
-            tracking-wide
+            tracking-[0.2em]
             text-muted-foreground
           "
         >
@@ -382,40 +411,57 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           type="password"
           value={fields.password.value}
           onChange={handleChange}
-          onFocus={() => setIsPasswordFocused(true)}
           onBlur={() => {
             handleBlur("password");
-            setIsPasswordFocused(false);
+            setPasswordFocused(false);
           }}
-          error={passwordError}
-          placeholder="••••••••"
+          onFocus={() =>
+            setPasswordFocused(true)
+          }
+          placeholder="********"
           disabled={isLoading}
           autoComplete="new-password"
-          aria-invalid={!!passwordError}
           className="
-            h-12
+            h-8
+            rounded-2xl
             border-border/60
-            bg-muted/30
-            hover:border-border
-            focus:bg-background
+            bg-card/40
+            backdrop-blur-sm
           "
         />
 
-        {/* Password Strength */}
+        {/* Password Rules */}
         <div
           className={`
             overflow-hidden
             transition-all
-            duration-200
+            duration-300
             ${
-              shouldShowPasswordStrength
+              passwordRequirementsVisible
                 ? "max-h-40 opacity-100"
                 : "max-h-0 opacity-0"
             }
           `}
         >
-          <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-            <PasswordStrength validation={validation} />
+          <div className="space-y-1 px-1">
+            <PasswordRule
+              valid={
+                validation.hasMinLength
+              }
+              text="Mínimo 8 caracteres"
+            />
+
+            <PasswordRule
+              valid={
+                validation.hasUppercase
+              }
+              text="Incluye una mayúscula"
+            />
+
+            <PasswordRule
+              valid={validation.hasNumber}
+              text="Incluye un número"
+            />
           </div>
         </div>
       </div>
@@ -425,44 +471,67 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         <label
           htmlFor="confirmPassword"
           className="
-            text-xs
+            block
+            px-1
+            text-[11px]
             font-medium
             uppercase
-            tracking-wide
+            tracking-[0.2em]
             text-muted-foreground
           "
         >
           Confirmar contraseña
         </label>
 
-        <Input
-          id="confirmPassword"
-          name="confirmPassword"
-          type="password"
-          value={fields.confirmPassword.value}
-          onChange={handleChange}
-          onBlur={() => handleBlur("confirmPassword")}
-          error={confirmPasswordError}
-          placeholder="••••••••"
-          disabled={isLoading}
-          autoComplete="new-password"
-          aria-invalid={!!confirmPasswordError}
-          className="
-            h-12
-            border-border/60
-            bg-muted/30
-            hover:border-border
-            focus:bg-background
-          "
-        />
+        <div className="relative">
+          <Input
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            value={
+              fields.confirmPassword.value
+            }
+            onChange={handleChange}
+            onBlur={() =>
+              handleBlur(
+                "confirmPassword"
+              )
+            }
+            error={getFieldError(
+              "confirmPassword",
+              true
+            )}
+            placeholder="********"
+            disabled={isLoading}
+            autoComplete="new-password"
+            className={`
+              h-8
+              rounded-2xl
+              border-border/60
+              bg-card/40
+              pr-12
+              backdrop-blur-sm
+              ${
+                confirmSuccess
+                  ? "!border-secondary focus:!ring-secondary"
+                  : ""
+              }
+            `}
+          />
 
-        {fields.confirmPassword.value &&
-          passwordsMatch &&
-          fields.confirmPassword.value ===
-            fields.password.value && (
-            <div className="flex items-center gap-2 px-1 text-xs text-secondary">
+          {confirmSuccess && (
+            <div
+              className="
+                pointer-events-none
+                absolute
+                right-4
+                top-1/2
+                -translate-y-1/2
+                text-secondary
+              "
+            >
               <svg
-                className="h-3.5 w-3.5"
+                className="h-5 w-5"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -472,10 +541,48 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                   d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
                 />
               </svg>
-
-              Las contraseñas coinciden
             </div>
           )}
+        </div>
+
+        {/* Success */}
+        <div
+          className={`
+            overflow-hidden
+            transition-all
+            duration-200
+            ${
+              confirmSuccess
+                ? "max-h-10 opacity-100"
+                : "max-h-0 opacity-0"
+            }
+          `}
+        >
+          <div
+            className="
+              flex
+              items-center
+              gap-2
+              px-1
+              text-xs
+              text-secondary
+            "
+          >
+            <svg
+              className="h-3.5 w-3.5"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                clipRule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              />
+            </svg>
+
+            Las contraseñas coinciden
+          </div>
+        </div>
       </div>
 
       {/* Submit */}
@@ -485,47 +592,91 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         disabled={!isFormValid || isLoading}
         isLoading={isLoading}
         className="
-          h-12
+          h-10
           w-full
-          rounded-xl
-          text-sm
-          font-medium
+          rounded-2xl
+          text-base
+          font-semibold
+          shadow-lg
+          shadow-primary/20
+          cursor-pointer
         "
       >
         Crear cuenta
       </Button>
 
-      {/* Divider */}
-      <div className="relative py-2">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border/60" />
-        </div>
-
-        <div className="relative flex justify-center">
-          <span className="bg-card px-3 text-xs text-muted-foreground">
-            o continúa con
-          </span>
-        </div>
-      </div>
-
-      {/* Google */}
-      <GoogleSignInButton onSuccess={handleGoogle} />
-
       {/* Login */}
-      <p className="pt-2 text-center text-sm text-muted-foreground">
-        ¿Ya tienes cuenta?{" "}
+      <p
+        className="
+          text-center
+          text-sm
+          text-muted-foreground
+        "
+      >
+        ¿Ya tienes una cuenta?{" "}
         <a
           href="/login"
           className="
             font-medium
-            text-foreground
+            text-secondary
             transition-colors
-            hover:text-primary
+            hover:text-secondary/80
           "
         >
-          Iniciar sesión
+          Iniciar Sesión
         </a>
       </p>
     </form>
+  );
+};
+
+/*
+|--------------------------------------------------------------------------
+| Password Rule
+|--------------------------------------------------------------------------
+*/
+
+interface PasswordRuleProps {
+  valid: boolean;
+  text: string;
+}
+
+const PasswordRule: React.FC<
+  PasswordRuleProps
+> = ({
+  valid,
+  text,
+}) => {
+  return (
+    <div
+      className={`
+        flex
+        items-center
+        gap-2
+        text-xs
+        transition-colors
+        ${
+          valid
+            ? "text-secondary"
+            : "text-muted-foreground"
+        }
+      `}
+    >
+      <svg
+        className="h-3.5 w-3.5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M5 13l4 4L19 7"
+        />
+      </svg>
+
+      {text}
+    </div>
   );
 };
