@@ -1,0 +1,180 @@
+/**
+ * Clases reutilizables del módulo auth.
+ * Sin @layer para que tengan prioridad sobre el reset de Tailwind.
+ */
+
+.auth-page {
+  font-family: var(--auth-font-family);
+  background-color: var(--auth-bg);
+  color: var(--auth-title);
+}
+
+.auth-surface {
+  background-color: var(--auth-surface);
+  border: 1px solid var(--auth-input-border);
+}
+
+.auth-logo {
+  color: var(--auth-btn-bg);
+}
+
+.auth-title {
+  color: var(--auth-title);
+}
+
+.auth-subtitle {
+  color: var(--auth-label);
+}
+
+.auth-label {
+  color: var(--auth-label);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+
+.auth-label--login {
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.auth-input {
+  width: 100%;
+  background-color: var(--auth-input-bg) !important;
+  border: 1px solid var(--auth-input-border) !important;
+  color: var(--auth-input-text) !important;
+  box-shadow: none !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.auth-input::placeholder {
+  color: color-mix(in srgb, var(--auth-input-text) 75%, transparent);
+}
+
+.auth-input:hover {
+  border-color: color-mix(in srgb, var(--auth-input-border) 80%, var(--auth-label));
+}
+
+.auth-input:focus-visible {
+  outline: none;
+  border-color: var(--auth-btn-bg) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--auth-btn-bg) 35%, transparent) !important;
+}
+
+.auth-input--error {
+  border-color: var(--auth-error) !important;
+}
+
+.auth-input--error:focus-visible {
+  border-color: var(--auth-error) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--auth-error) 35%, transparent) !important;
+}
+
+.auth-error-text {
+  color: var(--auth-error);
+  font-size: 0.75rem;
+}
+
+.auth-help-text {
+  color: var(--auth-label);
+  font-size: 0.75rem;
+}
+
+.auth-btn-primary {
+  background-color: var(--auth-btn-bg) !important;
+  color: var(--auth-btn-text) !important;
+  border: none !important;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    filter 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
+}
+
+.auth-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--auth-btn-bg) 45%, transparent);
+}
+
+.auth-btn-primary:active:not(:disabled) {
+  transform: scale(0.98) translateY(0);
+  filter: brightness(1.05);
+}
+
+.auth-btn-primary:focus-visible {
+  outline: 2px solid var(--auth-btn-bg);
+  outline-offset: 2px;
+}
+
+.auth-btn-google {
+  background-color: var(--auth-google-bg) !important;
+  color: var(--auth-google-text) !important;
+  border: 1px solid var(--auth-input-border) !important;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    filter 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
+}
+
+.auth-btn-google:hover:not(:disabled) {
+  filter: brightness(0.96);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px color-mix(in srgb, #000000 25%, transparent);
+}
+
+.auth-btn-google:active:not(:disabled) {
+  transform: scale(0.98) translateY(0);
+}
+
+.auth-btn-google:focus-visible {
+  outline: 2px solid var(--auth-btn-bg);
+  outline-offset: 2px;
+}
+
+.auth-page a.auth-link,
+a.auth-link {
+  color: var(--auth-link) !important;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.auth-page a.auth-link:hover,
+a.auth-link:hover {
+  opacity: 0.9;
+  filter: brightness(1.08);
+}
+
+.auth-divider-line {
+  border-color: var(--auth-input-border);
+}
+
+.auth-divider-text {
+  color: var(--auth-label);
+  background-color: var(--auth-bg);
+}
+
+.auth-divider-text--surface {
+  background-color: var(--auth-surface);
+}
+
+.auth-icon {
+  color: var(--auth-icon);
+}
+
+.auth-rule--valid {
+  color: var(--auth-link);
+}
+
+.auth-rule--invalid {
+  color: var(--auth-error);
+}
+
+.auth-confirm-success {
+  border-color: var(--auth-link) !important;
+}

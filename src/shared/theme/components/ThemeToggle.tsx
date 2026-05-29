@@ -3,7 +3,11 @@ import { useThemeStore } from '../stores/theme.store'
 import { useThemeTransition } from '../hooks/useThemeTransition'
 import '../styles/theme.animations.css'
 
-export default function ThemeToggle() {
+type ThemeToggleProps = {
+  className?: string;
+};
+
+export default function ThemeToggle({ className = "" }: ThemeToggleProps) {
   const theme = useThemeStore((state) => state.theme)
   
   const toggleTheme = useThemeStore(
@@ -30,7 +34,7 @@ export default function ThemeToggle() {
       onClick={handleToggle}
       aria-label="Cambiar entre modo claro y modo oscuro"
       aria-pressed={theme === 'dark'}
-      className="
+      className={`
         relative
         inline-flex
         h-10
@@ -45,16 +49,14 @@ export default function ThemeToggle() {
         text-foreground
         transition-all
         duration-300
-
         hover:bg-accent
         hover:text-accent-foreground
-
         active:scale-95
-
         focus-visible:outline-none
         focus-visible:ring-2
         focus-visible:ring-ring
-      "
+        ${className}
+      `}
     >
       {/* Sun */}
       <Sun className={`

@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 
-import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
 
 import { useForm } from "@/shared/hooks/useForm";
 
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import { authClasses, authInputClass } from "../theme/authTheme";
 
 interface LoginFormProps {
   onSubmit: (data: {
@@ -16,36 +16,13 @@ interface LoginFormProps {
   onGoogleLogin: () => Promise<void>;
 }
 
-const inputStyles =
-  `
-    h-12
-    rounded-xl
-    border-border/60
-    bg-muted/30
-    transition-all
-    duration-200
-    hover:border-border
-    focus:bg-background
-    focus-visible:outline-none
-    focus-visible:ring-2
-    focus-visible:ring-primary
-    focus-visible:ring-offset-2
-  `;
-
-export const LoginForm: React.FC<
-  LoginFormProps
-> = ({
+export const LoginForm: React.FC<LoginFormProps> = ({
   onSubmit,
   onGoogleLogin,
 }) => {
-  const [isLoading, setIsLoading] =
-    useState(false);
-
-  const [serverError, setServerError] =
-    useState<string | null>(null);
-
-  const [showErrors, setShowErrors] =
-    useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasCredentialError, setHasCredentialError] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
 
   const {
     fields,
@@ -53,19 +30,17 @@ export const LoginForm: React.FC<
     handleBlur,
     validateAll,
     getFieldError,
+    shouldShowFieldError,
   } = useForm({
     email: {
       value: "",
-
       rules: {
         required: true,
         email: true,
       },
     },
-
     password: {
       value: "",
-
       rules: {
         required: true,
         minLength: 6,
@@ -73,36 +48,22 @@ export const LoginForm: React.FC<
     },
   });
 
-  /*
-   |--------------------------------------------------------------------------
-   | Errors
-   |--------------------------------------------------------------------------
-   */
+  const emailError = getFieldError("email", showErrors);
+  const passwordError = getFieldError("password", showErrors);
 
-  const emailError = getFieldError(
-    "email",
-    showErrors
-  );
+  const emailInvalid =
+    (shouldShowFieldError("email", showErrors) && !!emailError) ||
+    hasCredentialError;
 
-  const passwordError = getFieldError(
-    "password",
-    showErrors
-  );
+  const passwordInvalid =
+    (shouldShowFieldError("password", showErrors) && !!passwordError) ||
+    hasCredentialError;
 
-  /*
-   |--------------------------------------------------------------------------
-   | Submit
-   |--------------------------------------------------------------------------
-   */
-
-  const handleSubmit = async (
-    e: React.FormEvent
-  ) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     setShowErrors(true);
-
-    setServerError(null);
+    setHasCredentialError(false);
 
     if (!validateAll()) return;
 
@@ -111,81 +72,32 @@ export const LoginForm: React.FC<
     try {
       await onSubmit({
         email: fields.email.value,
-
-        password:
-          fields.password.value,
+        password: fields.password.value,
       });
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : "No pudimos iniciar sesión con esas credenciales.";
+    } catch (err: unknown) {
+      const isInvalidCred =
+        (err &&
+          typeof err === "object" &&
+          "code" in err &&
+          (err as { code: string }).code === "auth/invalid-credential") ||
+        (err instanceof Error && err.message.includes("invalid-credential"));
 
-      setServerError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      if (isInvalidCred) {
+        setHasCredentialError(true);
+      }
 
-  const handleGoogle = async () => {
-    setIsLoading(true);
-
-    try {
-      await onGoogleLogin();
+      throw err;
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-5"
-      noValidate
-    >
-      {/* Server Error */}
-      <div
-        aria-live="assertive"
-        role="alert"
-      >
-        {serverError && (
-          <div
-            className="
-              animate-in
-              slide-in-from-top-1
-              fade-in-0
-              rounded-xl
-              border
-              border-destructive/20
-              bg-destructive/10
-              px-4
-              py-3
-              text-sm
-              text-destructive
-            "
-          >
-            {serverError}
-          </div>
-        )}
-      </div>
-
-      {/* Email */}
-      <div className="space-y-2">
-        <label
-          htmlFor="email"
-          className="
-            block
-            text-xs
-            font-medium
-            uppercase
-            tracking-wide
-            text-muted-foreground
-          "
-        >
+    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <div className={authClasses.field}>
+        <label htmlFor="email" className={authClasses.labelLogin}>
           Email
-          <span aria-hidden="true">
-            {" "}*
-          </span>
+          <span aria-hidden="true"> *</span>
         </label>
 
         <Input
@@ -193,87 +105,46 @@ export const LoginForm: React.FC<
           name="email"
           type="email"
           value={fields.email.value}
-          onChange={handleChange}
-          onBlur={() =>
-            handleBlur("email")
-          }
-          error={emailError}
+          onChange={(e) => {
+            setHasCredentialError(false);
+            handleChange(e);
+          }}
+          onBlur={() => handleBlur("email")}
           placeholder="tu@email.com"
           disabled={isLoading}
           autoComplete="email"
-          aria-invalid={!!emailError}
+          aria-invalid={emailInvalid}
           aria-required="true"
-          aria-describedby={
-            emailError
-              ? "email-error"
-              : "email-help"
-          }
-          className={inputStyles}
+          aria-describedby={emailError ? "email-error" : "email-help"}
+          className={authInputClass({
+            invalid: emailInvalid,
+            size: "login",
+          })}
         />
 
-        {/* Help */}
-        <p
-          id="email-help"
-          className="
-            text-xs
-            text-muted-foreground
-          "
-        >
-          Ingresa el correo con el
-          que creaste tu cuenta.
-        </p>
+        {emailError && (
+          <p id="email-error" className={authClasses.errorText} role="alert">
+            {emailError}
+          </p>
+        )}
 
-        {/* Error */}
-        <div
-          id="email-error"
-          aria-live="polite"
-        >
-          {emailError && (
-            <span
-              className="
-                block
-                text-xs
-                text-destructive
-              "
-            >
-              {emailError}
-            </span>
-          )}
-        </div>
+        {!emailError && (
+          <p id="email-help" className={authClasses.helpText}>
+            Ingresa el correo con el que creaste tu cuenta.
+          </p>
+        )}
       </div>
 
-      {/* Password */}
-      <div className="space-y-2">
+      <div className={authClasses.field}>
         <div className="flex items-center justify-between">
-          <label
-            htmlFor="password"
-            className="
-              block
-              text-xs
-              font-medium
-              uppercase
-              tracking-wide
-              text-muted-foreground
-            "
-          >
+          <label htmlFor="password" className={authClasses.labelLogin}>
             Contraseña
-            <span aria-hidden="true">
-              {" "}*
-            </span>
+            <span aria-hidden="true"> *</span>
           </label>
 
           <button
             type="button"
-            className="
-              rounded-sm
-              text-xs
-              text-muted-foreground
-              transition-colors
-              hover:text-foreground
-              focus-visible:outline-none
-              focus-visible:ring-2
-              focus-visible:ring-primary
-            "
+            className={`${authClasses.subtitle} rounded-sm text-xs transition-colors hover:text-auth-title`}
           >
             ¿Olvidaste tu contraseña?
           </button>
@@ -284,132 +155,60 @@ export const LoginForm: React.FC<
           name="password"
           type="password"
           value={fields.password.value}
-          onChange={handleChange}
-          onBlur={() =>
-            handleBlur("password")
-          }
-          error={passwordError}
+          onChange={(e) => {
+            setHasCredentialError(false);
+            handleChange(e);
+          }}
+          onBlur={() => handleBlur("password")}
           placeholder="••••••••"
           disabled={isLoading}
           autoComplete="current-password"
-          aria-invalid={
-            !!passwordError
-          }
+          aria-invalid={passwordInvalid}
           aria-required="true"
           aria-describedby={
-            passwordError
-              ? "password-error"
-              : "password-help"
+            passwordError ? "password-error" : "password-help"
           }
-          className={inputStyles}
+          className={authInputClass({
+            invalid: passwordInvalid,
+            size: "login",
+          })}
         />
 
-        {/* Help */}
-        <p
-          id="password-help"
-          className="
-            text-xs
-            text-muted-foreground
-          "
-        >
-          Tu contraseña debe tener al
-          menos 6 caracteres.
-        </p>
+        {passwordError && (
+          <p id="password-error" className={authClasses.errorText} role="alert">
+            {passwordError}
+          </p>
+        )}
 
-        {/* Error */}
-        <div
-          id="password-error"
-          aria-live="polite"
-        >
-          {passwordError && (
-            <span
-              className="
-                block
-                text-xs
-                text-destructive
-              "
-            >
-              {passwordError}
-            </span>
-          )}
-        </div>
+        {!passwordError && (
+          <p id="password-help" className={authClasses.helpText}>
+            Ingresa tu contraseña secreta.
+          </p>
+        )}
       </div>
 
-      {/* Submit */}
-      <Button
+      <button
         type="submit"
-        variant="primary"
-        isLoading={isLoading}
         disabled={isLoading}
-        className="
-          h-12
-          w-full
-          rounded-xl
-          text-sm
-          font-medium
-          shadow-lg
-          shadow-primary/20
-          transition-all
-          duration-200
-          hover:brightness-110
-          focus-visible:outline-none
-          focus-visible:ring-2
-          focus-visible:ring-primary
-          focus-visible:ring-offset-2
-        "
+        className={`${authClasses.btnPrimary} flex h-12 w-full items-center justify-center rounded-xl text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50`}
       >
-        Iniciar sesión
-      </Button>
+        {isLoading ? "Iniciando sesión…" : "Iniciar sesión"}
+      </button>
 
-      {/* Divider */}
-      <div className="relative py-2">
+      <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border/60" />
+          <div className={authClasses.dividerLine} />
         </div>
-
         <div className="relative flex justify-center">
-          <span
-            className="
-              bg-card
-              px-3
-              text-xs
-              text-muted-foreground
-            "
-          >
-            o continúa con
-          </span>
+          <span className={authClasses.dividerText}>o continúa con</span>
         </div>
       </div>
 
-      {/* Google */}
-      <GoogleSignInButton
-        onSuccess={handleGoogle}
-      />
+      <GoogleSignInButton onSignIn={onGoogleLogin} disabled={isLoading} />
 
-      {/* Register */}
-      <p
-        className="
-          pt-2
-          text-center
-          text-sm
-          text-muted-foreground
-        "
-      >
+      <p className={`${authClasses.subtitle} pt-2 text-center text-sm`}>
         ¿No tienes cuenta?{" "}
-
-        <a
-          href="/register"
-          className="
-            rounded-sm
-            font-medium
-            text-foreground
-            transition-colors
-            hover:text-primary
-            focus-visible:outline-none
-            focus-visible:ring-2
-            focus-visible:ring-primary
-          "
-        >
+        <a href="/register" className={authClasses.link}>
           Crear cuenta
         </a>
       </p>

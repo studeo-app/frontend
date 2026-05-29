@@ -1,84 +1,76 @@
 :root {
-  /* ========== MODO CLARO ========== */
-  
-  /* Base */
-  --background: 0 0% 100%;        /* Blanco puro */
-  --foreground: 230 8% 15%;       /* #2E3036 */
+  /* ========== MODO CLARO (Studeo) ========== */
+
+  /* Base — #FFFFFF / #0B1C30 */
+  --background: 0 0% 100%;
+  --foreground: 210 63% 11%;
 
   /* Surface */
   --card: 0 0% 100%;
-  --card-foreground: 230 8% 15%;
+  --card-foreground: 210 63% 11%;
   --popover: 0 0% 100%;
-  --popover-foreground: 230 8% 15%;
+  --popover-foreground: 210 63% 11%;
 
-  /* Brand */
-  --primary: 235 86% 65%;         /* #5865F2 */
+  /* Brand — #4D41DF / #FFFFFF */
+  --primary: 244 66% 56%;
   --primary-foreground: 0 0% 100%;
 
-  /* Secondary */
-  --secondary: 147 64% 39%;       /* #23A559 */
+  /* Accent / links */
+  --secondary: 244 66% 56%;
   --secondary-foreground: 0 0% 100%;
 
-  /* States */
-  --muted: 220 14% 96%;           /* #F2F3F5 */
-  --muted-foreground: 220 8% 45%; /* #4E5058 */
-  --accent: 220 12% 94%;
-  --accent-foreground: 230 8% 15%;
-  --destructive: 359 86% 60%;     /* #ED4245 */
+  /* States — labels #464555, input text #777587 */
+  --muted: 220 100% 97%;
+  --muted-foreground: 248 9% 30%;
+  --accent: 220 100% 97%;
+  --accent-foreground: 210 63% 11%;
+  --destructive: 357 100% 29%;
   --destructive-foreground: 0 0% 100%;
 
   /* Borders */
-  --border: 220 12% 90%;          /* #E3E5E8 */
-  --input: 220 12% 90%;
-  --ring: 235 86% 65%;
+  --border: 220 35% 89%;
+  --input: 220 35% 89%;
+  --ring: 244 66% 56%;
 
-  /* Radius */
   --radius: 0.75rem;
 
   /* Sidebar */
-  --sidebar: 220 14% 96%;
-  --sidebar-foreground: 230 8% 15%;
-  --sidebar-accent: 220 12% 90%;
-  --sidebar-accent-foreground: 230 8% 15%;
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 210 63% 11%;
+  --sidebar-accent: 220 100% 97%;
+  --sidebar-accent-foreground: 210 63% 11%;
 }
 
 .dark {
-  /* ========== MODO OSCURO ========== */
-  
-  /* Base */
-  --background: 230 9% 21%;       /* #313338 */
-  --foreground: 210 10% 95%;
+  /* ========== MODO OSCURO (Studeo / auth) ========== */
 
-  /* Surface */
-  --card: 228 9% 17%;             /* #2B2D31 */
-  --card-foreground: 210 10% 95%;
-  --popover: 228 9% 17%;
-  --popover-foreground: 210 10% 95%;
+  --background: 230 29% 6%;
+  --foreground: 258 27% 91%;
 
-  /* Brand */
-  --primary: 235 86% 67%;         /* #5865F2 más brillante */
-  --primary-foreground: 0 0% 100%;
+  --card: 228 26% 10%;
+  --card-foreground: 258 27% 91%;
+  --popover: 228 20% 13%;
+  --popover-foreground: 258 27% 91%;
 
-  /* Secondary */
-  --secondary: 147 64% 42%;       /* #23A559 más brillante */
-  --secondary-foreground: 0 0% 100%;
+  --primary: 244 100% 69%;
+  --primary-foreground: 248 100% 32%;
 
-  /* States */
-  --muted: 228 7% 25%;            /* #3B3D43 */
-  --muted-foreground: 220 10% 65%;
-  --accent: 228 6% 28%;           /* #404249 */
-  --accent-foreground: 210 10% 95%;
-  --destructive: 359 86% 60%;     /* #ED4245 */
+  --secondary: 165 84% 59%;
+  --secondary-foreground: 248 100% 32%;
+
+  --muted: 228 20% 13%;
+  --muted-foreground: 252 18% 81%;
+  --accent: 233 21% 23%;
+  --accent-foreground: 258 27% 91%;
+  --destructive: 357 100% 29%;
   --destructive-foreground: 0 0% 100%;
 
-  /* Borders */
-  --border: 228 6% 30%;           /* #4E5058 */
-  --input: 228 6% 30%;
-  --ring: 235 86% 67%;
+  --border: 233 21% 23%;
+  --input: 233 21% 23%;
+  --ring: 244 100% 69%;
 
-  /* Sidebar */
-  --sidebar: 228 10% 16%;         /* #2B2D31 más oscuro */
-  --sidebar-foreground: 210 10% 95%;
-  --sidebar-accent: 228 8% 24%;   /* #383A40 */
-  --sidebar-accent-foreground: 210 10% 95%;
+  --sidebar: 228 26% 10%;
+  --sidebar-foreground: 258 27% 91%;
+  --sidebar-accent: 228 20% 13%;
+  --sidebar-accent-foreground: 258 27% 91%;
 }
