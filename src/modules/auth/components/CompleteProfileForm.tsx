@@ -168,11 +168,19 @@ export const CompleteProfileForm: React.FC<CompleteProfileFormProps> = ({
         onChange={handleAvatarChange}
       />
 
-      {avatarError && (
-        <p className={`${authClasses.errorText} -mt-2 text-center`} role="alert">
-          {avatarError}
-        </p>
-      )}
+          <div
+        id="avatar-error"
+        aria-live="polite"
+      >
+        {avatarError && (
+          <p
+            className={`${authClasses.errorText} -mt-2 text-center`}
+            role="alert"
+          >
+            {avatarError}
+          </p>
+        )}
+      </div>
 
       <div className="text-center">
         <p className={`${authClasses.title} text-xl font-semibold`}>
@@ -198,50 +206,85 @@ export const CompleteProfileForm: React.FC<CompleteProfileFormProps> = ({
             @
           </div>
 
-          <Input
-            id="username"
-            name="username"
-            value={fields.username.value}
-            onChange={(e) =>
-              setFieldValue("username", e.target.value.toLowerCase())
-            }
-            onBlur={() => handleBlur("username")}
-            placeholder="tu_username"
-            disabled={isLoading}
-            autoComplete="username"
-            aria-invalid={usernameInvalid}
-            aria-required="true"
-            className={authInputClass({
-              invalid: usernameInvalid,
-              extra: "h-[3.25rem] pl-10 rounded-2xl text-base",
-            })}
-          />
+        <Input
+          id="username"
+          name="username"
+          value={fields.username.value}
+          onChange={(e) =>
+            setFieldValue(
+              "username",
+              e.target.value.toLowerCase()
+            )
+          }
+          onBlur={() => handleBlur("username")}
+          placeholder="tu_username"
+          disabled={isLoading}
+          autoComplete="username"
+          aria-invalid={usernameInvalid}
+          aria-required="true"
+          aria-describedby={
+            usernameError
+              ? "username-error"
+              : available === false
+              ? "username-unavailable"
+              : usernameConfirmed
+              ? "username-success"
+              : checking
+              ? "username-checking"
+              : undefined
+          }
+          className={authInputClass({
+            invalid: usernameInvalid,
+            extra:
+              "h-[3.25rem] pl-10 rounded-2xl text-base",
+          })}
+        />
         </div>
 
+        <div
+        id="username-error"
+        aria-live="polite"
+      >
         {usernameError && (
-          <p className={authClasses.errorText} role="alert">
+          <p
+            className={authClasses.errorText}
+            role="alert"
+          >
             {usernameError}
           </p>
         )}
+      </div>
 
-        {checking && usernameFormatValid && (
-          <p className={`${authClasses.helpText} text-auth-label`}>
-            Verificando disponibilidad…
-          </p>
-        )}
+      {checking && usernameFormatValid && (
+        <p
+          id="username-checking"
+          className={`${authClasses.helpText} text-auth-label`}
+          aria-live="polite"
+        >
+          Verificando disponibilidad…
+        </p>
+      )}
 
         {usernameCheckError && (
           <p className={authClasses.errorText}>{usernameCheckError}</p>
         )}
 
         {!usernameError && available === false && (
-          <p className={authClasses.errorText}>
+          <p
+            id="username-unavailable"
+            className={authClasses.errorText}
+            role="alert"
+          >
             Este username ya está en uso.
           </p>
         )}
 
         {usernameConfirmed && (
-          <p className={`${authClasses.helpText} ${authClasses.ruleValid}`}>
+          <p
+            id="username-success"
+            className={`${authClasses.helpText} ${authClasses.ruleValid}`}
+            aria-live="polite"
+          >
             Username disponible
           </p>
         )}
@@ -250,6 +293,8 @@ export const CompleteProfileForm: React.FC<CompleteProfileFormProps> = ({
       <button
         type="submit"
         disabled={!isFormValid || isLoading}
+        aria-disabled={!isFormValid || isLoading}
+        aria-busy={isLoading}
         className={`${authClasses.btnPrimary} flex h-[3.25rem] w-full items-center justify-center gap-2 rounded-2xl text-base transition-all duration-200 disabled:pointer-events-none disabled:opacity-50`}
       >
         {isLoading ? (
