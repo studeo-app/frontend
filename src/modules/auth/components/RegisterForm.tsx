@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from "react";
 
-import { Button } from "@/shared/components/ui/Button";
 import { Input } from "@/shared/components/ui/Input";
 
 import { useForm } from "@/shared/hooks/useForm";
 import { usePasswordValidation } from "@/shared/hooks/usePasswordValidation";
 
 import GoogleSignInButton from "./GoogleSignInButton";
+import { authClasses, authInputClass } from "../theme/authTheme";
 
 interface RegisterFormProps {
   onSubmit: (data: {
@@ -19,9 +19,6 @@ interface RegisterFormProps {
   onGoogleRegister: () => Promise<void>;
 }
 
-const inputStyles =
-  "h-10 rounded-2xl border-border/60 bg-card/40 backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
-
 export const RegisterForm: React.FC<
   RegisterFormProps
 > = ({
@@ -31,8 +28,8 @@ export const RegisterForm: React.FC<
   const [isLoading, setIsLoading] =
     useState(false);
 
-  const [serverError, setServerError] =
-    useState<string | null>(null);
+  const [showErrors, setShowErrors] =
+    useState(false);
 
   const [passwordFocused, setPasswordFocused] =
     useState(false);
@@ -43,6 +40,7 @@ export const RegisterForm: React.FC<
     handleBlur,
     validateAll,
     getFieldError,
+    shouldShowFieldError,
   } = useForm({
     firstName: {
       value: "",
@@ -119,22 +117,43 @@ export const RegisterForm: React.FC<
    */
 
   const firstNameError =
-    getFieldError("firstName", true);
+    getFieldError("firstName", showErrors);
 
   const lastNameError =
-    getFieldError("lastName", true);
+    getFieldError("lastName", showErrors);
 
   const emailError =
-    getFieldError("email", true);
+    getFieldError("email", showErrors);
 
   const passwordError =
-    getFieldError("password", true);
+    getFieldError("password", showErrors);
 
   const confirmPasswordError =
-    getFieldError(
-      "confirmPassword",
-      true
-    );
+    getFieldError("confirmPassword", showErrors);
+
+  const emailInvalid = shouldShowFieldError(
+    "email",
+    showErrors
+  ) && !!emailError;
+
+  const firstNameInvalid = shouldShowFieldError(
+    "firstName",
+    showErrors
+  ) && !!firstNameError;
+
+  const lastNameInvalid = shouldShowFieldError(
+    "lastName",
+    showErrors
+  ) && !!lastNameError;
+
+  const passwordInvalid = shouldShowFieldError(
+    "password",
+    showErrors
+  ) && !!passwordError;
+  const confirmPasswordInvalid = shouldShowFieldError(
+    "confirmPassword",
+    showErrors
+  ) && !!confirmPasswordError;
 
   /*
    |--------------------------------------------------------------------------
@@ -190,7 +209,7 @@ export const RegisterForm: React.FC<
   ) => {
     e.preventDefault();
 
-    setServerError(null);
+    setShowErrors(true);
 
     if (
       !validateAll() ||
@@ -215,23 +234,8 @@ export const RegisterForm: React.FC<
         password:
           fields.password.value,
       });
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : "Error al crear la cuenta.";
-
-      setServerError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogle = async () => {
-    setIsLoading(true);
-
-    try {
-      await onGoogleRegister();
+    } catch {
+      // El modal de error lo muestra RegisterPage
     } finally {
       setIsLoading(false);
     }
@@ -243,89 +247,30 @@ export const RegisterForm: React.FC<
       className="space-y-4"
       noValidate
     >
-      {/* Server Error */}
-      <div
-        aria-live="assertive"
-        role="alert"
-      >
-        {serverError && (
-          <div
-            className="
-              rounded-2xl
-              border
-              border-destructive/20
-              bg-destructive/10
-              px-4
-              py-3
-              text-sm
-              text-destructive
-            "
-          >
-            {serverError}
-          </div>
-        )}
-      </div>
 
       {/* Google */}
       <GoogleSignInButton
-        onClick={handleGoogle}
+        onSignIn={onGoogleRegister}
+        disabled={isLoading}
       />
 
       {/* Divider */}
       <div className="relative">
-        <div
-          className="
-            absolute
-            inset-0
-            flex
-            items-center
-          "
-        >
-          <div className="w-full border-t border-border/60" />
+        <div className="absolute inset-0 flex items-center">
+          <div className={authClasses.dividerLine} />
         </div>
-
-        <div
-          className="
-            relative
-            flex
-            justify-center
-          "
-        >
-          <span
-            className="
-              bg-background
-              px-4
-              text-xs
-              uppercase
-              tracking-[0.2em]
-              text-muted-foreground
-            "
-          >
-            o
-          </span>
+        <div className="relative flex justify-center">
+          <span className={authClasses.dividerText}>o</span>
         </div>
       </div>
 
       {/* Names */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {/* First Name */}
-        <div className="space-y-2">
-          <label
-            htmlFor="firstName"
-            className="
-              block
-              px-1
-              text-[11px]
-              font-medium
-              uppercase
-              tracking-[0.2em]
-              text-muted-foreground
-            "
-          >
+        <div className={authClasses.field}>
+          <label htmlFor="firstName" className={authClasses.label}>
             Nombres
-            <span aria-hidden="true">
-              {" "}*
-            </span>
+            <span aria-hidden="true"> *</span>
           </label>
 
           <Input
@@ -333,44 +278,30 @@ export const RegisterForm: React.FC<
             name="firstName"
             value={fields.firstName.value}
             onChange={handleChange}
-            onBlur={() =>
-              handleBlur("firstName")
-            }
-            error={firstNameError}
+            onBlur={() => handleBlur("firstName")}
             placeholder="Ej. Alex"
             disabled={isLoading}
             autoComplete="given-name"
-            aria-invalid={
-              !!firstNameError
-            }
+            aria-invalid={firstNameInvalid}
             aria-required="true"
             aria-describedby={
-              firstNameError
-                ? "firstName-error"
-                : undefined
+              firstNameError ? "firstName-error" : undefined
             }
-            className={inputStyles}
+            className={authInputClass({ invalid: firstNameInvalid })}
           />
+
+          {firstNameError && (
+            <p id="firstName-error" className={authClasses.errorText} role="alert">
+              {firstNameError}
+            </p>
+          )}
         </div>
 
         {/* Last Name */}
-        <div className="space-y-2">
-          <label
-            htmlFor="lastName"
-            className="
-              block
-              px-1
-              text-[11px]
-              font-medium
-              uppercase
-              tracking-[0.2em]
-              text-muted-foreground
-            "
-          >
+        <div className={authClasses.field}>
+          <label htmlFor="lastName" className={authClasses.label}>
             Apellidos
-            <span aria-hidden="true">
-              {" "}*
-            </span>
+            <span aria-hidden="true"> *</span>
           </label>
 
           <Input
@@ -378,45 +309,31 @@ export const RegisterForm: React.FC<
             name="lastName"
             value={fields.lastName.value}
             onChange={handleChange}
-            onBlur={() =>
-              handleBlur("lastName")
-            }
-            error={lastNameError}
+            onBlur={() => handleBlur("lastName")}
             placeholder="Ej. Rivera"
             disabled={isLoading}
             autoComplete="family-name"
-            aria-invalid={
-              !!lastNameError
-            }
+            aria-invalid={lastNameInvalid}
             aria-required="true"
             aria-describedby={
-              lastNameError
-                ? "lastName-error"
-                : undefined
+              lastNameError ? "lastName-error" : undefined
             }
-            className={inputStyles}
+            className={authInputClass({ invalid: lastNameInvalid })}
           />
+
+          {lastNameError && (
+            <p id="lastName-error" className={authClasses.errorText} role="alert">
+              {lastNameError}
+            </p>
+          )}
         </div>
       </div>
 
       {/* Email */}
-      <div className="space-y-2">
-        <label
-          htmlFor="email"
-          className="
-            block
-            px-1
-            text-[11px]
-            font-medium
-            uppercase
-            tracking-[0.2em]
-            text-muted-foreground
-          "
-        >
+      <div className={authClasses.field}>
+        <label htmlFor="email" className={authClasses.label}>
           Correo electrónico
-          <span aria-hidden="true">
-            {" "}*
-          </span>
+          <span aria-hidden="true"> *</span>
         </label>
 
         <Input
@@ -425,42 +342,28 @@ export const RegisterForm: React.FC<
           type="email"
           value={fields.email.value}
           onChange={handleChange}
-          onBlur={() =>
-            handleBlur("email")
-          }
-          error={emailError}
+          onBlur={() => handleBlur("email")}
           placeholder="usuario@universidad.edu"
           disabled={isLoading}
           autoComplete="email"
-          aria-invalid={!!emailError}
+          aria-invalid={emailInvalid}
           aria-required="true"
-          aria-describedby={
-            emailError
-              ? "email-error"
-              : undefined
-          }
-          className={inputStyles}
+          aria-describedby={emailError ? "email-error" : undefined}
+          className={authInputClass({ invalid: emailInvalid })}
         />
+
+        {emailError && (
+          <p id="email-error" className={authClasses.errorText} role="alert">
+            {emailError}
+          </p>
+        )}
       </div>
 
       {/* Password */}
-      <div className="space-y-2">
-        <label
-          htmlFor="password"
-          className="
-            block
-            px-1
-            text-[11px]
-            font-medium
-            uppercase
-            tracking-[0.2em]
-            text-muted-foreground
-          "
-        >
+      <div className={authClasses.field}>
+        <label htmlFor="password" className={authClasses.label}>
           Contraseña
-          <span aria-hidden="true">
-            {" "}*
-          </span>
+          <span aria-hidden="true"> *</span>
         </label>
 
         <Input
@@ -473,24 +376,25 @@ export const RegisterForm: React.FC<
             handleBlur("password");
             setPasswordFocused(false);
           }}
-          onFocus={() =>
-            setPasswordFocused(true)
-          }
-          error={passwordError}
+          onFocus={() => setPasswordFocused(true)}
           placeholder="********"
           disabled={isLoading}
           autoComplete="new-password"
-          aria-invalid={
-            !!passwordError
-          }
+          aria-invalid={passwordInvalid}
           aria-required="true"
           aria-describedby={
             passwordError
               ? "password-error password-rules"
               : "password-rules"
           }
-          className={inputStyles}
+          className={authInputClass({ invalid: passwordInvalid })}
         />
+
+        {passwordError && (
+          <p id="password-error" className={authClasses.errorText} role="alert">
+            {passwordError}
+          </p>
+        )}
 
         {/* Password Rules */}
         <div
@@ -534,23 +438,10 @@ export const RegisterForm: React.FC<
       </div>
 
       {/* Confirm Password */}
-      <div className="space-y-2">
-        <label
-          htmlFor="confirmPassword"
-          className="
-            block
-            px-1
-            text-[11px]
-            font-medium
-            uppercase
-            tracking-[0.2em]
-            text-muted-foreground
-          "
-        >
+      <div className={authClasses.field}>
+        <label htmlFor="confirmPassword" className={authClasses.label}>
           Confirmar contraseña
-          <span aria-hidden="true">
-            {" "}*
-          </span>
+          <span aria-hidden="true"> *</span>
         </label>
 
         <div className="relative">
@@ -558,52 +449,29 @@ export const RegisterForm: React.FC<
             id="confirmPassword"
             name="confirmPassword"
             type="password"
-            value={
-              fields.confirmPassword.value
-            }
+            value={fields.confirmPassword.value}
             onChange={handleChange}
-            onBlur={() =>
-              handleBlur(
-                "confirmPassword"
-              )
-            }
-            error={confirmPasswordError}
+            onBlur={() => handleBlur("confirmPassword")}
             placeholder="********"
             disabled={isLoading}
             autoComplete="new-password"
-            aria-invalid={
-              !!confirmPasswordError
-            }
+            aria-invalid={confirmPasswordInvalid}
             aria-required="true"
             aria-describedby={
               confirmPasswordError
                 ? "confirmPassword-error"
                 : confirmSuccess
-                ? "confirmPassword-success"
-                : undefined
+                  ? "confirmPassword-success"
+                  : undefined
             }
-            className={`
-              ${inputStyles}
-              pr-12
-              ${
-                confirmSuccess
-                  ? "!border-secondary"
-                  : ""
-              }
-            `}
+            className={authInputClass({
+              invalid: confirmPasswordInvalid,
+              extra: `pr-12 ${confirmSuccess ? "auth-confirm-success" : ""}`,
+            })}
           />
 
           {confirmSuccess && (
-            <div
-              className="
-                pointer-events-none
-                absolute
-                right-4
-                top-1/2
-                -translate-y-1/2
-                text-secondary
-              "
-            >
+            <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-auth-link">
               <svg
                 className="h-5 w-5"
                 fill="currentColor"
@@ -620,6 +488,16 @@ export const RegisterForm: React.FC<
           )}
         </div>
 
+        {confirmPasswordError && (
+          <p
+            id="confirmPassword-error"
+            className={authClasses.errorText}
+            role="alert"
+          >
+            {confirmPasswordError}
+          </p>
+        )}
+
         {/* Success */}
         <div
           className={`
@@ -635,14 +513,7 @@ export const RegisterForm: React.FC<
         >
           <div
             id="confirmPassword-success"
-            className="
-              flex
-              items-center
-              gap-2
-              px-1
-              text-xs
-              text-secondary
-            "
+            className="flex items-center gap-2 px-1 text-xs text-auth-link"
           >
             <svg
               className="h-3.5 w-3.5"
@@ -663,52 +534,17 @@ export const RegisterForm: React.FC<
       </div>
 
       {/* Submit */}
-      <Button
+      <button
         type="submit"
-        variant="primary"
-        disabled={
-          !isFormValid || isLoading
-        }
-        isLoading={isLoading}
-        className="
-          h-10
-          w-full
-          rounded-2xl
-          text-base
-          font-semibold
-          shadow-lg
-          shadow-primary/20
-          focus-visible:outline-none
-          focus-visible:ring-2
-          focus-visible:ring-primary
-          focus-visible:ring-offset-2
-        "
+        disabled={!isFormValid || isLoading}
+        className={`${authClasses.btnPrimary} flex h-10 w-full items-center justify-center rounded-2xl text-base transition-all duration-200 disabled:pointer-events-none disabled:opacity-50`}
       >
-        Crear cuenta
-      </Button>
+        {isLoading ? "Creando cuenta…" : "Crear cuenta"}
+      </button>
 
-      {/* Login */}
-      <p
-        className="
-          text-center
-          text-sm
-          text-muted-foreground
-        "
-      >
+      <p className={`${authClasses.subtitle} text-center text-sm`}>
         ¿Ya tienes una cuenta?{" "}
-        <a
-          href="/login"
-          className="
-            rounded-sm
-            font-medium
-            text-secondary
-            transition-colors
-            hover:text-secondary/80
-            focus-visible:outline-none
-            focus-visible:ring-2
-            focus-visible:ring-primary
-          "
-        >
+        <a href="/login" className={authClasses.link}>
           Iniciar Sesión
         </a>
       </p>
@@ -735,18 +571,9 @@ const PasswordRule: React.FC<
 }) => {
   return (
     <div
-      className={`
-        flex
-        items-center
-        gap-2
-        text-xs
-        transition-colors
-        ${
-          valid
-            ? "text-secondary"
-            : "text-muted-foreground"
-        }
-      `}
+      className={`flex items-center gap-2 text-xs transition-colors ${
+        valid ? authClasses.ruleValid : authClasses.ruleInvalid
+      }`}
     >
       <svg
         className="h-3.5 w-3.5"

@@ -39,14 +39,18 @@ export function useForm(initialFields: Record<string, FieldConfig>) {
       }
     }
 
-    if (rules.minLength && value.length < rules.minLength) {
+    if (
+      rules.minLength &&
+      value.trim() &&
+      value.length < rules.minLength
+    ) {
       if (name === "password") {
         return `Debe tener al menos ${rules.minLength} caracteres`;
       }
       return `Mínimo ${rules.minLength} caracteres`;
     }
 
-    if (rules.custom) {
+    if (rules.custom && value.trim()) {
       const customError = rules.custom(value, allValues);
       if (customError) return customError;
     }
@@ -69,15 +73,25 @@ export function useForm(initialFields: Record<string, FieldConfig>) {
     });
 
     setFields(newFields);
+    setTouched((prev) => {
+      const next = { ...prev };
+      Object.keys(newFields).forEach((name) => {
+        next[name] = true;
+      });
+      return next;
+    });
     return isValid;
   }, [fields, validateField]);
 
   const handleChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFields((prev) => ({
-      ...prev,
-      [name]: { ...prev[name], value, error: "" },
-    }));
+    setFields((prev) => {
+      if (!prev[name]) return prev;
+      return {
+        ...prev,
+        [name]: { ...prev[name], value, error: "" },
+      };
+    });
   }, []);
 
   const handleBlur = useCallback((name: string) => {
@@ -92,9 +106,24 @@ export function useForm(initialFields: Record<string, FieldConfig>) {
     }));
   }, [fields, validateField]);
 
-  const getFieldError = useCallback((name: string, showErrors: boolean) => {
-    return showErrors ? fields[name]?.error : undefined;
-  }, [fields]);
+  const getFieldError = useCallback(
+    (name: string, showAllErrors: boolean) => {
+      if (!showAllErrors && !touched[name]) {
+        return undefined;
+      }
+
+      const storedError = fields[name]?.error;
+      return storedError || undefined;
+    },
+    [fields, touched]
+  );
+
+  const shouldShowFieldError = useCallback(
+    (name: string, showAllErrors: boolean) => {
+      return showAllErrors || !!touched[name];
+    },
+    [touched]
+  );
 
   return {
     fields,
@@ -103,6 +132,7 @@ export function useForm(initialFields: Record<string, FieldConfig>) {
     handleBlur,
     validateAll,
     getFieldError,
+    shouldShowFieldError,
     setFieldValue: (name: string, value: string) => {
       setFields((prev) => ({ ...prev, [name]: { ...prev[name], value, error: "" } }));
     },

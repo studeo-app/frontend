@@ -1,8 +1,11 @@
 import React, { useState } from "react";
-import { Button } from "@/shared/components/ui/Button";
+
 import { Input } from "@/shared/components/ui/Input";
+
 import { useForm } from "@/shared/hooks/useForm";
+
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import { authClasses, authInputClass } from "../theme/authTheme";
 
 interface LoginFormProps {
   onSubmit: (data: {
@@ -18,7 +21,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   onGoogleLogin,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
+  const [hasCredentialError, setHasCredentialError] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
 
   const {
@@ -27,6 +30,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     handleBlur,
     validateAll,
     getFieldError,
+    shouldShowFieldError,
   } = useForm({
     email: {
       value: "",
@@ -35,7 +39,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         email: true,
       },
     },
-
     password: {
       value: "",
       rules: {
@@ -45,11 +48,22 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     },
   });
 
+  const emailError = getFieldError("email", showErrors);
+  const passwordError = getFieldError("password", showErrors);
+
+  const emailInvalid =
+    (shouldShowFieldError("email", showErrors) && !!emailError) ||
+    hasCredentialError;
+
+  const passwordInvalid =
+    (shouldShowFieldError("password", showErrors) && !!passwordError) ||
+    hasCredentialError;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     setShowErrors(true);
-    setServerError(null);
+    setHasCredentialError(false);
 
     if (!validateAll()) return;
 
@@ -60,64 +74,30 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         email: fields.email.value,
         password: fields.password.value,
       });
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : "No pudimos iniciar sesión con esas credenciales.";
+    } catch (err: unknown) {
+      const isInvalidCred =
+        (err &&
+          typeof err === "object" &&
+          "code" in err &&
+          (err as { code: string }).code === "auth/invalid-credential") ||
+        (err instanceof Error && err.message.includes("invalid-credential"));
 
-      setServerError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      if (isInvalidCred) {
+        setHasCredentialError(true);
+      }
 
-  const handleGoogle = async () => {
-    setIsLoading(true);
-
-    try {
-      await onGoogleLogin();
+      throw err;
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Error */}
-      {serverError && (
-        <div
-          className="
-            rounded-xl
-            border
-            border-destructive/20
-            bg-destructive/10
-            px-4
-            py-3
-            text-sm
-            text-destructive
-            animate-in
-            fade-in-0
-            slide-in-from-top-1
-          "
-        >
-          {serverError}
-        </div>
-      )}
-
-      {/* Email */}
-      <div className="space-y-2">
-        <label
-          htmlFor="email"
-          className="
-            text-xs
-            font-medium
-            uppercase
-            tracking-wide
-            text-muted-foreground
-          "
-        >
+    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <div className={authClasses.field}>
+        <label htmlFor="email" className={authClasses.labelLogin}>
           Email
+          <span aria-hidden="true"> *</span>
         </label>
 
         <Input
@@ -125,49 +105,46 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           name="email"
           type="email"
           value={fields.email.value}
-          onChange={handleChange}
+          onChange={(e) => {
+            setHasCredentialError(false);
+            handleChange(e);
+          }}
           onBlur={() => handleBlur("email")}
-          error={getFieldError("email", showErrors)}
           placeholder="tu@email.com"
           disabled={isLoading}
           autoComplete="email"
-          aria-invalid={!!getFieldError("email", showErrors)}
-          className="
-            h-12
-            border-border/60
-            bg-muted/30
-            transition-all
-            duration-200
-            hover:border-border
-            focus:bg-background
-          "
+          aria-invalid={emailInvalid}
+          aria-required="true"
+          aria-describedby={emailError ? "email-error" : "email-help"}
+          className={authInputClass({
+            invalid: emailInvalid,
+            size: "login",
+          })}
         />
+
+        {emailError && (
+          <p id="email-error" className={authClasses.errorText} role="alert">
+            {emailError}
+          </p>
+        )}
+
+        {!emailError && (
+          <p id="email-help" className={authClasses.helpText}>
+            Ingresa el correo con el que creaste tu cuenta.
+          </p>
+        )}
       </div>
 
-      {/* Password */}
-      <div className="space-y-2">
+      <div className={authClasses.field}>
         <div className="flex items-center justify-between">
-          <label
-            htmlFor="password"
-            className="
-              text-xs
-              font-medium
-              uppercase
-              tracking-wide
-              text-muted-foreground
-            "
-          >
+          <label htmlFor="password" className={authClasses.labelLogin}>
             Contraseña
+            <span aria-hidden="true"> *</span>
           </label>
 
           <button
             type="button"
-            className="
-              text-xs
-              text-muted-foreground
-              transition-colors
-              hover:text-foreground
-            "
+            className={`${authClasses.subtitle} rounded-sm text-xs transition-colors hover:text-auth-title`}
           >
             ¿Olvidaste tu contraseña?
           </button>
@@ -178,74 +155,60 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           name="password"
           type="password"
           value={fields.password.value}
-          onChange={handleChange}
+          onChange={(e) => {
+            setHasCredentialError(false);
+            handleChange(e);
+          }}
           onBlur={() => handleBlur("password")}
-          error={getFieldError("password", showErrors)}
           placeholder="••••••••"
           disabled={isLoading}
           autoComplete="current-password"
-          aria-invalid={!!getFieldError("password", showErrors)}
-          className="
-            h-12
-            border-border/60
-            bg-muted/30
-            transition-all
-            duration-200
-            hover:border-border
-            focus:bg-background
-          "
+          aria-invalid={passwordInvalid}
+          aria-required="true"
+          aria-describedby={
+            passwordError ? "password-error" : "password-help"
+          }
+          className={authInputClass({
+            invalid: passwordInvalid,
+            size: "login",
+          })}
         />
+
+        {passwordError && (
+          <p id="password-error" className={authClasses.errorText} role="alert">
+            {passwordError}
+          </p>
+        )}
+
+        {!passwordError && (
+          <p id="password-help" className={authClasses.helpText}>
+            Ingresa tu contraseña secreta.
+          </p>
+        )}
       </div>
 
-      {/* Submit */}
-      <Button
+      <button
         type="submit"
-        variant="primary"
-        isLoading={isLoading}
-        className="
-          h-12
-          w-full
-          rounded-xl
-          text-sm
-          font-medium
-          shadow-lg
-          shadow-primary/20
-          transition-all
-          duration-200
-          hover:brightness-110
-        "
+        disabled={isLoading}
+        className={`${authClasses.btnPrimary} flex h-12 w-full items-center justify-center rounded-xl text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50`}
       >
-        Iniciar sesión
-      </Button>
+        {isLoading ? "Iniciando sesión…" : "Iniciar sesión"}
+      </button>
 
-      {/* Divider */}
-      <div className="relative py-2">
+      <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border/60" />
+          <div className={authClasses.dividerLine} />
         </div>
-
         <div className="relative flex justify-center">
-          <span className="bg-card px-3 text-xs text-muted-foreground">
-            o continúa con
-          </span>
+          <span className={authClasses.dividerText}>o continúa con</span>
         </div>
       </div>
 
-      {/* Google */}
-      <GoogleSignInButton onSuccess={handleGoogle} />
+      <GoogleSignInButton onSignIn={onGoogleLogin} disabled={isLoading} />
 
-      {/* Register */}
-      <p className="pt-2 text-center text-sm text-muted-foreground">
+      <p className={`${authClasses.subtitle} pt-2 text-center text-sm`}>
         ¿No tienes cuenta?{" "}
-        <a
-          href="/register"
-          className="
-            font-medium
-            text-foreground
-            transition-colors
-            hover:text-primary
-          "
-        >
+        <a href="/register" className={authClasses.link}>
           Crear cuenta
         </a>
       </p>
