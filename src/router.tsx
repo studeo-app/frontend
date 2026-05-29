@@ -5,6 +5,7 @@ import LoginPage from "./modules/auth/pages/LoginPage";
 import RegisterPage from "./modules/auth/pages/RegisterPage";
 import RoomPage from "./modules/rooms/pages/RoomPage";
 import ProfilePage from "./modules/users/pages/ProfilePage";
+import LandingLayout from "./layouts/LandingLayout";
 import PublicLayout from "./layouts/PublicLayout";
 import CompleteProfilePage from "./modules/auth/pages/CompleteProfilePage";
 import DashboardPage from "./modules/dashboard/pages/DashboardPage";
@@ -17,7 +18,7 @@ import {
 
 export const Router = createBrowserRouter([
   {
-    element: <PublicLayout />,
+    element: <LandingLayout />,
     children: [
       {
         element: <GuestRoute />,
@@ -36,6 +37,13 @@ export const Router = createBrowserRouter([
           },
         ],
       },
+    ],
+  },
+
+  // PUBLIC ROUTES
+  {
+    element: <PublicLayout />,
+    children: [
       {
         path: "completar-perfil",
         element: <Navigate to="/complete-profile" replace />,
