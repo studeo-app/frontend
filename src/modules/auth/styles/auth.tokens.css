@@ -1,0 +1,40 @@
+/**
+ * Tokens de diseño — auth + app (dashboard, layout).
+ * :root = modo claro · .dark = modo oscuro (Studeo)
+ */
+
+:root {
+  --auth-bg: #ffffff;
+  --auth-surface: #ffffff;
+  --auth-input-bg: #eff4ff;
+  --auth-input-border: #d4dff0;
+  --auth-icon: #464555;
+  --auth-label: #464555;
+  --auth-title: #0b1c30;
+  --auth-input-text: #0B1C30;
+  --auth-link: #4d41df;
+  --auth-btn-bg: #4d41df;
+  --auth-btn-text: #ffffff;
+  --auth-google-bg: #ffffff;
+  --auth-google-text: #4d41df;
+  --auth-error: #93000a;
+  --auth-font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
+    Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.dark {
+  --auth-bg: #0b0d14;
+  --auth-surface: #12151f;
+  --auth-input-bg: #1a1d27;
+  --auth-input-border: #2e3147;
+  --auth-icon: #dfdfdf;
+  --auth-label: #c7c4d8;
+  --auth-title: #e4e1ee;
+  --auth-input-text: #e4e1ee;
+  --auth-link: #41eec2;
+  --auth-btn-bg: #6c63ff;
+  --auth-btn-text: #2000a4;
+  --auth-google-bg: #ffffff;
+  --auth-google-text: #2000a4;
+  --auth-error: #93000a;
+}
