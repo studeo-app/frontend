@@ -110,6 +110,15 @@ export function resolveAuthErrorMessage(
   error: unknown,
   context: AuthErrorContext
 ): string {
+  // Si se lanzó un Error con un mensaje legible (y no contiene un código auth/...),
+  // usamos ese mensaje directamente para poder mostrar avisos personalizados.
+  if (
+    error instanceof Error &&
+    typeof error.message === "string" &&
+    !error.message.match(/auth\/[a-z0-9-]+/i)
+  ) {
+    return error.message;
+  }
   if (isFirebaseAuthError(error) || extractFirebaseAuthCode(error)) {
     return getFirebaseAuthErrorMessage(error, context);
   }

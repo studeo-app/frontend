@@ -5,6 +5,11 @@ import type {
   ProfileStatusResponse,
 } from "@/types/user";
 
+
+export async function backendCheck(): Promise<void> {
+  return apiRequest<void>("/health", { method: "GET" });
+}
+
 export async function fetchUserProfile(
   token: string
 ): Promise<ProfileStatusResponse> {

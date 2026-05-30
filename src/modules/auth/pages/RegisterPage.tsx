@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { RegisterForm } from "../components/RegisterForm";
@@ -7,6 +7,7 @@ import { AuthPageLayout } from "../components/AuthPageLayout";
 import { authClasses } from "../theme/authTheme";
 import { getPostAuthPath } from "../utils/authNavigation";
 import { useAuthErrorModal } from "../hooks/useAuthErrorModal";
+import { backendCheck } from "@/modules/users/api/usersApi";
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ const RegisterPage: React.FC = () => {
   const loginWithGoogle = useAuthStore((state) => state.loginWithGoogle);
   const { isErrorOpen, errorMsg, showAuthError, closeAuthError } =
     useAuthErrorModal();
+  const [googleError, setGoogleError] = useState<string | null>(null);
 
   const handleRegister = useCallback(
     async (data: {
@@ -23,12 +25,24 @@ const RegisterPage: React.FC = () => {
       password: string;
     }) => {
       try {
+        const email = data.email?.toLowerCase() ?? "";
+        if (!email.endsWith("@correounivalle.edu.co")) {
+          showAuthError(
+            new Error("Solo se puede crear con cuenta institucional"),
+            "register-email"
+          );
+          return;
+        }
+
+        await backendCheck();
+      
         const result = await registerWithEmail(
           data.email,
           data.password,
           data.firstName,
           data.lastName
         );
+      
         navigate(getPostAuthPath(result.profileComplete));
       } catch (err: unknown) {
         showAuthError(err, "register-email");
@@ -39,10 +53,20 @@ const RegisterPage: React.FC = () => {
   );
 
   const handleGoogleRegister = useCallback(async () => {
+    setGoogleError(null);
+
     try {
+      await backendCheck(); 
       const result = await loginWithGoogle();
       navigate(getPostAuthPath(result.profileComplete));
     } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+          ? err
+          : "Ocurrió un error al iniciar sesión con Google.";
+      setGoogleError(message);
       showAuthError(err, "google");
     }
   }, [loginWithGoogle, navigate, showAuthError]);
@@ -73,6 +97,8 @@ const RegisterPage: React.FC = () => {
         <RegisterForm
           onSubmit={handleRegister}
           onGoogleRegister={handleGoogleRegister}
+          googleError={googleError}
+          onGoogleError={setGoogleError}
         />
 
         <p className={`${authClasses.footer} mt-8`}>

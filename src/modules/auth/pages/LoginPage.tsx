@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { LoginForm } from "../components/LoginForm";
@@ -14,6 +14,7 @@ const LoginPage: React.FC = () => {
   const loginWithGoogle = useAuthStore((state) => state.loginWithGoogle);
   const { isErrorOpen, errorMsg, showAuthError, closeAuthError } =
     useAuthErrorModal();
+  const [googleError, setGoogleError] = useState<string | null>(null);
 
   const handleLogin = useCallback(
     async (data: { email: string; password: string }) => {
@@ -29,10 +30,19 @@ const LoginPage: React.FC = () => {
   );
 
   const handleGoogleLogin = useCallback(async () => {
+    setGoogleError(null);
+
     try {
       const result = await loginWithGoogle();
       navigate(getPostAuthPath(result.profileComplete));
     } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+          ? err
+          : "Ocurrió un error al iniciar sesión con Google.";
+      setGoogleError(message);
       showAuthError(err, "google");
     }
   }, [loginWithGoogle, navigate, showAuthError]);
@@ -61,7 +71,12 @@ const LoginPage: React.FC = () => {
           </p>
         </div>
 
-        <LoginForm onSubmit={handleLogin} onGoogleLogin={handleGoogleLogin} />
+        <LoginForm
+          onSubmit={handleLogin}
+          onGoogleLogin={handleGoogleLogin}
+          googleError={googleError}
+          onGoogleError={setGoogleError}
+        />
 
         <p className={`${authClasses.footer} mt-8`}>
           Al continuar, aceptas nuestros{" "}

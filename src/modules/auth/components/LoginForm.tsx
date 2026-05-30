@@ -15,11 +15,14 @@ interface LoginFormProps {
   }) => Promise<void>;
 
   onGoogleLogin: () => Promise<void>;
+  googleError?: string | null;
+  onGoogleError?: (message: string) => void;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({
   onSubmit,
   onGoogleLogin,
+  googleError,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [hasCredentialError, setHasCredentialError] = useState(false);
@@ -221,7 +224,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         </div>
       </div>
 
-      <GoogleSignInButton onSignIn={onGoogleLogin} disabled={isLoading} />
+      <GoogleSignInButton
+        onSignIn={onGoogleLogin}
+        disabled={isLoading}
+        errorMessage={googleError}
+      />
 
       <p className={`${authClasses.subtitle} pt-2 text-center text-sm`}>
         ¿No tienes cuenta?{" "}
