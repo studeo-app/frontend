@@ -7,6 +7,7 @@ import { AuthPageLayout } from "../components/AuthPageLayout";
 import { authClasses } from "../theme/authTheme";
 import { getPostAuthPath } from "../utils/authNavigation";
 import { useAuthErrorModal } from "../hooks/useAuthErrorModal";
+import { backendCheck } from "@/modules/users/api/usersApi";
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,12 +24,15 @@ const RegisterPage: React.FC = () => {
       password: string;
     }) => {
       try {
+        await backendCheck();
+      
         const result = await registerWithEmail(
           data.email,
           data.password,
           data.firstName,
           data.lastName
         );
+      
         navigate(getPostAuthPath(result.profileComplete));
       } catch (err: unknown) {
         showAuthError(err, "register-email");
@@ -40,10 +44,12 @@ const RegisterPage: React.FC = () => {
 
   const handleGoogleRegister = useCallback(async () => {
     try {
+      await backendCheck(); 
       const result = await loginWithGoogle();
       navigate(getPostAuthPath(result.profileComplete));
     } catch (err: unknown) {
       showAuthError(err, "google");
+      throw err;
     }
   }, [loginWithGoogle, navigate, showAuthError]);
 
