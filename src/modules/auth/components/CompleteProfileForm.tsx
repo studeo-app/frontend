@@ -156,7 +156,7 @@ export const CompleteProfileForm: React.FC<CompleteProfileFormProps> = ({
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
       noValidate
     >
       <ProfileAvatarCarousel
@@ -174,7 +174,7 @@ export const CompleteProfileForm: React.FC<CompleteProfileFormProps> = ({
       >
         {avatarError && (
           <p
-            className={`${authClasses.errorText} -mt-2 text-center`}
+            className={`${authClasses.errorText} text-center`}
             role="alert"
           >
             {avatarError}
@@ -183,7 +183,7 @@ export const CompleteProfileForm: React.FC<CompleteProfileFormProps> = ({
       </div>
 
       <div className="text-center">
-        <p className={`${authClasses.title} text-xl font-semibold`}>
+        <p className={`${authClasses.title} text-lg font-semibold`}>
           {displayName}
         </p>
         <p className={`${authClasses.subtitle} text-base`}>{email}</p>
@@ -236,7 +236,7 @@ export const CompleteProfileForm: React.FC<CompleteProfileFormProps> = ({
           className={authInputClass({
             invalid: usernameInvalid,
             extra:
-              "h-[3.25rem] pl-10 rounded-2xl text-base",
+              "h-8 pl-10 rounded-2xl text-base",
           })}
         />
         </div>
@@ -295,7 +295,7 @@ export const CompleteProfileForm: React.FC<CompleteProfileFormProps> = ({
         disabled={!isFormValid || isLoading}
         aria-disabled={!isFormValid || isLoading}
         aria-busy={isLoading}
-        className={`${authClasses.btnPrimary} flex h-[3.25rem] w-full items-center justify-center gap-2 rounded-2xl text-base transition-all duration-200 disabled:pointer-events-none disabled:opacity-50`}
+        className={`${authClasses.btnPrimary} flex h-9 w-full items-center justify-center gap-2 rounded-2xl text-base transition-all duration-200 disabled:pointer-events-none disabled:opacity-50`}
       >
         {isLoading ? (
           "Guardando…"

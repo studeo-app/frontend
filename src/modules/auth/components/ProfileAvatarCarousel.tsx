@@ -227,7 +227,7 @@ export const ProfileAvatarCarousel: React.FC<ProfileAvatarCarouselProps> = ({
         <div className="relative inline-block">
           <div
             className="
-              h-44 w-44
+              h-32 w-32
               overflow-hidden
               rounded-full
               border-[3px]

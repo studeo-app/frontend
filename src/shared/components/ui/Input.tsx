@@ -18,7 +18,7 @@ export const Input = React.forwardRef<
         id={id}
         className={`
           flex
-          h-11
+          h-2
           w-full
           rounded-xl
           border
