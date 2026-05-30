@@ -1,22 +1,31 @@
 import React from "react";
 import { CheckCircle2 } from "lucide-react";
 import { BaseModal } from "./BaseModal";
-import { Button } from "./Button";
 
 interface SuccessModalProps {
   isOpen: boolean;
   onClose: () => void;
   message: string;
+  title?: string;
 }
 
 export const SuccessModal: React.FC<SuccessModalProps> = ({
   isOpen,
   onClose,
   message,
+  title = "¡Vamos bien!",
 }) => {
+  const titleId = "success-modal-title";
+  const descriptionId = "success-modal-description";
+
   return (
     <BaseModal isOpen={isOpen} onClose={onClose}>
-      <div className="flex flex-col items-center text-center py-4">
+      <div
+        className="flex flex-col items-center py-4 text-center"
+        role="alertdialog"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+      >
         <div
           className="
             mb-4
@@ -26,31 +35,57 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
             items-center
             justify-center
             rounded-full
-            bg-secondary/10
-            text-secondary
+            bg-auth-link/10
+            text-auth-link
             animate-pop-in
           "
+          aria-hidden="true"
         >
-          <CheckCircle2 className="h-10 w-10" />
+          <CheckCircle2 className="h-10 w-10" aria-hidden="true" />
         </div>
 
-        {/* Mensaje estructurado */}
-        <h3 className="text-xl font-bold tracking-tight text-foreground mb-2">
-          Vamos bien!
+        <h3
+          id={titleId}
+          className="mb-2 text-xl font-bold tracking-tight text-auth-title"
+        >
+          {title}
         </h3>
 
-        <p className="text-sm text-muted-foreground leading-relaxed px-4 mb-6">
+        <p
+          id={descriptionId}
+          className="mb-6 px-4 text-sm leading-relaxed text-auth-label"
+          aria-live="polite"
+        >
           {message}
         </p>
 
-        {/* Botón de acción */}
-        <Button
-          variant="secondary"
+        <button
+          type="button"
           onClick={onClose}
-          className="w-full h-11 rounded-xl cursor-pointer transition-all duration-200"
+          aria-label="Continuar"
+          className="
+            h-11
+            w-full
+            cursor-pointer
+            rounded-xl
+            border-none
+            bg-auth-btn
+            text-sm
+            font-semibold
+            text-auth-btn-text
+            transition-all
+            duration-200
+            hover:brightness-110
+            active:scale-[0.98]
+            focus-visible:outline-none
+            focus-visible:ring-2
+            focus-visible:ring-auth-btn
+            focus-visible:ring-offset-2
+            focus-visible:ring-offset-auth-surface
+          "
         >
           Continuar
-        </Button>
+        </button>
       </div>
     </BaseModal>
   );

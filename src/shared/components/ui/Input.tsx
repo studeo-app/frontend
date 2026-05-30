@@ -8,14 +8,17 @@ interface InputProps
 export const Input = React.forwardRef<
   HTMLInputElement,
   InputProps
->(({ className, error, ...props }, ref) => {
+>(({ className, error, id, ...props }, ref) => {
+  const errorId = error && id ? `${id}-error` : undefined;
+
   return (
     <div className="w-full">
       <input
         ref={ref}
+        id={id}
         className={`
           flex
-          h-11
+          h-2
           w-full
           rounded-xl
           border
@@ -38,15 +41,23 @@ export const Input = React.forwardRef<
           focus-visible:border-primary/60
           disabled:cursor-not-allowed
           disabled:opacity-50
-          ${error ? "border-destructive focus-visible:ring-destructive" : ""}
+          ${
+            error
+              ? "border-destructive focus-visible:ring-destructive"
+              : ""
+          }
           ${className || ""}
         `}
         aria-invalid={!!error}
+        aria-describedby={errorId}
         {...props}
       />
 
       {error && (
         <p
+          id={errorId}
+          role="alert"
+          aria-live="polite"
           className="
             mt-2
             px-1

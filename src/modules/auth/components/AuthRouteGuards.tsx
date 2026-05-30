@@ -48,6 +48,9 @@ export function RequireIncompleteProfile() {
   const loading = useAuthStore((s) => s.loading);
   const user = useAuthStore((s) => s.user);
   const profileComplete = useAuthStore((s) => s.profileComplete);
+  const pendingProfileSuccessModal = useAuthStore(
+    (s) => s.pendingProfileSuccessModal
+  );
 
   if (loading) return <AuthLoadingScreen />;
 
@@ -55,7 +58,7 @@ export function RequireIncompleteProfile() {
     return <Navigate to="/login" replace />;
   }
 
-  if (profileComplete === true) {
+  if (profileComplete === true && !pendingProfileSuccessModal) {
     return <Navigate to="/dashboard" replace />;
   }
 

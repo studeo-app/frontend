@@ -14,9 +14,21 @@ export const WarningModal: React.FC<WarningModalProps> = ({
   onClose,
   message,
 }) => {
+  const titleId = "warning-modal-title";
+  const descriptionId = "warning-modal-description";
+
   return (
-    <BaseModal isOpen={isOpen} onClose={onClose}>
-      <div className="flex flex-col items-center text-center py-4">
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Advertencia"
+    >
+      <div
+        className="flex flex-col items-center py-4 text-center"
+        role="alertdialog"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+      >
         <div
           className="
             mb-4
@@ -31,24 +43,57 @@ export const WarningModal: React.FC<WarningModalProps> = ({
             dark:bg-amber-500/20
             animate-pop-in
           "
+          aria-hidden="true"
         >
-          <AlertTriangle className="h-10 w-10" />
+          <AlertTriangle
+            className="h-10 w-10"
+            aria-hidden="true"
+          />
         </div>
 
-        {/* Mensaje estructurado */}
-        <h3 className="text-xl font-bold tracking-tight text-foreground mb-2">
+        <h3
+          id={titleId}
+          className="
+            mb-2
+            text-xl
+            font-bold
+            tracking-tight
+            text-foreground
+          "
+        >
           Oops! Ha pasado algo inesperado:
         </h3>
-        
-        <p className="text-sm text-muted-foreground leading-relaxed px-4 mb-6">
+
+        <p
+          id={descriptionId}
+          className="
+            mb-6
+            px-4
+            text-sm
+            leading-relaxed
+            text-muted-foreground
+          "
+          aria-live="assertive"
+        >
           {message}
         </p>
 
-        {/* Botón de acción */}
         <Button
+          type="button"
           variant="outline"
           onClick={onClose}
-          className="w-full h-11 rounded-xl cursor-pointer hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all duration-200"
+          aria-label="Cerrar advertencia"
+          className="
+            h-11
+            w-full
+            cursor-pointer
+            rounded-xl
+            transition-all
+            duration-200
+            hover:bg-amber-500
+            hover:text-white
+            hover:border-amber-500
+          "
         >
           Entendido
         </Button>

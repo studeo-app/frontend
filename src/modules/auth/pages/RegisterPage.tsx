@@ -55,23 +55,23 @@ const RegisterPage: React.FC = () => {
 
   return (
     <AuthPageLayout>
-      <div className="w-full max-w-[420px]">
-        <div className="mb-4">
+      <div className="w-full max-w-105">
+        <div className="mb-2">
           <span
-            className={`${authClasses.logo} text-3xl font-bold tracking-tight`}
+            className={`${authClasses.logo} text-xl font-bold tracking-tight`}
           >
             Studeo
           </span>
         </div>
 
-        <div className="mb-4">
+        <div className="mb-2">
           <h1
-            className={`${authClasses.title} text-4xl font-bold tracking-tight`}
+            className={`${authClasses.title} text-2xl font-bold tracking-tight`}
           >
             Crea tu cuenta
           </h1>
 
-          <p className={`${authClasses.subtitle} mt-3 text-base`}>
+          <p className={`${authClasses.subtitle} mt-2 text-base`}>
             Únete a tu comunidad de estudio
           </p>
         </div>
@@ -81,7 +81,7 @@ const RegisterPage: React.FC = () => {
           onGoogleRegister={handleGoogleRegister}
         />
 
-        <p className={`${authClasses.footer} mt-10`}>
+        <p className={`${authClasses.footer} mt-8`}>
           Al continuar, aceptas nuestros{" "}
           <a href="/terms-of-service" className={authClasses.link}>
             Términos

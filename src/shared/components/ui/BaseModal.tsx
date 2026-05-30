@@ -1,4 +1,8 @@
-import React, { useEffect, useCallback } from "react";
+import React, {
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
@@ -15,6 +19,12 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   title,
   children,
 }) => {
+  const modalRef =
+    useRef<HTMLDivElement>(null);
+
+  const previousFocusRef =
+    useRef<HTMLElement | null>(null);
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -27,14 +37,34 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    const originalStyle = window.getComputedStyle(document.body).overflow;
-    document.body.style.overflow = "hidden";
+    previousFocusRef.current =
+      document.activeElement as HTMLElement;
 
-    window.addEventListener("keydown", handleKeyDown);
+    const originalStyle =
+      window.getComputedStyle(
+        document.body
+      ).overflow;
+
+    document.body.style.overflow =
+      "hidden";
+
+    window.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+
+    modalRef.current?.focus();
 
     return () => {
-      document.body.style.overflow = originalStyle;
-      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow =
+        originalStyle;
+
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+
+      previousFocusRef.current?.focus();
     };
   }, [isOpen, handleKeyDown]);
 
@@ -44,6 +74,12 @@ export const BaseModal: React.FC<BaseModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
+      aria-labelledby={
+        title
+          ? "modal-title"
+          : undefined
+      }
+      aria-describedby="modal-content"
       className="
         fixed
         inset-0
@@ -59,6 +95,8 @@ export const BaseModal: React.FC<BaseModalProps> = ({
       onClick={onClose}
     >
       <div
+        ref={modalRef}
+        tabIndex={-1}
         className="
           relative
           w-full
@@ -73,33 +111,59 @@ export const BaseModal: React.FC<BaseModalProps> = ({
           shadow-black/10
           animate-scale-up
         "
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) =>
+          e.stopPropagation()
+        }
       >
         {title ? (
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold tracking-tight text-auth-title">
+            <h2
+              id="modal-title"
+              className="
+                text-lg
+                font-semibold
+                tracking-tight
+                text-auth-title
+              "
+            >
               {title}
             </h2>
+
             <button
               type="button"
               onClick={onClose}
               aria-label="Cerrar modal"
               className="
+                cursor-pointer
                 rounded-lg
                 p-1.5
                 text-auth-label
                 transition-colors
                 hover:bg-auth-input-bg
                 hover:text-auth-title
-                cursor-pointer
+                focus-visible:outline-none
+                focus-visible:ring-2
+                focus-visible:ring-primary
               "
             >
-              <X className="h-4 w-4" />
+              <X
+                className="h-4 w-4"
+                aria-hidden="true"
+              />
             </button>
           </div>
         ) : null}
 
-        <div className={title ? "mt-2" : undefined}>{children}</div>
+        <div
+          id="modal-content"
+          className={
+            title
+              ? "mt-2"
+              : undefined
+          }
+        >
+          {children}
+        </div>
       </div>
     </div>,
     document.body

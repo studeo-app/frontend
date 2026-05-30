@@ -17,7 +17,10 @@ export const ErrorModal: React.FC<ErrorModalProps> = ({
 }) => {
   return (
     <BaseModal isOpen={isOpen} onClose={onClose}>
-      <div className="flex flex-col items-center py-4 text-center">
+      <div
+        className="flex flex-col items-center py-4 text-center"
+        aria-live="assertive"
+      >
         <div
           className="
             mb-4
@@ -31,21 +34,32 @@ export const ErrorModal: React.FC<ErrorModalProps> = ({
             text-auth-error
             animate-pop-in
           "
+          aria-hidden="true"
         >
-          <XCircle className="h-10 w-10" />
+          <XCircle
+            className="h-10 w-10"
+            aria-hidden="true"
+          />
         </div>
 
-        <h3 className="mb-2 text-xl font-bold tracking-tight text-auth-title">
+        <h3
+          id="error-modal-title"
+          className="mb-2 text-xl font-bold tracking-tight text-auth-title"
+        >
           {title}
         </h3>
 
-        <p className="mb-6 px-4 text-sm leading-relaxed text-auth-label">
+        <p
+          id="error-modal-description"
+          className="mb-6 px-4 text-sm leading-relaxed text-auth-label"
+        >
           {message}
         </p>
 
         <button
           type="button"
           onClick={onClose}
+          aria-label="Cerrar mensaje de error"
           className="
             h-11
             w-full

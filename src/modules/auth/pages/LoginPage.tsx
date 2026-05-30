@@ -39,7 +39,7 @@ const LoginPage: React.FC = () => {
 
   return (
     <AuthPageLayout>
-      <div className="w-full max-w-[420px]">
+      <div className="w-full max-w-105">
         <div className="mb-4">
           <span
             className={`${authClasses.logo} text-3xl font-bold tracking-tight`}
@@ -63,7 +63,7 @@ const LoginPage: React.FC = () => {
 
         <LoginForm onSubmit={handleLogin} onGoogleLogin={handleGoogleLogin} />
 
-        <p className={`${authClasses.footer} mt-10`}>
+        <p className={`${authClasses.footer} mt-8`}>
           Al continuar, aceptas nuestros{" "}
           <a href="/terms" className={authClasses.link}>
             Términos

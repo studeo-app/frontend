@@ -30,6 +30,8 @@ interface AuthState {
   suggestedProfile: SuggestedProfile | null;
   loading: boolean;
   error: string | null;
+  /** Evita redirigir al dashboard antes de cerrar el modal de éxito */
+  pendingProfileSuccessModal: boolean;
 
   getIdToken: () => Promise<string>;
   syncWithBackend: (payload?: {
@@ -52,6 +54,7 @@ interface AuthState {
     username: string;
     avatarUrl?: string;
   }) => Promise<void>;
+  acknowledgeProfileSuccess: () => void;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -81,6 +84,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   suggestedProfile: null,
   loading: true,
   error: null,
+  pendingProfileSuccessModal: false,
 
   getIdToken: async () => {
     const currentUser = auth.currentUser;
@@ -167,6 +171,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authProvider: response.user.authProvider,
       suggestedProfile: null,
     });
+
+    set({ pendingProfileSuccessModal: true });
+  },
+
+  acknowledgeProfileSuccess: () => {
+    set({ pendingProfileSuccessModal: false });
   },
 
   logout: async () => {
@@ -178,6 +188,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         profileComplete: null,
         authProvider: null,
         suggestedProfile: null,
+        pendingProfileSuccessModal: false,
       });
     } catch (err) {
       const message =
@@ -199,6 +210,7 @@ onAuthStateChanged(auth, async (user) => {
       profileComplete: null,
       authProvider: null,
       suggestedProfile: null,
+      pendingProfileSuccessModal: false,
     });
     return;
   }
