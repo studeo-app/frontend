@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 import { Input } from "@/shared/components/ui/Input";
 
@@ -33,6 +34,9 @@ export const RegisterForm: React.FC<
 
   const [passwordFocused, setPasswordFocused] =
     useState(false);
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const {
     fields,
@@ -366,29 +370,46 @@ export const RegisterForm: React.FC<
           <span aria-hidden="true"> *</span>
         </label>
 
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          value={fields.password.value}
-          onChange={handleChange}
-          onBlur={() => {
-            handleBlur("password");
-            setPasswordFocused(false);
-          }}
-          onFocus={() => setPasswordFocused(true)}
-          placeholder="********"
-          disabled={isLoading}
-          autoComplete="new-password"
-          aria-invalid={passwordInvalid}
-          aria-required="true"
-          aria-describedby={
-            passwordError
-              ? "password-error password-rules"
-              : "password-rules"
-          }
-          className={authInputClass({ invalid: passwordInvalid })}
-        />
+        <div className="relative">
+          <Input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            value={fields.password.value}
+            onChange={handleChange}
+            onBlur={() => {
+              handleBlur("password");
+              setPasswordFocused(false);
+            }}
+            onFocus={() => setPasswordFocused(true)}
+            placeholder="********"
+            disabled={isLoading}
+            autoComplete="new-password"
+            aria-invalid={passwordInvalid}
+            aria-required="true"
+            aria-describedby={
+              passwordError
+                ? "password-error password-rules"
+                : "password-rules"
+            }
+            className={authInputClass({
+              invalid: passwordInvalid,
+              extra: "pr-10",
+            })}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center text-auth-icon hover:text-auth-title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:ring-offset-auth-bg rounded-md p-1"
+            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+          >
+            {showPassword ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+          </button>
+        </div>
 
         {passwordError && (
           <p id="password-error" className={authClasses.errorText} role="alert">
@@ -448,7 +469,7 @@ export const RegisterForm: React.FC<
           <Input
             id="confirmPassword"
             name="confirmPassword"
-            type="password"
+            type={showConfirmPassword ? "text" : "password"}
             value={fields.confirmPassword.value}
             onChange={handleChange}
             onBlur={() => handleBlur("confirmPassword")}
@@ -466,12 +487,12 @@ export const RegisterForm: React.FC<
             }
             className={authInputClass({
               invalid: confirmPasswordInvalid,
-              extra: `pr-12 ${confirmSuccess ? "auth-confirm-success" : ""}`,
+              extra: `pr-10 ${confirmSuccess ? "pr-16 auth-confirm-success" : ""}`,
             })}
           />
 
           {confirmSuccess && (
-            <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-auth-link">
+            <div className="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-auth-link">
               <svg
                 className="h-5 w-5"
                 fill="currentColor"
@@ -486,6 +507,19 @@ export const RegisterForm: React.FC<
               </svg>
             </div>
           )}
+
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center text-auth-icon hover:text-auth-title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:ring-offset-auth-bg rounded-md p-1"
+            aria-label={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+          >
+            {showConfirmPassword ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+          </button>
         </div>
 
         {confirmPasswordError && (

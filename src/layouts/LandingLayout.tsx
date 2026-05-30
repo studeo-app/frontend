@@ -50,7 +50,7 @@ export default function LandingLayout() {
         </div>
       </header>
 
-      <main className="relative mx-auto flex-1 max-w-7xl overflow-visible flex items-center h-full">
+      <main className="relative mx-auto flex-1 max-w-7xl overflow-visible flex items-center h-full p-4">
         <Outlet />
       </main>
     </div>

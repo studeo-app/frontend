@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 import { Input } from "@/shared/components/ui/Input";
 
@@ -23,6 +24,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [hasCredentialError, setHasCredentialError] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     fields,
@@ -150,29 +152,44 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           </button>
         </div>
 
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          value={fields.password.value}
-          onChange={(e) => {
-            setHasCredentialError(false);
-            handleChange(e);
-          }}
-          onBlur={() => handleBlur("password")}
-          placeholder="••••••••"
-          disabled={isLoading}
-          autoComplete="current-password"
-          aria-invalid={passwordInvalid}
-          aria-required="true"
-          aria-describedby={
-            passwordError ? "password-error" : "password-help"
-          }
-          className={authInputClass({
-            invalid: passwordInvalid,
-            size: "login",
-          })}
-        />
+        <div className="relative">
+          <Input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            value={fields.password.value}
+            onChange={(e) => {
+              setHasCredentialError(false);
+              handleChange(e);
+            }}
+            onBlur={() => handleBlur("password")}
+            placeholder="••••••••"
+            disabled={isLoading}
+            autoComplete="current-password"
+            aria-invalid={passwordInvalid}
+            aria-required="true"
+            aria-describedby={
+              passwordError ? "password-error" : "password-help"
+            }
+            className={authInputClass({
+              invalid: passwordInvalid,
+              size: "login",
+              extra: "pr-10",
+            })}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center text-auth-icon hover:text-auth-title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:ring-offset-auth-bg rounded-md p-1"
+            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+          >
+            {showPassword ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+          </button>
+        </div>
 
         {passwordError && (
           <p id="password-error" className={authClasses.errorText} role="alert">
