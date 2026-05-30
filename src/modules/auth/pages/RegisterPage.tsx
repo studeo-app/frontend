@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { RegisterForm } from "../components/RegisterForm";
@@ -8,6 +8,7 @@ import { authClasses } from "../theme/authTheme";
 import { getPostAuthPath } from "../utils/authNavigation";
 import { useAuthErrorModal } from "../hooks/useAuthErrorModal";
 import { backendCheck } from "@/modules/users/api/usersApi";
+import { resolveAuthErrorMessage } from "../utils/firebaseAuthErrors";
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -16,6 +17,12 @@ const RegisterPage: React.FC = () => {
   const { isErrorOpen, errorMsg, showAuthError, closeAuthError } =
     useAuthErrorModal();
   const [googleError, setGoogleError] = useState<string | null>(null);
+  // Usamos ref para capturar el error de Google y abrirlo en el siguiente tick,
+  // evitando que el ciclo async de Firebase (onAuthStateChanged, deleteUser)
+  // interfiera con el estado del modal antes de que se pueda mostrar.
+  const googleErrorRef = useRef<string | null>(null);
+  const [googleModalOpen, setGoogleModalOpen] = useState(false);
+  const [googleModalMsg, setGoogleModalMsg] = useState("");
 
   const handleRegister = useCallback(
     async (data: {
@@ -26,9 +33,11 @@ const RegisterPage: React.FC = () => {
     }) => {
       try {
         const email = data.email?.toLowerCase() ?? "";
-        if (!email.endsWith("@correounivalle.edu.co")) {
+        // Acepta cualquier correo institucional con dominio .edu (usc.edu.co, correounivalle.edu.co, uao.edu.co, etc.)
+        const domain = email.split("@")[1] ?? "";
+        if (!/\.edu(\.[a-z]{2,})?$/.test(domain)) {
           showAuthError(
-            new Error("Solo se puede crear con cuenta institucional"),
+            new Error("Solo se puede crear una cuenta con correo institucional (.edu)"),
             "register-email"
           );
           return;
@@ -54,22 +63,26 @@ const RegisterPage: React.FC = () => {
 
   const handleGoogleRegister = useCallback(async () => {
     setGoogleError(null);
+    googleErrorRef.current = null;
 
     try {
-      await backendCheck(); 
+      await backendCheck();
       const result = await loginWithGoogle();
       navigate(getPostAuthPath(result.profileComplete));
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : typeof err === "string"
-          ? err
-          : "Ocurrió un error al iniciar sesión con Google.";
-      setGoogleError(message);
-      showAuthError(err, "google");
+      // Resolvemos el mensaje ANTES del ciclo async de Firebase
+      const message = resolveAuthErrorMessage(err, "google");
+      googleErrorRef.current = message;
+
+      // setTimeout(0) garantiza que el modal se abre en el siguiente tick del
+      // event loop, DESPUÉS de que Firebase termine su onAuthStateChanged y
+      // el componente haya estabilizado su estado.
+      setTimeout(() => {
+        setGoogleModalMsg(googleErrorRef.current ?? message);
+        setGoogleModalOpen(true);
+      }, 0);
     }
-  }, [loginWithGoogle, navigate, showAuthError]);
+  }, [loginWithGoogle, navigate]);
 
   return (
     <AuthPageLayout>
@@ -117,6 +130,14 @@ const RegisterPage: React.FC = () => {
         isOpen={isErrorOpen}
         onClose={closeAuthError}
         message={errorMsg}
+      />
+
+      {/* Modal dedicado para errores de Google — se abre en el siguiente tick
+          para evitar interferencias con el ciclo async de Firebase */}
+      <ErrorModal
+        isOpen={googleModalOpen}
+        onClose={() => setGoogleModalOpen(false)}
+        message={googleModalMsg}
       />
     </AuthPageLayout>
   );

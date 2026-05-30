@@ -65,6 +65,14 @@ export const RegisterForm: React.FC<
       rules: {
         required: true,
         email: true,
+        custom: (value) => {
+          if (!value.trim()) return undefined;
+          const domain = value.toLowerCase().split("@")[1] ?? "";
+          if (domain && !/\.edu(\.[a-z]{2,})?$/.test(domain)) {
+            return "Debes usar un correo institucional (.edu)";
+          }
+          return undefined;
+        },
       },
     },
 
@@ -130,8 +138,26 @@ export const RegisterForm: React.FC<
   const lastNameError =
     getFieldError("lastName", showErrors);
 
-  const emailError =
+  // Error de formato general del correo (del useForm)
+  const emailFormError =
     getFieldError("email", showErrors);
+
+  // Error de dominio .edu: se calcula en tiempo real (sin esperar blur/submit)
+  // Solo se muestra cuando el usuario ya escribió el @ y el dominio
+  const emailDomainError = useMemo(() => {
+    const val = fields.email.value.toLowerCase();
+    if (!val.includes("@")) return undefined;
+    const domain = val.split("@")[1] ?? "";
+    if (!domain) return undefined;
+    if (!/\.edu(\.[a-z]{2,})?$/.test(domain)) {
+      return "Debes usar un correo institucional (.edu)";
+    }
+    return undefined;
+  }, [fields.email.value]);
+
+  // El error que se muestra en el campo: primero el de dominio (tiempo real),
+  // luego el de formato general
+  const emailError = emailDomainError ?? emailFormError;
 
   const passwordError =
     getFieldError("password", showErrors);
@@ -139,10 +165,10 @@ export const RegisterForm: React.FC<
   const confirmPasswordError =
     getFieldError("confirmPassword", showErrors);
 
-  const emailInvalid = shouldShowFieldError(
+  const emailInvalid = !!emailDomainError || (shouldShowFieldError(
     "email",
     showErrors
-  ) && !!emailError;
+  ) && !!emailFormError);
 
   const firstNameInvalid = shouldShowFieldError(
     "firstName",

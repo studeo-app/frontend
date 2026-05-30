@@ -85,14 +85,36 @@ export function useForm(initialFields: Record<string, FieldConfig>) {
 
   const handleChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFields((prev) => {
-      if (!prev[name]) return prev;
-      return {
-        ...prev,
-        [name]: { ...prev[name], value, error: "" },
-      };
+    setFields((prevFields) => {
+      if (!prevFields[name]) return prevFields;
+
+      const currentValues = Object.fromEntries(
+        Object.entries(prevFields).map(([key, field]) => [key, field.value])
+      );
+      currentValues[name] = value;
+
+      // Si el campo ya fue tocado, revalidar en tiempo real
+      if (!touched[name]) {
+        return { ...prevFields, [name]: { ...prevFields[name], value, error: "" } };
+      }
+
+      const rules = prevFields[name]?.rules;
+      if (!rules) return { ...prevFields, [name]: { ...prevFields[name], value, error: "" } };
+
+      let error = "";
+      if (rules.required && !value.trim()) {
+        error = "Este campo es obligatorio";
+      } else if (rules.email && value.trim()) {
+        const emailRegex = /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/;
+        if (!emailRegex.test(value)) error = "Ingresa un correo electrónico válido";
+      }
+      if (!error && rules.custom && value.trim()) {
+        error = rules.custom(value, currentValues) ?? "";
+      }
+
+      return { ...prevFields, [name]: { ...prevFields[name], value, error } };
     });
-  }, []);
+  }, [touched]);
 
   const handleBlur = useCallback((name: string) => {
     setTouched((prev) => ({ ...prev, [name]: true }));

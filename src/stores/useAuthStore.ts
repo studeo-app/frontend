@@ -131,7 +131,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const firebaseUser = credential.user ?? auth.currentUser;
 
       const email = firebaseUser?.email?.toLowerCase() ?? "";
-      const allowed = email.endsWith("@correounivalle.edu.co");
+      // Acepta cualquier correo institucional con dominio .edu (ej: usc.edu.co, correounivalle.edu.co, uao.edu.co)
+      const allowed = /\.edu(\.[a-z]{2,})?$/.test(email.split("@")[1] ?? "");
 
       if (!allowed) {
         const message = "Solo se puede ingresar con cuenta institucional";
@@ -230,6 +231,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    const email = user.email?.toLowerCase() ?? "";
+    const allowed = /\.edu(\.[a-z]{2,})?$/.test(email.split("@")[1] ?? "");
+    if (!allowed) {
+      try {
+        await signOut(auth);
+      } catch (err) {
+        console.warn("Error al cerrar sesión de usuario no permitido:", err);
+      }
+      useAuthStore.setState({
+        user: null,
+        loading: false,
+        profile: null,
+        profileComplete: null,
+        authProvider: null,
+        suggestedProfile: null,
+        pendingProfileSuccessModal: false,
+      });
+      return;
+    }
+  }
+
   useAuthStore.setState({ user, loading: true });
 
   if (!user) {
