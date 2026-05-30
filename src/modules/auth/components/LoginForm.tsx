@@ -16,6 +16,7 @@ interface LoginFormProps {
 
   onGoogleLogin: () => Promise<void>;
   googleError?: string | null;
+  onGoogleError?: (message: string) => void;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({

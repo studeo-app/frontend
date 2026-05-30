@@ -135,15 +135,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (!allowed) {
         const message = "Solo se puede ingresar con cuenta institucional";
-        set({ error: message });
         try {
           if (firebaseUser) {
             await deleteUser(firebaseUser);
           }
         } catch (deleteErr) {
-          // ignore delete errors, we'll still show the message
+          console.warn("No se pudo eliminar usuario no institucional:", deleteErr);
         }
-        throw new Error(message);
+        const error = new Error(message);
+        set({ error: message });
+        throw error;
       }
 
       return await get().syncWithBackend();

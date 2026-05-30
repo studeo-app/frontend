@@ -6,12 +6,14 @@ interface GoogleSignInButtonProps {
   onSignIn: () => Promise<void>;
   disabled?: boolean;
   errorMessage?: string | null;
+  onError?: (message: string) => void;
 }
 
 export default function GoogleSignInButton({
   onSignIn,
   disabled = false,
   errorMessage,
+  onError,
 }: GoogleSignInButtonProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -20,6 +22,15 @@ export default function GoogleSignInButton({
 
     try {
       await onSignIn();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+          ? err
+          : "Ocurrió un error al iniciar sesión con Google.";
+      onError?.(message);
+      throw err;
     } finally {
       setIsSubmitting(false);
     }

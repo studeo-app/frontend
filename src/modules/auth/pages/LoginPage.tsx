@@ -75,6 +75,7 @@ const LoginPage: React.FC = () => {
           onSubmit={handleLogin}
           onGoogleLogin={handleGoogleLogin}
           googleError={googleError}
+          onGoogleError={setGoogleError}
         />
 
         <p className={`${authClasses.footer} mt-8`}>

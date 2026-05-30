@@ -98,6 +98,7 @@ const RegisterPage: React.FC = () => {
           onSubmit={handleRegister}
           onGoogleRegister={handleGoogleRegister}
           googleError={googleError}
+          onGoogleError={setGoogleError}
         />
 
         <p className={`${authClasses.footer} mt-8`}>
