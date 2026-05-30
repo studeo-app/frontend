@@ -7,6 +7,8 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   signInWithEmailAndPassword,
+  fetchSignInMethodsForEmail,
+  deleteUser,
 } from "firebase/auth";
 import { auth, googleProvider } from "@/config/firebase.config";
 import { registerOrSyncUser } from "@/modules/auth/api/authApi";
@@ -125,7 +127,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loginWithGoogle: async () => {
     set({ error: null });
     try {
-      await signInWithPopup(auth, googleProvider);
+      const credential = await signInWithPopup(auth, googleProvider);
+      const firebaseUser = credential.user ?? auth.currentUser;
+
+      const email = firebaseUser?.email?.toLowerCase() ?? "";
+      const allowed = email.endsWith("@correounivalle.edu.co");
+
+      if (!allowed) {
+        const message = "Solo se puede ingresar con cuenta institucional";
+        set({ error: message });
+        try {
+          if (firebaseUser) {
+            await deleteUser(firebaseUser);
+          }
+        } catch (deleteErr) {
+          // ignore delete errors, we'll still show the message
+        }
+        throw new Error(message);
+      }
+
       return await get().syncWithBackend();
     } catch (err) {
       throw err;
@@ -135,6 +155,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loginWithEmail: async (email, password) => {
     set({ error: null });
     try {
+      const methods = await fetchSignInMethodsForEmail(auth, email);
+
+      if (methods.includes("google.com")) {
+        const message = "Esta cuenta fue creada con Google";
+        set({ error: message });
+        throw new Error(message);
+      }
+
       await signInWithEmailAndPassword(auth, email, password);
       return await get().syncWithBackend();
     } catch (err) {

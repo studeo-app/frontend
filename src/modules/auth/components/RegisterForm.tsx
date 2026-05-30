@@ -18,6 +18,7 @@ interface RegisterFormProps {
   }) => Promise<void>;
 
   onGoogleRegister: () => Promise<void>;
+  googleError?: string | null;
 }
 
 export const RegisterForm: React.FC<
@@ -25,6 +26,7 @@ export const RegisterForm: React.FC<
 > = ({
   onSubmit,
   onGoogleRegister,
+  googleError,
 }) => {
   const [isLoading, setIsLoading] =
     useState(false);
@@ -256,6 +258,7 @@ export const RegisterForm: React.FC<
       <GoogleSignInButton
         onSignIn={onGoogleRegister}
         disabled={isLoading}
+        errorMessage={googleError}
       />
 
       {/* Divider */}
