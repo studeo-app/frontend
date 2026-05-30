@@ -2,6 +2,7 @@ import React, { useCallback } from "react";
 import { useNavigate } from "react-router";
 import { DEFAULT_PROFILE_AVATARS } from "@/assets/defaultProfileAvatars";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { SuccessModal } from "@/shared/components/ui/SuccessModal";
 import { AuthPageLayout } from "../components/AuthPageLayout";
 import { CompleteProfileForm } from "../components/CompleteProfileForm";
 import { authClasses } from "../theme/authTheme";
@@ -14,6 +15,12 @@ const CompleteProfilePage: React.FC = () => {
   const suggestedProfile = useAuthStore((s) => s.suggestedProfile);
   const authProvider = useAuthStore((s) => s.authProvider);
   const completeProfile = useAuthStore((s) => s.completeProfile);
+  const pendingProfileSuccessModal = useAuthStore(
+    (s) => s.pendingProfileSuccessModal
+  );
+  const acknowledgeProfileSuccess = useAuthStore(
+    (s) => s.acknowledgeProfileSuccess
+  );
 
   const displayName =
     profile?.firstName && profile?.lastName
@@ -39,13 +46,17 @@ const CompleteProfilePage: React.FC = () => {
     async (data: { username: string; avatarUrl?: string }) => {
       try {
         await completeProfile(data);
-        navigate("/dashboard");
       } catch (err: unknown) {
         throw new Error(resolveCompleteProfileErrorMessage(err));
       }
     },
-    [completeProfile, navigate]
+    [completeProfile]
   );
+
+  const handleSuccessClose = useCallback(() => {
+    acknowledgeProfileSuccess();
+    navigate("/dashboard");
+  }, [acknowledgeProfileSuccess, navigate]);
 
   if (!authProvider) {
     return (
@@ -94,6 +105,13 @@ const CompleteProfilePage: React.FC = () => {
           ajustes.
         </p>
       </div>
+
+      <SuccessModal
+        isOpen={pendingProfileSuccessModal}
+        onClose={handleSuccessClose}
+        title="Perfil completado"
+        message="Tu cuenta está lista. Ya puedes acceder a tus salas y empezar a colaborar en Studeo."
+      />
     </AuthPageLayout>
   );
 };
