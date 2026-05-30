@@ -537,7 +537,7 @@ export const RegisterForm: React.FC<
       <button
         type="submit"
         disabled={!isFormValid || isLoading}
-        className={`${authClasses.btnPrimary} flex h-10 w-full items-center justify-center rounded-2xl text-base transition-all duration-200 disabled:pointer-events-none disabled:opacity-50`}
+        className={`${authClasses.btnPrimary} flex h-9 w-full items-center justify-center rounded-2xl text-base transition-all duration-200 disabled:pointer-events-none disabled:opacity-50`}
       >
         {isLoading ? "Creando cuenta…" : "Crear cuenta"}
       </button>

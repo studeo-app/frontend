@@ -124,3 +124,8 @@ input:focus-visible:not(.auth-input) {
     transform: scale(1);
   }
 }
+
+
+body {
+  font-size: 10px;
+}

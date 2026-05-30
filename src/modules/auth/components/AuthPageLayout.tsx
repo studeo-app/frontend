@@ -16,11 +16,11 @@ export const AuthPageLayout: React.FC<AuthPageLayoutProps> = ({
 }) => {
   return (
     <div
-      className={`${authClasses.page} relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-8 sm:px-6 sm:py-12 ${className}`}
+      className={`${authClasses.page} relative flex h-full items-center justify-center overflow-hidden px-4 sm:px-6 ${className}`}
     >
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute left-[-10%] top-[-10%] h-[420px] w-[420px] rounded-full bg-auth-btn/10 blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] h-[420px] w-[420px] rounded-full bg-auth-link/10 blur-[120px]" />
+        <div className="absolute left-[-10%] top-[-10%] h-105 w-105 rounded-full bg-auth-btn/10 blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] h-105 w-105 rounded-full bg-auth-link/10 blur-[120px]" />
         <div
           className="absolute inset-0 opacity-[0.03]"
           style={{

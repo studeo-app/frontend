@@ -28,7 +28,7 @@ export default function GoogleSignInButton({
       type="button"
       onClick={handleGoogleSignIn}
       disabled={disabled || isSubmitting}
-      className={`${authClasses.btnGoogle} inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm transition-all duration-200 disabled:pointer-events-none disabled:opacity-50`}
+      className={`${authClasses.btnGoogle} inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl text-sm transition-all duration-200 disabled:pointer-events-none disabled:opacity-50`}
     >
       {isSubmitting ? (
         <svg

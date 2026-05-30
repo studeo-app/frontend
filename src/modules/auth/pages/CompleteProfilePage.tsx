@@ -56,11 +56,11 @@ const CompleteProfilePage: React.FC = () => {
   }
 
   return (
-    <AuthPageLayout className="items-stretch justify-start py-5 sm:py-6">
+    <AuthPageLayout className="justify-start py-5 sm:py-6 min-h-dvh">
       <div className="mx-auto w-full max-w-[420px] px-1">
         <div className="mb-4">
           <span
-            className={`${authClasses.logo} text-3xl font-bold tracking-tight`}
+            className={`${authClasses.logo} text-xl font-bold tracking-tight`}
           >
             Studeo
           </span>
@@ -73,7 +73,7 @@ const CompleteProfilePage: React.FC = () => {
             Ya casi estás dentro
           </h1>
           <p
-            className={`${authClasses.subtitle} mx-auto mt-3 max-w-sm text-sm leading-relaxed sm:text-base`}
+            className={`${authClasses.subtitle} mx-auto mt-3 max-w-sm text-sm leading-relaxed sm:text-sm`}
           >
             Elige tu nombre de usuario y tu foto de perfil (o sube una propia) para que otros te identifiquen en Studeo.
           </p>

@@ -190,7 +190,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       <button
         type="submit"
         disabled={isLoading}
-        className={`${authClasses.btnPrimary} flex h-12 w-full items-center justify-center rounded-xl text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50`}
+        className={`${authClasses.btnPrimary} flex h-9 w-full items-center justify-center rounded-xl text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50`}
       >
         {isLoading ? "Iniciando sesión…" : "Iniciar sesión"}
       </button>
