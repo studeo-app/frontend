@@ -21,7 +21,7 @@ export function useCloudinaryAvatarUpload(
       setUploadError(null);
 
       try {
-        const result = await uploadImageToCloudinary(file, {
+        const result = await uploadImageToCloudinary(file, "AVATARS", {
           folder: options.folder ?? "studeo/avatars",
           tags: options.userId ? [`uid_${options.userId}`] : undefined,
         });

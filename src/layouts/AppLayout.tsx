@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import ThemeToggle from "@/shared/theme/components/ThemeToggle";
 import { UserAvatar } from "@/shared/components/user/UserAvatar";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { Home, LogOut, Palette, User, Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { Home, LogOut, Palette, User, ChevronLeft, ChevronRight } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router";
 
 const appLinks = [
@@ -15,11 +15,6 @@ const appLinks = [
     to: "/profile",
     label: "Perfil",
     icon: User,
-  },
-  {
-    to: "/room/1",
-    label: "Sala ejemplo",
-    icon: Users,
   },
 ];
 

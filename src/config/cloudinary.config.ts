@@ -1,12 +1,18 @@
 import { Cloudinary } from "@cloudinary/url-gen";
 
 const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME as string | undefined;
-const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET as
-  | string
-  | undefined;
+
+// 1. Capturamos ambos presets desde el .env
+const presetAvatars = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_AVATARS as string | undefined;
+const presetRooms = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_ROOMS as string | undefined;
 
 export const CLOUDINARY_CLOUD_NAME = cloudName ?? "dnrpqenrg";
-export const CLOUDINARY_UPLOAD_PRESET = uploadPreset ?? "studeo_avatars";
+
+// 2. Agrupamos los presets en un objeto exportable
+export const CLOUDINARY_PRESETS = {
+  AVATARS: presetAvatars ?? "studeo_avatars",
+  ROOMS: presetRooms ?? "studeo_rooms", // Fallback para fotos de salas
+};
 
 export function getCloudinaryClient(): Cloudinary {
   return new Cloudinary({
@@ -14,8 +20,9 @@ export function getCloudinaryClient(): Cloudinary {
   });
 }
 
+// 3. Actualizamos la validación para asegurar que al menos el de avatars esté listo
 export function isCloudinaryConfigured(): boolean {
-  return Boolean(CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET);
+  return Boolean(CLOUDINARY_CLOUD_NAME && CLOUDINARY_PRESETS.AVATARS);
 }
 
 export function isCloudinaryAssetUrl(url: string): boolean {
@@ -24,7 +31,6 @@ export function isCloudinaryAssetUrl(url: string): boolean {
 
 /**
  * Obtiene el public_id desde una secure_url de Cloudinary.
- * Evita pasar la URL completa al SDK (provoca URLs anidadas duplicadas).
  */
 export function extractCloudinaryPublicId(url: string): string | null {
   const trimmed = url.trim();
