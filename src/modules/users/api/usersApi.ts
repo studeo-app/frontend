@@ -47,6 +47,7 @@ export interface UpdateProfilePayload {
   lastName?: string;
   username?: string;
   avatarUrl?: string;
+  email?: string;
 }
 
 export async function updateUserProfile(
