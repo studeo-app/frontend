@@ -79,6 +79,14 @@ export default function ProfilePage() {
       rules: {
         required: true,
         email: true,
+        custom: (value) => {
+          if (!value.trim()) return undefined;
+          const domain = value.toLowerCase().split("@")[1] ?? "";
+          if (domain && !/\.edu(\.[a-z]{2,})?$/.test(domain)) {
+            return "Debes usar un correo institucional (.edu)";
+          }
+          return undefined;
+        },
       },
     },
     avatarUrl: {

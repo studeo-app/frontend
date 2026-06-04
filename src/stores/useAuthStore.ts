@@ -274,6 +274,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         lastName: payload.lastName,
         username: payload.username.trim().toLowerCase(),
         avatarUrl: payload.avatarUrl,
+        email: payload.email.trim().toLowerCase(),
       });
 
       await get().fetchProfile();
