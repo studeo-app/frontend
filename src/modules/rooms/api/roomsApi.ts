@@ -18,3 +18,10 @@ export async function createRoom(token: string, payload: CreateRoomPayload): Pro
     body: payload,
   });
 }
+
+export async function deleteRoom(token: string, roomId: string): Promise<{ deleted: boolean; message: string }> {
+  return apiRequest<{ deleted: boolean; message: string }>(`/rooms/${roomId}`, {
+    method: "DELETE",
+    token,
+  });
+}

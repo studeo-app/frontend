@@ -96,12 +96,12 @@ function AvatarThumb({
       disabled={disabled}
       aria-pressed={selected}
       className={`
-        relative h-[4.25rem] w-[4.25rem] shrink-0 snap-center overflow-hidden rounded-full border-2 transition-all duration-200
+        relative h-[3.25rem] w-[3.25rem] shrink-0 snap-center overflow-hidden rounded-full border-2 transition-all duration-200
         disabled:pointer-events-none disabled:opacity-50
         ${
           selected
             ? "border-auth-btn shadow-md shadow-auth-btn/25"
-            : "border-transparent opacity-80 hover:opacity-100"
+            : "border-transparent opacity-85 hover:opacity-100"
         }
       `}
     >

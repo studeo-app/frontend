@@ -14,6 +14,7 @@ interface ConfirmModalProps {
   isLoading?: boolean;
   critical?: boolean;
   warning?: boolean;
+  confirmDisabled?: boolean;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -27,6 +28,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   isLoading = false,
   critical = false,
   warning = false,
+  confirmDisabled = false,
 }) => {
   const titleId = "confirm-modal-title";
   const descriptionId = "confirm-modal-description";
@@ -81,9 +83,10 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             variant="primary"
             onClick={onConfirm}
             isLoading={isLoading}
+            disabled={confirmDisabled || isLoading}
             className={`w-full cursor-pointer ${
               critical
-                ? "bg-auth-error text-white hover:brightness-110 shadow-auth-error/20"
+                ? "bg-auth-error text-white hover:brightness-110 shadow-auth-error/20 disabled:opacity-40 disabled:hover:brightness-100 disabled:cursor-not-allowed"
                 : ""
             }`}
           >

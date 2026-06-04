@@ -26,6 +26,7 @@ export default function ProfilePage() {
   // Deletion modals state
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   // Save changes modal state
   const [isSaveConfirmOpen, setIsSaveConfirmOpen] = useState(false);
@@ -125,7 +126,7 @@ export default function ProfilePage() {
       fields.username.value !== initialUsername ||
       fields.email.value !== initialEmail ||
       fields.avatarUrl.value !== (profile?.avatarUrl ?? firebaseUser?.photoURL ?? "");
-    
+
     return dirty;
   }, [fields, profile, firebaseUser, initialUsername, initialEmail]);
 
@@ -257,217 +258,217 @@ export default function ProfilePage() {
   }, [firebaseUser]);
 
   return (
-    <section className="space-y-6">
-      {/* Back to Dashboard link */}
-      <div>
-        <Link
-          to="/dashboard"
-          className="inline-flex items-center gap-1 text-[11px] font-semibold text-auth-label hover:text-auth-title transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          Volver al Dashboard
-        </Link>
-      </div>
+    <section className="space-y-6 max-w-4xl mx-auto">
+      {/* Profile Header Banner Card */}
+      <Card className="relative overflow-hidden bg-auth-surface border-auth-input-border rounded-2xl p-6 shadow-md">
+        {/* Banner background graphic */}
+        <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-r from-auth-btn/20 to-auth-btn/5" />
 
-      {/* Main Title */}
-      <h1 className="text-2xl font-bold tracking-tight text-auth-title sm:text-3xl">
-        Ajustes de Perfil
-      </h1>
+        <div className="relative pt-8 flex flex-col md:flex-row items-center md:items-end gap-6">
+          <div className="shrink-0">
+            <ProfileAvatarCarousel
+              displayName={`${profile?.firstName || ""} ${profile?.lastName || ""}`}
+              userId={profile?.uid}
+              initialExternalUrl={googlePhotoUrl}
+              value={fields.avatarUrl.value}
+              onChange={handleAvatarChange}
+            />
+          </div>
+          <div className="flex-1 text-center md:text-left">
+            <h2 className="text-2xl font-extrabold text-auth-title tracking-tight">
+              {profile ? `${profile.firstName} ${profile.lastName}` : "Usuario Pro"}
+            </h2>
+            <p className="text-sm text-auth-label font-medium mt-0.5">
+              {fields.username.value ? `@${fields.username.value}` : profile?.email ?? firebaseUser?.email}
+            </p>
+            <div className="mt-2 flex flex-wrap justify-center md:justify-start gap-2">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-auth-btn/10 text-auth-btn">
+                Estudiante
+              </span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-auth-input-bg text-auth-label border border-auth-input-border">
+                {authProvider === "google" ? "Google Auth" : "Correo y Contraseña"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </Card>
 
-      <div className="grid gap-6 md:grid-cols-[280px_1fr]">
-        {/* Left Card: Avatar & Name */}
-        <Card className="flex flex-col items-center p-6 bg-auth-surface border-auth-input-border rounded-2xl h-fit">
-          <ProfileAvatarCarousel
-            displayName={`${profile?.firstName || ""} ${profile?.lastName || ""}`}
-            userId={profile?.uid}
-            initialExternalUrl={googlePhotoUrl}
-            value={fields.avatarUrl.value}
-            onChange={handleAvatarChange}
-          />
-          <h2 className="mt-4 text-center text-lg font-bold text-auth-title">
-            {profile ? `${profile.firstName} ${profile.lastName}` : "Usuario Pro"}
-          </h2>
-        </Card>
-
-        {/* Right Columns */}
-        <div className="flex flex-col gap-6">
-          {/* General Information Card */}
-          <Card className="p-6 bg-auth-surface border-auth-input-border rounded-2xl">
-            <h3 className="mb-5 text-base font-bold text-auth-title">
-              Información General
-            </h3>
-
-            <form onSubmit={handleSave} className="space-y-4" noValidate>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {/* Nombre */}
-                <div>
-                  <label htmlFor="firstName" className="mb-1 block text-xs text-auth-label">
-                    Nombre
-                  </label>
-                  <div className="relative">
-                    <Input
-                      id="firstName"
-                      name="firstName"
-                      value={fields.firstName.value}
-                      onChange={handleChange}
-                      onBlur={() => handleBlur("firstName")}
-                      error={shouldShowFieldError("firstName", showErrors) ? firstNameError : undefined}
-                      className="h-11 rounded-xl pr-10"
-                      required
-                    />
-                    {!firstNameError && fields.firstName.value.trim() && (
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Apellidos */}
-                <div>
-                  <label htmlFor="lastName" className="mb-1 block text-xs text-auth-label">
-                    Apellidos
-                  </label>
-                  <div className="relative">
-                    <Input
-                      id="lastName"
-                      name="lastName"
-                      value={fields.lastName.value}
-                      onChange={handleChange}
-                      onBlur={() => handleBlur("lastName")}
-                      error={shouldShowFieldError("lastName", showErrors) ? lastNameError : undefined}
-                      className="h-11 rounded-xl pr-10"
-                      required
-                    />
-                    {!lastNameError && fields.lastName.value.trim() && (
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                {/* Username */}
-                <div>
-                  <label htmlFor="username" className="mb-1 block text-xs text-auth-label">
-                    Username
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-auth-label" aria-hidden="true">
-                      @
-                    </span>
-                    <Input
-                      id="username"
-                      name="username"
-                      value={fields.username.value}
-                      onChange={(e) => setFieldValue("username", e.target.value.toLowerCase())}
-                      onBlur={() => handleBlur("username")}
-                      error={shouldShowFieldError("username", showErrors) ? usernameError : undefined}
-                      className="h-11 pl-9 pr-10 rounded-xl"
-                      required
-                    />
-                    {isUsernameValid && fields.username.value.trim() && (
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
-                      </span>
-                    )}
-                  </div>
-                  {/* Real-time username states */}
-                  {usernameFormatValid && usernameHasChanged && (
-                    <div className="mt-1 px-1 text-[11px]">
-                      {checkingUsername && (
-                        <span className="text-auth-label">Comprobando disponibilidad...</span>
-                      )}
-                      {!checkingUsername && usernameAvailable === false && (
-                        <span className="text-auth-error font-medium">Este nombre de usuario ya está en uso.</span>
-                      )}
-                      {!checkingUsername && usernameAvailable === true && (
-                        <span className="text-auth-link font-medium">¡Nombre de usuario disponible!</span>
-                      )}
-                      {usernameCheckError && (
-                        <span className="text-auth-error">{usernameCheckError}</span>
-                      )}
-                    </div>
-                  )}
-                  <p className="mt-1.5 text-[11px] text-auth-label">
-                    Este nombre será visible para otros estudiantes en las salas.
-                  </p>
-                </div>
-
-                {/* Correo Electrónico */}
-                <div>
-                  <label htmlFor="email" className="mb-1 block text-xs text-auth-label">
-                    Correo Electrónico
-                  </label>
-                  <div className="relative">
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={fields.email.value}
-                      onChange={handleChange}
-                      onBlur={() => handleBlur("email")}
-                      error={shouldShowFieldError("email", showErrors) ? emailError : undefined}
-                      disabled={authProvider === "google"}
-                      className="h-11 rounded-xl pr-10"
-                      required
-                    />
-                    {!emailError && fields.email.value.trim() && (
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
-                      </span>
-                    )}
-                  </div>
-                  {authProvider === "google" && (
-                    <p className="mt-1.5 flex items-start gap-1 text-[11px] leading-tight text-auth-label">
-                      <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-                      Los usuarios autenticados mediante Google no pueden modificar su correo electrónico desde la aplicación.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Save Button */}
-              <div className="flex justify-end pt-3">
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={!isDirty || hasValidationErrors || checkingUsername}
-                  className="h-10 px-5 rounded-xl flex items-center gap-2 cursor-pointer"
-                >
-                  <Save className="h-4 w-4" />
-                  Guardar Cambios
-                </Button>
-              </div>
-            </form>
-          </Card>
-
-          {/* Danger Zone Card */}
-          <Card className="p-6 bg-auth-surface border-auth-input-border rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="space-y-1.5">
-              <h3 className="text-base font-bold text-auth-error flex items-center gap-1.5">
-                <AlertCircle className="h-5 w-5 text-auth-error" />
-                Zona de Peligro
+      {/* Main Profile Edit Form Card */}
+      <Card className="p-6 bg-auth-surface border-auth-input-border rounded-2xl shadow-md">
+        <form onSubmit={handleSave} className="space-y-6" noValidate>
+          {/* Header Action section */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-auth-input-border/60 pb-4 mb-2">
+            <div>
+              <h3 className="text-lg font-bold text-auth-title">
+                Información Personal
               </h3>
-              <p className="text-xs text-auth-label max-w-xl leading-relaxed">
-                Una vez que elimines tu cuenta, no hay marcha atrás. Todos tus datos, historial de estudio y logros se perderán permanentemente.
+              <p className="text-xs text-auth-label">
+                Actualiza los detalles de tu cuenta y configuración de perfil.
+              </p>
+            </div>
+            <div>
+              <Button
+                type="submit"
+                disabled={!isDirty || hasValidationErrors || checkingUsername}
+                className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text"
+              >
+                <Save className="h-4 w-4" />
+                Guardar Cambios
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-2">
+            {/* Nombre */}
+            <div className="space-y-1.5">
+              <label htmlFor="firstName" className="block text-xs font-semibold text-auth-label">
+                Nombre
+              </label>
+              <div className="relative">
+                <Input
+                  id="firstName"
+                  name="firstName"
+                  value={fields.firstName.value}
+                  onChange={handleChange}
+                  onBlur={() => handleBlur("firstName")}
+                  error={shouldShowFieldError("firstName", showErrors) ? firstNameError : undefined}
+                  className="h-11 rounded-xl pr-10 bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
+                  placeholder="Tu nombre"
+                  required
+                />
+                {!firstNameError && fields.firstName.value.trim() && (
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Apellidos */}
+            <div className="space-y-1.5">
+              <label htmlFor="lastName" className="block text-xs font-semibold text-auth-label">
+                Apellidos
+              </label>
+              <div className="relative">
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  value={fields.lastName.value}
+                  onChange={handleChange}
+                  onBlur={() => handleBlur("lastName")}
+                  error={shouldShowFieldError("lastName", showErrors) ? lastNameError : undefined}
+                  className="h-11 rounded-xl pr-10 bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
+                  placeholder="Tus apellidos"
+                  required
+                />
+                {!lastNameError && fields.lastName.value.trim() && (
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Username */}
+            <div className="space-y-1.5">
+              <label htmlFor="username" className="block text-xs font-semibold text-auth-label">
+                Username
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-auth-label/60 font-semibold font-mono" aria-hidden="true">
+                  @
+                </span>
+                <Input
+                  id="username"
+                  name="username"
+                  value={fields.username.value}
+                  onChange={(e) => setFieldValue("username", e.target.value.toLowerCase())}
+                  onBlur={() => handleBlur("username")}
+                  error={shouldShowFieldError("username", showErrors) ? usernameError : undefined}
+                  className="h-11 pl-9 pr-10 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
+                  placeholder="nombre_usuario"
+                  required
+                />
+                {isUsernameValid && fields.username.value.trim() && (
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
+                  </span>
+                )}
+              </div>
+              {/* Real-time username states */}
+              {usernameFormatValid && usernameHasChanged && (
+                <div className="mt-1 px-1 text-[11px]">
+                  {checkingUsername && (
+                    <span className="text-auth-label">Comprobando disponibilidad...</span>
+                  )}
+                  {!checkingUsername && usernameAvailable === false && (
+                    <span className="text-auth-error font-medium">Este nombre de usuario ya está en uso.</span>
+                  )}
+                  {!checkingUsername && usernameAvailable === true && (
+                    <span className="text-auth-link font-medium">¡Nombre de usuario disponible!</span>
+                  )}
+                  {usernameCheckError && (
+                    <span className="text-auth-error">{usernameCheckError}</span>
+                  )}
+                </div>
+              )}
+              <p className="text-[11px] text-auth-label/70">
+                Este nombre será visible para otros estudiantes en las salas de estudio.
               </p>
             </div>
 
-            <div>
-              <button
-                type="button"
-                onClick={() => setIsDeleteConfirmOpen(true)}
-                disabled={isDeleting}
-                className="w-full sm:w-auto h-10 px-5 rounded-xl border border-auth-error/40 text-auth-error bg-transparent hover:bg-auth-error/10 font-semibold transition text-xs cursor-pointer"
-              >
-                Eliminar mi cuenta
-              </button>
+            {/* Correo Electrónico */}
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="block text-xs font-semibold text-auth-label">
+                Correo Electrónico
+              </label>
+              <div className="relative">
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={fields.email.value}
+                  onChange={handleChange}
+                  onBlur={() => handleBlur("email")}
+                  error={shouldShowFieldError("email", showErrors) ? emailError : undefined}
+                  disabled={authProvider === "google"}
+                  className="h-11 rounded-xl pr-10 bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition disabled:opacity-40"
+                  placeholder="correo@ejemplo.com"
+                  required
+                />
+                {!emailError && fields.email.value.trim() && (
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
+                  </span>
+                )}
+              </div>
+              {authProvider === "google" && (
+                <p className="mt-1 flex items-start gap-1 text-[11px] leading-tight text-auth-label/70">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                  Autenticado con Google. No se puede modificar el correo.
+                </p>
+              )}
             </div>
-          </Card>
-        </div>
+          </div>
+        </form>
+      </Card>
+
+      {/* Discreet account deletion section at bottom */}
+      <div className="pt-8 border-t border-auth-input-border/40 flex flex-col items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setDeleteConfirmText("");
+            setIsDeleteConfirmOpen(true);
+          }}
+          disabled={isDeleting}
+          className="text-xs font-bold text-auth-error hover:text-red-500 hover:underline transition cursor-pointer bg-transparent border-0"
+        >
+          Eliminar cuenta permanentemente
+        </button>
+        <p className="text-[10px] text-auth-label/70">
+          Se borrarán todos tus datos de forma definitiva e irreversible.
+        </p>
       </div>
 
       {/* Floating Changes Detected Banner */}
@@ -527,8 +528,9 @@ export default function ProfilePage() {
         critical
         confirmText="Sí, eliminar cuenta"
         cancelText="Cancelar"
+        confirmDisabled={deleteConfirmText !== `eliminar ${initialUsername}`}
         message={
-          <div className="space-y-3">
+          <div className="space-y-4">
             <p className="text-sm font-semibold text-auth-error">
               Por favor lee con atención las consecuencias de esta acción:
             </p>
@@ -537,9 +539,18 @@ export default function ProfilePage() {
               <li>Cierre inmediato del acceso a la plataforma.</li>
               <li>Imposibilidad absoluta de recuperar tu cuenta en el futuro.</li>
             </ul>
-            <p className="text-xs text-auth-label font-medium pt-2">
-              ¿Estás seguro de que deseas continuar?
-            </p>
+            <div className="space-y-2 pt-3 border-t border-auth-input-border/40">
+              <p className="text-xs text-auth-label font-semibold">
+                Para confirmar, por favor escribe <span className="text-auth-error font-mono bg-auth-error/5 px-1.5 py-0.5 rounded border border-auth-error/20 select-all">eliminar {initialUsername}</span> a continuación:
+              </p>
+              <Input
+                type="text"
+                placeholder={`eliminar ${initialUsername}`}
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="h-10 rounded-xl text-center bg-auth-input-bg/30 border-auth-input-border focus-visible:ring-auth-error focus-visible:border-auth-error placeholder:text-auth-label/20 placeholder:opacity-25"
+              />
+            </div>
           </div>
         }
       />

@@ -56,11 +56,11 @@ export const AvatarCarouselStrip: React.FC<AvatarCarouselStripProps> = ({
   };
 
   return (
-    <div className="relative mx-auto w-full min-w-0 max-w-[15.5rem] sm:max-w-[17rem]">
+    <div className="relative mx-auto w-full min-w-0 max-w-[15.5rem] sm:max-w-[17rem] rounded-xl overflow-hidden">
       {canScrollLeft && (
         <>
           <div
-            className="pointer-events-none absolute inset-y-0 left-0 z-10 w-9 bg-gradient-to-r from-auth-bg via-auth-bg/90 to-transparent"
+            className="pointer-events-none absolute inset-y-0 left-0 z-10 w-9 bg-gradient-to-r from-auth-surface via-auth-surface/90 to-transparent"
             aria-hidden="true"
           />
           <button
@@ -85,7 +85,7 @@ export const AvatarCarouselStrip: React.FC<AvatarCarouselStripProps> = ({
       {canScrollRight && (
         <>
           <div
-            className="pointer-events-none absolute inset-y-0 right-0 z-10 w-9 bg-gradient-to-l from-auth-bg via-auth-bg/90 to-transparent"
+            className="pointer-events-none absolute inset-y-0 right-0 z-10 w-9 bg-gradient-to-l from-auth-surface via-auth-surface/90 to-transparent"
             aria-hidden="true"
           />
           <button
