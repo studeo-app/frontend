@@ -1,33 +1,23 @@
+import { useState } from "react";
 import useDocumentTitle from "@/shared/hooks/useDocumentTitle";
 import { UserAvatar } from "@/shared/components/user/UserAvatar";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { ArrowRight, Hash } from "lucide-react";
-import { useLocation, useNavigate } from "react-router";
-
-const routeButtons = [
-  { path: "/", label: "Landing", description: "Ruta publica principal" },
-  { path: "/login", label: "Login", description: "Inicio de sesion" },
-  { path: "/register", label: "Registro", description: "Crear una cuenta" },
-  {
-    path: "/complete-profile",
-    label: "Completar perfil",
-    description: "Formulario de datos de usuario",
-  },
-  { path: "/profile", label: "Perfil", description: "Ruta de perfil" },
-  {
-    path: "/room/1",
-    label: "Sala ejemplo",
-    description: "Detalle de sala por id",
-  },
-];
+import { useRooms } from "@/modules/rooms/hooks/useRooms";
+import { CreateRoomModal } from "@/modules/rooms/components/CreateRoomModal";
+import { DEFAULT_ROOM_COVERS } from "@/modules/rooms/constants/defaultRoomCovers";
+import { ArrowRight, Plus, MoreVertical, Compass, Users } from "lucide-react";
+import { useNavigate } from "react-router";
 
 export default function DashboardPage() {
-  useDocumentTitle("Dashboard");
-
+  useDocumentTitle("Dashboard - Mis Salas");
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+
   const profile = useAuthStore((state) => state.profile);
   const firebaseUser = useAuthStore((state) => state.user);
+  const { rooms, loading, error, refreshRooms } = useRooms();
+
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
 
   const displayName = profile
     ? `${profile.firstName} ${profile.lastName}`.trim()
@@ -37,8 +27,41 @@ export default function DashboardPage() {
   const avatarUrl =
     profile?.avatarUrl ?? firebaseUser?.photoURL ?? undefined;
 
+  const handleJoinRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteCode.trim()) return;
+    // Redirigir a la sala usando el código ingresado
+    navigate(`/room/${inviteCode.trim()}`);
+  };
+
+  const handleCreateSuccess = (roomId: string) => {
+    setIsCreateModalOpen(false);
+    refreshRooms();
+    // Redirigir automáticamente a la sala creada
+    navigate(`/room/${roomId}`);
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "long",
+      });
+    } catch (e) {
+      return "Recientemente";
+    }
+  };
+
+  // Helper to fallback to first cover if room has no imageUrl or preset
+  const getRoomCover = (imageUrl?: string) => {
+    if (imageUrl) return imageUrl;
+    return DEFAULT_ROOM_COVERS[0].src;
+  };
+
   return (
-    <section className="space-y-8">
+    <div className="space-y-8 animate-fade-in pb-16">
+      {/* Profile Welcome Header */}
       <header className="rounded-2xl border border-auth-input-border bg-auth-surface p-6 shadow-sm">
         <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
           <UserAvatar
@@ -47,10 +70,9 @@ export default function DashboardPage() {
             size="xl"
             className="border-auth-btn/60 shadow-lg shadow-auth-btn/10"
           />
-
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium uppercase tracking-wider text-auth-label">
-              Tu perfil
+              Bienvenido de nuevo
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-auth-title sm:text-3xl">
               {displayName}
@@ -68,69 +90,188 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {/* Unirse a una Sala Container */}
       <section
-        className="rounded-2xl border border-auth-input-border bg-gradient-to-r from-auth-btn/90 to-auth-btn p-6 text-auth-btn-text shadow-sm"
+        className="rounded-2xl border border-auth-input-border bg-auth-surface p-6 shadow-sm"
         aria-labelledby="join-room-title"
       >
-        <h2
-          id="join-room-title"
-          className="text-2xl font-semibold tracking-tight sm:text-3xl"
-        >
-          Unirse a una Sala
-        </h2>
-        <p className="mt-2 text-sm opacity-90">
-          Esta zona central te permite probar las rutas de la app con botones
-          accesibles y navegacion por teclado.
-        </p>
-      </section>
-
-      <section aria-labelledby="routes-title" className="space-y-4">
-        <div className="flex items-end justify-between">
-          <h2
-            id="routes-title"
-            className="text-2xl font-semibold tracking-tight text-auth-title sm:text-3xl"
-          >
-            Mis rutas
-          </h2>
-          <p className="text-sm text-auth-label">Tab + Enter para navegar</p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {routeButtons.map((route) => (
-            <button
-              key={route.path}
-              type="button"
-              aria-label={`Navegar a ${route.label}`}
-              onClick={() => navigate(route.path)}
-              className="group rounded-2xl border border-auth-input-border bg-auth-surface p-5 text-left shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-auth-btn/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <h2
+              id="join-room-title"
+              className="text-xl font-bold tracking-tight text-auth-title"
             >
-              <div className="mb-4 flex h-24 items-center justify-center rounded-xl bg-auth-input-bg/80">
-                <Hash className="h-8 w-8 text-auth-label" aria-hidden="true" />
-              </div>
-
-              <p className="font-semibold text-auth-title">{route.label}</p>
-              <p className="mt-1 text-sm text-auth-label">{route.description}</p>
-
-              <div className="mt-4 flex items-center justify-between">
-                <span className="text-xs font-medium text-auth-link">
-                  {route.path}
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-lg bg-auth-btn px-3 py-1.5 text-xs font-semibold text-auth-btn-text">
-                  Entrar
-                  <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-                </span>
-              </div>
+              Unirse a una Sala
+            </h2>
+            <p className="text-sm text-auth-label">
+              Introduce el código de invitación para entrar en una sesión activa.
+            </p>
+          </div>
+          <form
+            onSubmit={handleJoinRoom}
+            className="flex items-center gap-2 max-w-md w-full"
+          >
+            <input
+              type="text"
+              placeholder="Código (Ej: STU-452)"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              className="flex-1 h-11 px-4 text-sm rounded-xl border border-auth-input-border bg-auth-input-bg text-auth-title focus:outline-none focus:ring-2 focus:ring-auth-btn focus:border-transparent transition"
+            />
+            <button
+              type="submit"
+              disabled={!inviteCode.trim()}
+              className="h-11 px-5 bg-auth-btn text-auth-btn-text font-semibold rounded-xl text-sm transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2 cursor-pointer"
+            >
+              <span>Unirse</span>
+              <ArrowRight className="h-4 w-4" />
             </button>
-          ))}
+          </form>
         </div>
       </section>
 
-      <div
-        aria-live="polite"
-        className="rounded-xl border border-auth-btn/30 bg-auth-btn/10 p-4 text-sm text-auth-title"
-      >
-        Ruta actual: <span className="font-semibold text-auth-link">{pathname}</span>
-      </div>
-    </section>
+      {/* Mis Salas Section */}
+      <section aria-labelledby="my-rooms-title" className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2
+            id="my-rooms-title"
+            className="text-2xl font-bold tracking-tight text-auth-title"
+          >
+            Mis Salas
+          </h2>
+
+        </div>
+
+        {loading ? (
+          /* Loading Skeletal State */
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="aspect-[4/5] rounded-2xl border-2 border-dashed border-auth-input-border bg-auth-input-bg/10 flex items-center justify-center animate-pulse" />
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="rounded-2xl border border-auth-input-border bg-auth-surface overflow-hidden shadow-sm animate-pulse">
+                <div className="w-full aspect-video bg-auth-input-bg/50" />
+                <div className="p-5 space-y-4">
+                  <div className="h-4 bg-auth-input-bg/50 rounded w-2/3" />
+                  <div className="h-3 bg-auth-input-bg/50 rounded w-1/2" />
+                  <div className="h-10 bg-auth-input-bg/50 rounded-xl" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          /* Error State */
+          <div className="rounded-2xl border border-auth-error/20 bg-auth-error/5 p-6 text-center space-y-4">
+            <p className="text-sm text-auth-error font-medium">{error}</p>
+            <button
+              onClick={refreshRooms}
+              className="px-4 py-2 bg-auth-error text-white text-xs font-semibold rounded-lg hover:brightness-110 active:scale-[0.98] transition cursor-pointer"
+            >
+              Reintentar
+            </button>
+          </div>
+        ) : rooms.length === 0 ? (
+          /* Empty State */
+          <div className="rounded-2xl border border-auth-input-border bg-auth-surface py-12 px-6 text-center max-w-xl mx-auto space-y-5 shadow-sm">
+            <div className="h-16 w-16 bg-auth-btn/10 text-auth-btn rounded-full flex items-center justify-center mx-auto">
+              <Compass className="h-8 w-8" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-bold text-auth-title">No hay salas de estudio</h3>
+              <p className="text-sm text-auth-label">
+                No tienes ninguna sala de estudio todavía. ¡Crea una nueva sala o únete a una existente con un código!
+              </p>
+            </div>
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-auth-btn text-auth-btn-text text-sm font-semibold rounded-xl hover:brightness-110 active:scale-[0.98] transition cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              Crear mi primera sala
+            </button>
+          </div>
+        ) : (
+          /* Rooms Grid */
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {/* Dotted Create Card */}
+            <div
+              onClick={() => setIsCreateModalOpen(true)}
+              className="aspect-[4/5] rounded-2xl border-2 border-dashed border-auth-input-border hover:border-auth-btn/50 hover:bg-auth-input-bg/10 flex flex-col items-center justify-center gap-3 cursor-pointer transition duration-300 group"
+            >
+              <div className="h-10 w-10 bg-auth-input-bg text-auth-label group-hover:text-auth-btn group-hover:scale-110 rounded-full flex items-center justify-center transition duration-300 shadow-inner">
+                <Plus className="h-5 w-5" />
+              </div>
+              <span className="text-sm font-semibold text-auth-label group-hover:text-auth-title transition">
+                Nueva Sala
+              </span>
+            </div>
+
+            {/* Room cards */}
+            {rooms.map((room) => {
+              const isOwner = room.ownerUid === firebaseUser?.uid;
+              return (
+                <article
+                  key={room.id}
+                  className="group rounded-2xl border border-auth-input-border bg-auth-surface overflow-hidden shadow-sm hover:shadow-md transition duration-300 flex flex-col h-full relative"
+                >
+                  {/* Options Menu Button (Visual Only) */}
+                  <button className="absolute top-3 right-3 z-10 h-7 w-7 bg-black/40 text-white hover:bg-black/60 rounded-full flex items-center justify-center transition border-none cursor-pointer">
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+
+                  {/* Card Cover Image */}
+                  <div className="w-full aspect-video overflow-hidden bg-auth-input-bg relative shrink-0">
+                    <img
+                      src={getRoomCover(room.imageUrl)}
+                      alt={room.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                  </div>
+
+                  {/* Details */}
+                  <div className="p-5 flex flex-col justify-between flex-1 space-y-4">
+                    <div className="space-y-1.5">
+                      <h3 className="font-bold text-base text-auth-title tracking-tight line-clamp-1">
+                        {room.name}
+                      </h3>
+                      <p className="text-xs text-auth-label">
+                        Creado el {formatDate(room.createdAt)}
+                      </p>
+                      <div className="flex items-center gap-3 pt-2">
+                        <span className="inline-flex items-center gap-1 text-xs text-auth-label font-medium bg-auth-input-bg px-2.5 py-1 rounded-full">
+                          <Users className="h-3 w-3" />
+                          24 Miembros
+                        </span>
+                        <span
+                          className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${isOwner
+                            ? "bg-auth-btn/10 text-auth-btn"
+                            : "bg-auth-label/10 text-auth-label"
+                            }`}
+                        >
+                          {isOwner ? "Anfitrión" : "Miembro"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => navigate(`/room/${room.id}`)}
+                      className="w-full h-10 bg-auth-btn text-auth-btn-text text-sm font-semibold rounded-xl transition hover:brightness-110 active:scale-[0.98] cursor-pointer"
+                    >
+                      Entrar
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Create Modal */}
+      <CreateRoomModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleCreateSuccess}
+      />
+    </div>
   );
 }

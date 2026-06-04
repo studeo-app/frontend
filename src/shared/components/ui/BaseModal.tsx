@@ -48,23 +48,29 @@ export const BaseModal: React.FC<BaseModalProps> = ({
     document.body.style.overflow =
       "hidden";
 
-    window.addEventListener(
-      "keydown",
-      handleKeyDown
-    );
-
     modalRef.current?.focus();
 
     return () => {
       document.body.style.overflow =
         originalStyle;
 
+      previousFocusRef.current?.focus();
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    window.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+
+    return () => {
       window.removeEventListener(
         "keydown",
         handleKeyDown
       );
-
-      previousFocusRef.current?.focus();
     };
   }, [isOpen, handleKeyDown]);
 

@@ -1,6 +1,6 @@
 import {
   CLOUDINARY_CLOUD_NAME,
-  CLOUDINARY_UPLOAD_PRESET,
+  CLOUDINARY_PRESETS,
   isCloudinaryConfigured,
 } from "@/config/cloudinary.config";
 import type {
@@ -46,16 +46,20 @@ function validateImageFile(file: File): void {
 }
 
 /**
- * Sube una imagen a Cloudinary mediante unsigned upload (upload preset).
- * Devuelve la URL segura para guardar en Firestore.
+ * Sube una imagen a Cloudinary mediante unsigned upload usando presets específicos.
+ * @param file - El archivo a subir.
+ * @param presetType - 'AVATARS' o 'ROOMS' (basado en tus CLOUDINARY_PRESETS).
+ * @param options - Carpeta o tags adicionales.
  */
 export async function uploadImageToCloudinary(
   file: File,
+  presetType: keyof typeof CLOUDINARY_PRESETS = "AVATARS",
   options: CloudinaryUploadOptions = {}
 ): Promise<CloudinaryUploadResult> {
+
   if (!isCloudinaryConfigured()) {
     throw new CloudinaryUploadError(
-      "Cloudinary no está configurado. Revisa las variables de entorno."
+      "Cloudinary no está configurado. Revisa las variables de entorno VITE_."
     );
   }
 
@@ -63,8 +67,12 @@ export async function uploadImageToCloudinary(
 
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 
+  // Usamos el preset seleccionado dinámicamente
+  const uploadPreset = CLOUDINARY_PRESETS[presetType];
+  formData.append("upload_preset", uploadPreset);
+
+  // Si pasas una carpeta por opciones, Cloudinary la usará como subcarpeta
   if (options.folder) {
     formData.append("folder", options.folder);
   }
