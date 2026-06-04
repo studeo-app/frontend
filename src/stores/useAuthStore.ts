@@ -9,12 +9,16 @@ import {
   signInWithEmailAndPassword,
   fetchSignInMethodsForEmail,
   deleteUser,
+  updateEmail,
 } from "firebase/auth";
 import { auth, googleProvider } from "@/config/firebase.config";
 import { registerOrSyncUser } from "@/modules/auth/api/authApi";
 import {
   completeUserProfile,
   fetchUserProfile,
+  updateUserProfile,
+  deleteUserAccount,
+  backendCheck,
 } from "@/modules/users/api/usersApi";
 import type {
   AuthProvider,
@@ -59,6 +63,14 @@ interface AuthState {
   acknowledgeProfileSuccess: () => void;
   logout: () => Promise<void>;
   clearError: () => void;
+  updateProfileData: (payload: {
+    firstName: string;
+    lastName: string;
+    username: string;
+    email: string;
+    avatarUrl?: string;
+  }) => Promise<void>;
+  deleteAccountAction: () => Promise<void>;
 }
 
 function applyProfileState(
@@ -228,6 +240,81 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  updateProfileData: async (payload) => {
+    set({ error: null, loading: true });
+    try {
+      try {
+        await backendCheck();
+      } catch (err) {
+        throw new Error("El servidor de la aplicación no está disponible. Por favor, inténtalo más tarde.");
+      }
+
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error("No hay sesión activa.");
+      }
+
+      const currentProfile = get().profile;
+      const currentEmail = currentProfile?.email ?? currentUser.email ?? "";
+      const emailChanged = payload.email.trim().toLowerCase() !== currentEmail.trim().toLowerCase();
+
+      if (emailChanged) {
+        const provider = get().authProvider;
+        if (provider === "google") {
+          throw new Error("Los usuarios autenticados mediante Google no pueden modificar su correo electrónico desde la aplicación.");
+        }
+
+        await updateEmail(currentUser, payload.email.trim().toLowerCase());
+      }
+
+      const token = await get().getIdToken();
+      await updateUserProfile(token, {
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        username: payload.username.trim().toLowerCase(),
+        avatarUrl: payload.avatarUrl,
+      });
+
+      await get().fetchProfile();
+
+      try {
+        if (auth.currentUser) {
+          await auth.currentUser.reload();
+          set({ user: auth.currentUser });
+        }
+      } catch (err) {
+        console.warn("No se pudo recargar el usuario de Firebase Auth:", err);
+      }
+
+      set({ loading: false });
+    } catch (err: any) {
+      set({ loading: false });
+      throw err;
+    }
+  },
+
+  deleteAccountAction: async () => {
+    set({ error: null, loading: true });
+    try {
+      const token = await get().getIdToken();
+      await deleteUserAccount(token);
+
+      await signOut(auth);
+      set({
+        user: null,
+        profile: null,
+        profileComplete: null,
+        authProvider: null,
+        suggestedProfile: null,
+        loading: false,
+        pendingProfileSuccessModal: false,
+      });
+    } catch (err: any) {
+      set({ loading: false });
+      throw err;
+    }
+  },
 }));
 
 onAuthStateChanged(auth, async (user) => {
