@@ -11,9 +11,6 @@ export interface BaseModalProps {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
-  role?: "dialog" | "alertdialog";
-  ariaLabelledBy?: string;
-  ariaDescribedBy?: string;
 }
 
 export const BaseModal: React.FC<BaseModalProps> = ({
@@ -21,9 +18,6 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   onClose,
   title,
   children,
-  role = "dialog",
-  ariaLabelledBy,
-  ariaDescribedBy,
 }) => {
   const modalRef =
     useRef<HTMLDivElement>(null);
@@ -35,45 +29,6 @@ export const BaseModal: React.FC<BaseModalProps> = ({
     (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onClose();
-        return;
-      }
-
-      if (e.key === "Tab") {
-        if (!modalRef.current) return;
-
-        const focusableSelector =
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-        const focusableElements = Array.from(
-          modalRef.current.querySelectorAll(focusableSelector)
-        ) as HTMLElement[];
-
-        const visibleFocusable = focusableElements.filter((el) => {
-          const isVisible = el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0;
-          const isDisabled = el.hasAttribute("disabled") || (el as any).disabled;
-          return isVisible && !isDisabled;
-        });
-
-        if (visibleFocusable.length === 0) {
-          e.preventDefault();
-          return;
-        }
-
-        const firstElement = visibleFocusable[0];
-        const lastElement = visibleFocusable[visibleFocusable.length - 1];
-
-        if (e.shiftKey) {
-          // Shift + Tab
-          if (document.activeElement === firstElement) {
-            lastElement.focus();
-            e.preventDefault();
-          }
-        } else {
-          // Tab
-          if (document.activeElement === lastElement) {
-            firstElement.focus();
-            e.preventDefault();
-          }
-        }
       }
     },
     [onClose]
@@ -93,30 +48,9 @@ export const BaseModal: React.FC<BaseModalProps> = ({
     document.body.style.overflow =
       "hidden";
 
-    const focusTimeout = setTimeout(() => {
-      if (!modalRef.current) return;
-
-      const focusableSelector =
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-      const focusableElements = Array.from(
-        modalRef.current.querySelectorAll(focusableSelector)
-      ) as HTMLElement[];
-
-      const visibleFocusable = focusableElements.filter((el) => {
-        const isVisible = el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0;
-        const isDisabled = el.hasAttribute("disabled") || (el as any).disabled;
-        return isVisible && !isDisabled;
-      });
-
-      if (visibleFocusable.length > 0) {
-        visibleFocusable[0].focus();
-      } else {
-        modalRef.current.focus();
-      }
-    }, 50);
+    modalRef.current?.focus();
 
     return () => {
-      clearTimeout(focusTimeout);
       document.body.style.overflow =
         originalStyle;
 
@@ -144,12 +78,14 @@ export const BaseModal: React.FC<BaseModalProps> = ({
 
   return createPortal(
     <div
-      role={role}
+      role="dialog"
       aria-modal="true"
       aria-labelledby={
-        ariaLabelledBy || (title ? "modal-title" : undefined)
+        title
+          ? "modal-title"
+          : undefined
       }
-      aria-describedby={ariaDescribedBy || "modal-content"}
+      aria-describedby="modal-content"
       className="
         fixed
         inset-0
@@ -238,4 +174,4 @@ export const BaseModal: React.FC<BaseModalProps> = ({
     </div>,
     document.body
   );
-};
+};

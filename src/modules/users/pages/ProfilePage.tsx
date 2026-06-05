@@ -27,7 +27,6 @@ export default function ProfilePage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isErrorOpen, setIsErrorOpen] = useState(false);
   const [isEditingMode, setIsEditingMode] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
 
   // Deletion modals state
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -140,26 +139,14 @@ export default function ProfilePage() {
     return usernameFormatValid && usernameAvailable === true && !checkingUsername;
   }, [usernameHasChanged, usernameFormatValid, usernameAvailable, checkingUsername]);
 
-  const finalUsernameError = useMemo(() => {
-    if (usernameError) return usernameError;
-    if (usernameFormatValid && usernameHasChanged && usernameAvailable === false && !checkingUsername) {
-      return "Este nombre de usuario ya está en uso.";
-    }
-    if (usernameFormatValid && usernameHasChanged && usernameCheckError) {
-      return usernameCheckError;
-    }
-    return undefined;
-  }, [usernameError, usernameFormatValid, usernameHasChanged, usernameAvailable, checkingUsername, usernameCheckError]);
-
   const hasValidationErrors = useMemo(() => {
     return (
       !!firstNameError ||
       !!lastNameError ||
       !!usernameError ||
-      !!emailError ||
-      (usernameHasChanged && usernameAvailable === false)
+      !!emailError
     );
-  }, [firstNameError, lastNameError, usernameError, emailError, usernameHasChanged, usernameAvailable]);
+  }, [firstNameError, lastNameError, usernameError, emailError]);
 
   // Form dirty state check to show the toast banner
   const isDirty = useMemo(() => {
@@ -275,7 +262,6 @@ export default function ProfilePage() {
   };
 
   const executeUpdate = async () => {
-    setIsSaving(true);
     try {
       await updateProfileData({
         firstName: fields.firstName.value.trim(),
@@ -316,8 +302,6 @@ export default function ProfilePage() {
         setErrorMsg(friendlyMsg);
         setIsErrorOpen(true);
       }
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -414,9 +398,9 @@ export default function ProfilePage() {
     return googleProvider?.photoURL || undefined;
   }, [firebaseUser]);
 
-  if (loading && !isSaving) {
+  if (loading) {
     return (
-      <div role="status" aria-label="Cargando perfil..." className="space-y-6 max-w-4xl mx-auto animate-pulse">
+      <div className="space-y-6 max-w-4xl mx-auto animate-pulse">
         {/* Banner skeleton */}
         <div className="relative overflow-hidden bg-auth-surface border border-auth-input-border rounded-2xl p-6 shadow-md h-44 flex items-end gap-6">
           <div className="h-32 w-32 rounded-full bg-auth-input-bg/50 shrink-0" />
@@ -508,46 +492,23 @@ export default function ProfilePage() {
                   Editar Perfil
                 </Button>
               ) : (
-                <div className="flex flex-col items-end gap-1 w-full sm:w-auto">
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <Button
-                      type="button"
-                      onClick={handleCancelEdit}
-                      disabled={isSaving}
-                      className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all border border-auth-input-border hover:bg-auth-input-bg text-auth-label"
-                    >
-                      Cancelar
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={!isDirty || hasValidationErrors || isSaving}
-                      aria-describedby={isEditingMode && (!isDirty || hasValidationErrors) ? "save-btn-desc" : undefined}
-                      className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text"
-                    >
-                      {isSaving ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4 text-current" viewBox="0 0 24 24" fill="none" role="status" aria-label="Guardando cambios...">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.37 0 0 5.37 0 12h4z" />
-                          </svg>
-                          <span>Guardando...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4" aria-hidden="true" />
-                          <span>Guardar Cambios</span>
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  {isEditingMode && (!isDirty || hasValidationErrors) && (
-                    <p id="save-btn-desc" className="text-[11px] text-auth-label/80 mt-1 sm:text-right" aria-live="polite">
-                      {hasValidationErrors
-                        ? "Corrige los errores en el formulario para guardar."
-                        : "No hay cambios para guardar."}
-                    </p>
-                  )}
-                </div>
+                <>
+                  <Button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all border border-auth-input-border hover:bg-auth-input-bg text-auth-label"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={!isDirty || hasValidationErrors}
+                    className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text"
+                  >
+                    <Save className="h-4 w-4" />
+                    Guardar Cambios
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -565,7 +526,7 @@ export default function ProfilePage() {
                   value={fields.firstName.value}
                   onChange={handleChange}
                   onBlur={() => handleBlur("firstName")}
-                  disabled={!isEditingMode || isSaving}
+                  disabled={!isEditingMode}
                   error={shouldShowFieldError("firstName", showErrors) ? firstNameError : undefined}
                   className="h-11 rounded-xl pr-10 bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition disabled:opacity-50"
                   placeholder="Tu nombre"
@@ -573,7 +534,7 @@ export default function ProfilePage() {
                 />
                 {!firstNameError && fields.firstName.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
                   </span>
                 )}
               </div>
@@ -591,7 +552,7 @@ export default function ProfilePage() {
                   value={fields.lastName.value}
                   onChange={handleChange}
                   onBlur={() => handleBlur("lastName")}
-                  disabled={!isEditingMode || isSaving}
+                  disabled={!isEditingMode}
                   error={shouldShowFieldError("lastName", showErrors) ? lastNameError : undefined}
                   className="h-11 rounded-xl pr-10 bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition disabled:opacity-50"
                   placeholder="Tus apellidos"
@@ -599,7 +560,7 @@ export default function ProfilePage() {
                 />
                 {!lastNameError && fields.lastName.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
                   </span>
                 )}
               </div>
@@ -620,26 +581,32 @@ export default function ProfilePage() {
                   value={fields.username.value}
                   onChange={(e) => setFieldValue("username", e.target.value.toLowerCase())}
                   onBlur={() => handleBlur("username")}
-                  disabled={!isEditingMode || isSaving}
-                  error={shouldShowFieldError("username", showErrors) ? finalUsernameError : undefined}
+                  disabled={!isEditingMode}
+                  error={shouldShowFieldError("username", showErrors) ? usernameError : undefined}
                   className="h-11 pl-9 pr-10 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition disabled:opacity-50"
                   placeholder="nombre_usuario"
                   required
                 />
                 {isUsernameValid && fields.username.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
                   </span>
                 )}
               </div>
               {/* Real-time username states */}
               {usernameFormatValid && usernameHasChanged && isEditingMode && (
-                <div className="mt-1 px-1 text-[11px]" aria-live="polite">
+                <div className="mt-1 px-1 text-[11px]">
                   {checkingUsername && (
                     <span className="text-auth-label">Comprobando disponibilidad...</span>
                   )}
+                  {!checkingUsername && usernameAvailable === false && (
+                    <span className="text-auth-error font-medium">Este nombre de usuario ya está en uso.</span>
+                  )}
                   {!checkingUsername && usernameAvailable === true && (
                     <span className="text-auth-link font-medium">¡Nombre de usuario disponible!</span>
+                  )}
+                  {usernameCheckError && (
+                    <span className="text-auth-error">{usernameCheckError}</span>
                   )}
                 </div>
               )}
@@ -662,20 +629,20 @@ export default function ProfilePage() {
                   onChange={handleChange}
                   onBlur={() => handleBlur("email")}
                   error={shouldShowFieldError("email", showErrors) ? emailError : undefined}
-                  disabled={!isEditingMode || authProvider === "google" || isSaving}
+                  disabled={!isEditingMode || authProvider === "google"}
                   className="h-11 rounded-xl pr-10 bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition disabled:opacity-40"
                   placeholder="correo@ejemplo.com"
                   required
                 />
                 {!emailError && fields.email.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
                   </span>
                 )}
               </div>
               {authProvider === "google" && (
                 <p className="mt-1 flex items-start gap-1 text-[11px] leading-tight text-auth-label/70">
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
                   Autenticado con Google. No se puede modificar el correo.
                 </p>
               )}
@@ -703,17 +670,7 @@ export default function ProfilePage() {
                   disabled={!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmNewPassword || passwordLoading}
                   className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text font-semibold text-xs"
                 >
-                  {passwordLoading ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 text-current" viewBox="0 0 24 24" fill="none" role="status" aria-label="Actualizando contraseña...">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.37 0 0 5.37 0 12h4z" />
-                      </svg>
-                      <span>Actualizando...</span>
-                    </>
-                  ) : (
-                    <span>Actualizar Contraseña</span>
-                  )}
+                  {passwordLoading ? "Actualizando..." : "Actualizar Contraseña"}
                 </Button>
               </div>
             </div>
@@ -770,15 +727,15 @@ export default function ProfilePage() {
                 >
                   <div className="space-y-1 px-1">
                     <div className={`flex items-center gap-2 text-xs transition-colors ${passwordValidation.minLength ? "text-auth-link" : "text-auth-error"}`}>
-                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.minLength ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} aria-hidden="true" />
+                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.minLength ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} />
                       <span>Mínimo 8 caracteres</span>
                     </div>
                     <div className={`flex items-center gap-2 text-xs transition-colors ${passwordValidation.hasUppercase ? "text-auth-link" : "text-auth-error"}`}>
-                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.hasUppercase ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} aria-hidden="true" />
+                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.hasUppercase ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} />
                       <span>Incluye una mayúscula</span>
                     </div>
                     <div className={`flex items-center gap-2 text-xs transition-colors ${passwordValidation.hasNumber ? "text-auth-link" : "text-auth-error"}`}>
-                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.hasNumber ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} aria-hidden="true" />
+                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.hasNumber ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} />
                       <span>Incluye un número</span>
                     </div>
                   </div>
@@ -813,7 +770,7 @@ export default function ProfilePage() {
                     `}
                   >
                     <div className="flex items-center gap-2 px-1 text-xs text-auth-link">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 fill-emerald-500/10" />
                       <span>Las contraseñas coinciden</span>
                     </div>
                   </div>
@@ -846,7 +803,7 @@ export default function ProfilePage() {
       {isEditingMode && isDirty && !toastDismissed && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center justify-between gap-4 rounded-xl border border-auth-input-border bg-auth-surface p-4 shadow-2xl animate-scale-up min-w-[320px]">
           <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
+            <CheckCircle2 className="h-5 w-5 text-emerald-500 fill-emerald-500/10" />
             <div>
               <p className="text-xs font-bold text-auth-title">Cambios detectados</p>
               <p className="text-[11px] text-auth-label">No olvides guardar tu progreso.</p>
@@ -858,7 +815,7 @@ export default function ProfilePage() {
             aria-label="Cerrar aviso"
             className="rounded-lg p-1 text-auth-label hover:bg-auth-input-bg hover:text-auth-title transition cursor-pointer"
           >
-            <X className="h-4 w-4" aria-hidden="true" />
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
@@ -899,7 +856,6 @@ export default function ProfilePage() {
         critical
         confirmText="Sí, eliminar cuenta"
         cancelText="Cancelar"
-        confirmAriaLabel="Confirmar eliminación permanente de la cuenta"
         confirmDisabled={deleteConfirmText !== `eliminar ${initialUsername}`}
         message={
           <div className="space-y-4">
@@ -912,16 +868,14 @@ export default function ProfilePage() {
               <li>Imposibilidad absoluta de recuperar tu cuenta en el futuro.</li>
             </ul>
             <div className="space-y-2 pt-3 border-t border-auth-input-border/40">
-              <p id="delete-confirm-label" className="text-xs text-auth-label font-semibold">
+              <p className="text-xs text-auth-label font-semibold">
                 Para confirmar, por favor escribe <span className="text-auth-error font-mono bg-auth-error/5 px-1.5 py-0.5 rounded border border-auth-error/20 select-all">eliminar {initialUsername}</span> a continuación:
               </p>
               <Input
-                id="delete-confirm-input"
                 type="text"
                 placeholder={`eliminar ${initialUsername}`}
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
-                aria-labelledby="delete-confirm-label"
                 className="h-10 rounded-xl text-center bg-auth-input-bg/30 border-auth-input-border focus-visible:ring-auth-error focus-visible:border-auth-error placeholder:text-auth-label/20 placeholder:opacity-25"
               />
             </div>

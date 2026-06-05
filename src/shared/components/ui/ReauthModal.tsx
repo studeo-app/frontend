@@ -104,7 +104,7 @@ export const ReauthModal: React.FC<ReauthModalProps> = ({
             </div>
 
             {error && (
-              <p role="alert" aria-live="assertive" className="text-xs text-auth-error animate-fade-in">
+              <p role="alert" className="text-xs text-auth-error animate-fade-in">
                 {error}
               </p>
             )}
@@ -132,7 +132,7 @@ export const ReauthModal: React.FC<ReauthModalProps> = ({
         ) : (
           <div className="space-y-4">
             {error && (
-              <p role="alert" aria-live="assertive" className="text-xs text-auth-error animate-fade-in">
+              <p role="alert" className="text-xs text-auth-error animate-fade-in">
                 {error}
               </p>
             )}

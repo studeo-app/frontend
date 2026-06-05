@@ -186,7 +186,6 @@ export default function DashboardPage() {
               placeholder="Código de la sala (Ej: STU-452)"
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value)}
-              aria-label="Código de invitación de la sala"
               className="flex-1 h-11 px-4 text-sm rounded-xl border border-auth-input-border bg-auth-input-bg/40 text-auth-title placeholder:opacity-50 focus:outline-none focus:ring-2 focus:ring-auth-btn focus:border-transparent transition"
             />
             <button
@@ -195,7 +194,7 @@ export default function DashboardPage() {
               className="h-11 px-5 bg-auth-btn text-auth-btn-text font-semibold rounded-xl text-sm transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2 cursor-pointer shadow-md"
             >
               <span>Unirse</span>
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              <ArrowRight className="h-4 w-4" />
             </button>
           </form>
         </div>
@@ -219,10 +218,9 @@ export default function DashboardPage() {
                 placeholder="Buscar salas..."
                 value={searchQuery}
                 onChange={handleSearchChange}
-                aria-label="Buscar salas de estudio"
                 className="h-10 pl-9 pr-4 text-sm rounded-xl border border-auth-input-border bg-auth-surface text-auth-title placeholder:opacity-50 focus:outline-none focus:ring-2 focus:ring-auth-btn focus:border-transparent transition w-full sm:w-60 shadow-sm"
               />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-auth-label" aria-hidden="true">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-auth-label">
                 <Search className="h-4 w-4 opacity-70" />
               </span>
             </div>
@@ -230,13 +228,11 @@ export default function DashboardPage() {
             {/* Filter Toggle Button */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              aria-expanded={showFilters}
-              aria-label="Filtrar y ordenar salas"
               className={`h-10 px-4 flex items-center justify-center gap-2 border border-auth-input-border bg-auth-surface text-auth-title rounded-xl text-sm font-semibold hover:bg-auth-input-bg transition cursor-pointer shadow-sm ${
                 showFilters ? "border-auth-btn bg-auth-btn/5 text-auth-btn" : ""
               }`}
             >
-              <Filter className="h-4 w-4" aria-hidden="true" />
+              <Filter className="h-4 w-4" />
               <span>Filtros</span>
             </button>
           </div>
@@ -256,8 +252,7 @@ export default function DashboardPage() {
                   <button
                     key={opt.value}
                     onClick={() => handleFilterTypeChange(opt.value as any)}
-                    aria-pressed={filterType === opt.value}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition cursor-pointer ${
                       filterType === opt.value
                         ? 'bg-auth-btn text-auth-btn-text border-transparent shadow-sm'
                         : 'bg-auth-input-bg/40 text-auth-label border-auth-input-border hover:bg-auth-input-bg'
@@ -280,8 +275,7 @@ export default function DashboardPage() {
                   <button
                     key={opt.value}
                     onClick={() => handleSortByChange(opt.value as any)}
-                    aria-pressed={sortBy === opt.value}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition cursor-pointer ${
                       sortBy === opt.value
                         ? 'bg-auth-btn text-auth-btn-text border-transparent shadow-sm'
                         : 'bg-auth-input-bg/40 text-auth-label border-auth-input-border hover:bg-auth-input-bg'
@@ -312,8 +306,8 @@ export default function DashboardPage() {
           </div>
         ) : error ? (
           /* Error State */
-          <div role="alert" className="rounded-2xl border border-auth-error/20 bg-auth-error/5 py-12 px-6 text-center max-w-xl mx-auto space-y-5 shadow-sm animate-scale-up">
-            <div className="h-16 w-16 bg-auth-error/10 text-auth-error rounded-full flex items-center justify-center mx-auto" aria-hidden="true">
+          <div className="rounded-2xl border border-auth-error/20 bg-auth-error/5 py-12 px-6 text-center max-w-xl mx-auto space-y-5 shadow-sm animate-scale-up">
+            <div className="h-16 w-16 bg-auth-error/10 text-auth-error rounded-full flex items-center justify-center mx-auto">
               <AlertCircle className="h-8 w-8" />
             </div>
             <div className="space-y-1.5">
@@ -331,8 +325,8 @@ export default function DashboardPage() {
           </div>
         ) : totalItems === 0 ? (
           /* Empty State */
-          <div role="status" aria-live="polite" className="rounded-2xl border border-auth-input-border bg-auth-surface py-12 px-6 text-center max-w-xl mx-auto space-y-5 shadow-sm">
-            <div className="h-16 w-16 bg-auth-btn/10 text-auth-btn rounded-full flex items-center justify-center mx-auto" aria-hidden="true">
+          <div className="rounded-2xl border border-auth-input-border bg-auth-surface py-12 px-6 text-center max-w-xl mx-auto space-y-5 shadow-sm">
+            <div className="h-16 w-16 bg-auth-btn/10 text-auth-btn rounded-full flex items-center justify-center mx-auto">
               <Compass className="h-8 w-8" />
             </div>
             <div className="space-y-1.5">
@@ -356,24 +350,16 @@ export default function DashboardPage() {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {/* Dotted Create Card (Only on Page 1) */}
             {showCreateCard && (
-              <button
-                type="button"
+              <div
                 onClick={() => setIsCreateModalOpen(true)}
-                aria-label="Crear nueva sala"
-                className="aspect-[4/5] w-full rounded-2xl border border-dashed border-auth-input-border hover:border-auth-btn/50 hover:bg-auth-input-bg/10 flex flex-col items-center justify-center gap-3 cursor-pointer transition duration-300 group shadow-sm hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2"
+                className="aspect-[4/5] rounded-2xl border border-dashed border-auth-input-border hover:border-auth-btn/50 hover:bg-auth-input-bg/10 flex flex-col items-center justify-center gap-3 cursor-pointer transition duration-300 group shadow-sm hover:shadow-md"
               >
-                <div className="h-10 w-10 bg-auth-input-bg text-auth-label group-hover:text-auth-btn group-hover:scale-110 rounded-full flex items-center justify-center transition duration-300 shadow-inner" aria-hidden="true">
+                <div className="h-10 w-10 bg-auth-input-bg text-auth-label group-hover:text-auth-btn group-hover:scale-110 rounded-full flex items-center justify-center transition duration-300 shadow-inner">
                   <Plus className="h-5 w-5" />
                 </div>
-                <span className="text-sm font-semibold text-auth-label group-hover:text-auth-title transition" aria-hidden="true">
+                <span className="text-sm font-semibold text-auth-label group-hover:text-auth-title transition">
                   Nueva Sala
                 </span>
-              </button>
-            )}
-
-            {rooms.length === 0 && (
-              <div className="col-span-full py-8 text-center text-auth-label">
-                <p aria-live="polite" className="text-sm">No tienes salas de estudio creadas todavía. ¡Haz clic en 'Nueva Sala' para comenzar!</p>
               </div>
             )}
 
@@ -383,16 +369,13 @@ export default function DashboardPage() {
               return (
                 <article
                   key={room.id}
-                  role="region"
-                  aria-label={`Sala de estudio: ${room.name}`}
                   className="group rounded-2xl border border-auth-input-border bg-auth-surface overflow-hidden shadow-sm hover:shadow-md hover:border-auth-btn/20 transition-all duration-300 flex flex-col h-full relative"
                 >
                   {/* Card Cover Image */}
                   <div className="w-full aspect-video overflow-hidden bg-auth-input-bg relative shrink-0">
                     <img
                       src={getRoomCover(room.imageUrl)}
-                      alt=""
-                      aria-hidden="true"
+                      alt={room.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
@@ -410,7 +393,7 @@ export default function DashboardPage() {
                       
                       <div className="flex flex-wrap items-center gap-2 pt-1.5">
                         <span className="inline-flex items-center gap-1.5 text-xs text-auth-label font-medium bg-auth-input-bg/70 border border-auth-input-border/50 px-2.5 py-1 rounded-full">
-                          <Users className="h-3 w-3 text-auth-label" aria-hidden="true" />
+                          <Users className="h-3 w-3 text-auth-label" />
                           <span>1 Estudiante</span>
                         </span>
                         <span
@@ -427,8 +410,7 @@ export default function DashboardPage() {
 
                     <button
                       onClick={() => navigate(`/room/${room.id}`)}
-                      aria-label={`Entrar a la sala ${room.name}`}
-                      className="w-full h-10 bg-auth-btn text-auth-btn-text text-sm font-semibold rounded-xl transition hover:brightness-110 active:scale-[0.98] cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
+                      className="w-full h-10 bg-auth-btn text-auth-btn-text text-sm font-semibold rounded-xl transition hover:brightness-110 active:scale-[0.98] cursor-pointer shadow-sm"
                     >
                       Entrar
                     </button>
@@ -446,9 +428,9 @@ export default function DashboardPage() {
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
               aria-label="Página anterior"
-              className="p-2 border border-auth-input-border rounded-xl bg-auth-surface text-auth-title disabled:opacity-40 disabled:cursor-not-allowed hover:bg-auth-input-bg transition cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
+              className="p-2 border border-auth-input-border rounded-xl bg-auth-surface text-auth-title disabled:opacity-40 disabled:cursor-not-allowed hover:bg-auth-input-bg transition cursor-pointer shadow-sm"
             >
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              <ChevronLeft className="h-4 w-4" />
             </button>
             <span className="text-xs text-auth-label font-bold px-3">
               Página {currentPage} de {totalPages}
@@ -457,9 +439,9 @@ export default function DashboardPage() {
               onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
               aria-label="Página siguiente"
-              className="p-2 border border-auth-input-border rounded-xl bg-auth-surface text-auth-title disabled:opacity-40 disabled:cursor-not-allowed hover:bg-auth-input-bg transition cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
+              className="p-2 border border-auth-input-border rounded-xl bg-auth-surface text-auth-title disabled:opacity-40 disabled:cursor-not-allowed hover:bg-auth-input-bg transition cursor-pointer shadow-sm"
             >
-              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              <ChevronRight className="h-4 w-4" />
             </button>
           </div>
         )}
