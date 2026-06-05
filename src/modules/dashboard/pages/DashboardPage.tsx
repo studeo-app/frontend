@@ -58,7 +58,7 @@ export default function DashboardPage() {
         day: "numeric",
         month: "long",
       });
-    } catch (e) {
+    } catch {
       return "Recientemente";
     }
   };
@@ -75,12 +75,12 @@ export default function DashboardPage() {
     setCurrentPage(1);
   };
 
-  const handleFilterTypeChange = (val: any) => {
+  const handleFilterTypeChange = (val: 'all' | 'owner' | 'member') => {
     setFilterType(val);
     setCurrentPage(1);
   };
 
-  const handleSortByChange = (val: any) => {
+  const handleSortByChange = (val: 'newest' | 'oldest' | 'alphabetical') => {
     setSortBy(val);
     setCurrentPage(1);
   };
@@ -251,8 +251,9 @@ export default function DashboardPage() {
                 ].map((opt) => (
                   <button
                     key={opt.value}
-                    onClick={() => handleFilterTypeChange(opt.value as any)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition cursor-pointer ${
+                    onClick={() => handleFilterTypeChange(opt.value as 'all' | 'owner' | 'member')}
+                    aria-pressed={filterType === opt.value}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn ${
                       filterType === opt.value
                         ? 'bg-auth-btn text-auth-btn-text border-transparent shadow-sm'
                         : 'bg-auth-input-bg/40 text-auth-label border-auth-input-border hover:bg-auth-input-bg'
@@ -274,8 +275,9 @@ export default function DashboardPage() {
                 ].map((opt) => (
                   <button
                     key={opt.value}
-                    onClick={() => handleSortByChange(opt.value as any)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition cursor-pointer ${
+                    onClick={() => handleSortByChange(opt.value as 'newest' | 'oldest' | 'alphabetical')}
+                    aria-pressed={sortBy === opt.value}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn ${
                       sortBy === opt.value
                         ? 'bg-auth-btn text-auth-btn-text border-transparent shadow-sm'
                         : 'bg-auth-input-bg/40 text-auth-label border-auth-input-border hover:bg-auth-input-bg'

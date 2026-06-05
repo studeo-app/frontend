@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useForm } from "@/shared/hooks/useForm";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
@@ -16,7 +15,7 @@ import { usePasswordValidation } from "@/shared/hooks/usePasswordValidation";
 import { checkEmailAvailability } from "@/modules/users/api/usersApi";
 import { auth } from "@/config/firebase.config";
 import useDocumentTitle from "@/shared/hooks/useDocumentTitle";
-import { AlertCircle, ArrowLeft, CheckCircle2, Save, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Save, X } from "lucide-react";
 
 export default function ProfilePage() {
   useDocumentTitle("Perfil - Studeo");

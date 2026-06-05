@@ -246,7 +246,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       try {
         await backendCheck();
-      } catch (err) {
+      } catch {
         throw new Error("El servidor de la aplicación no está disponible. Por favor, inténtalo más tarde.");
       }
 
