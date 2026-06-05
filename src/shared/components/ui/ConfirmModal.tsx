@@ -15,6 +15,8 @@ interface ConfirmModalProps {
   critical?: boolean;
   warning?: boolean;
   confirmDisabled?: boolean;
+  confirmAriaLabel?: string;
+  cancelAriaLabel?: string;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -29,18 +31,21 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   critical = false,
   warning = false,
   confirmDisabled = false,
+  confirmAriaLabel,
+  cancelAriaLabel,
 }) => {
-  const titleId = "confirm-modal-title";
   const descriptionId = "confirm-modal-description";
 
   return (
-    <BaseModal isOpen={isOpen} onClose={onClose} title={title}>
-      <div
-        className="flex flex-col items-center py-2 text-center"
-        role="alertdialog"
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
-      >
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      role={critical ? "alertdialog" : "dialog"}
+      ariaLabelledBy="modal-title"
+      ariaDescribedBy={descriptionId}
+    >
+      <div className="flex flex-col items-center py-2 text-center w-full">
         {(critical || warning) && (
           <div
             className={`
@@ -63,7 +68,6 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         <div
           id={descriptionId}
           className="mb-6 px-2 text-sm leading-relaxed text-auth-label text-left w-full"
-          aria-live="assertive"
         >
           {message}
         </div>
@@ -74,6 +78,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             variant="outline"
             onClick={onClose}
             disabled={isLoading}
+            aria-label={cancelAriaLabel || cancelText}
             className="w-full cursor-pointer"
           >
             {cancelText}
@@ -84,6 +89,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             onClick={onConfirm}
             isLoading={isLoading}
             disabled={confirmDisabled || isLoading}
+            aria-label={confirmAriaLabel || confirmText}
             className={`w-full cursor-pointer ${
               critical
                 ? "bg-auth-error text-white hover:brightness-110 shadow-auth-error/20 disabled:opacity-40 disabled:hover:brightness-100 disabled:cursor-not-allowed"
@@ -97,3 +103,4 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     </BaseModal>
   );
 };
+

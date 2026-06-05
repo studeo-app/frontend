@@ -95,6 +95,7 @@ function AvatarThumb({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={selected}
+      aria-label={`Seleccionar avatar ${alt}`}
       className={`
         relative h-[3.25rem] w-[3.25rem] shrink-0 snap-center overflow-hidden rounded-full border-2 transition-all duration-200
         disabled:pointer-events-none disabled:opacity-50
@@ -313,6 +314,7 @@ export const ProfileAvatarCarousel: React.FC<ProfileAvatarCarouselProps> = ({
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
             className="sr-only"
+            aria-label="Cargar foto de perfil"
             onChange={handleFileChange}
             disabled={disabled || isUploading}
           />
