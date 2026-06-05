@@ -11,17 +11,19 @@ import { ConfirmModal } from "@/shared/components/ui/ConfirmModal";
 import { ReauthModal } from "@/shared/components/ui/ReauthModal";
 import { ProfileAvatarCarousel } from "@/modules/auth/components/ProfileAvatarCarousel";
 import { useUsernameAvailability } from "@/modules/auth/hooks/useUsernameAvailability";
+import { checkEmailAvailability } from "@/modules/users/api/usersApi";
 import useDocumentTitle from "@/shared/hooks/useDocumentTitle";
 import { AlertCircle, ArrowLeft, CheckCircle2, Save, X } from "lucide-react";
 
 export default function ProfilePage() {
   useDocumentTitle("Perfil - Studeo");
-  const { profile, user: firebaseUser, updateProfileData, deleteAccountAction } = useAuthStore();
+  const { profile, user: firebaseUser, updateProfileData, deleteAccountAction, loading } = useAuthStore();
 
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isErrorOpen, setIsErrorOpen] = useState(false);
+  const [isEditingMode, setIsEditingMode] = useState(false);
 
   // Deletion modals state
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -121,10 +123,9 @@ export default function ProfilePage() {
       !!firstNameError ||
       !!lastNameError ||
       !!usernameError ||
-      !!emailError ||
-      !isUsernameValid
+      !!emailError
     );
-  }, [firstNameError, lastNameError, usernameError, emailError, isUsernameValid]);
+  }, [firstNameError, lastNameError, usernameError, emailError]);
 
   // Form dirty state check to show the toast banner
   const isDirty = useMemo(() => {
@@ -162,6 +163,16 @@ export default function ProfilePage() {
     setFieldValue("avatarUrl", secureUrl);
   };
 
+  const handleCancelEdit = () => {
+    setFieldValue("firstName", profile?.firstName ?? "");
+    setFieldValue("lastName", profile?.lastName ?? "");
+    setFieldValue("username", initialUsername);
+    setFieldValue("email", initialEmail);
+    setFieldValue("avatarUrl", profile?.avatarUrl ?? firebaseUser?.photoURL ?? "");
+    setIsEditingMode(false);
+    setShowErrors(false);
+  };
+
   const checkNeedsReauth = (): boolean => {
     const lastSignInTime = firebaseUser?.metadata.lastSignInTime;
     if (!lastSignInTime) return true;
@@ -181,12 +192,32 @@ export default function ProfilePage() {
       setIsSuccessOpen(true);
       setShowErrors(false);
       setToastDismissed(false);
+      setIsEditingMode(false);
     } catch (err: any) {
       if (err.code === "auth/requires-recent-login" || err.message?.includes("recent-login")) {
         setPendingAction("update");
         setIsReauthOpen(true);
       } else {
-        setErrorMsg(err.message || "Error al actualizar perfil.");
+        let friendlyMsg = err.message || "Error al actualizar el perfil.";
+        const isEmailError = 
+          err.code === "auth/email-already-in-use" || 
+          friendlyMsg.includes("email-already-in-use") || 
+          friendlyMsg.toLowerCase().includes("email is already in use") ||
+          friendlyMsg.toLowerCase().includes("email_already_in_use") ||
+          (friendlyMsg.toLowerCase().includes("correo") && friendlyMsg.toLowerCase().includes("registrado"));
+
+        const isUsernameError = 
+          friendlyMsg.includes("Username is already taken") || 
+          (friendlyMsg.toLowerCase().includes("username") && friendlyMsg.toLowerCase().includes("taken")) ||
+          friendlyMsg.toLowerCase().includes("username_taken") ||
+          (friendlyMsg.toLowerCase().includes("nombre de usuario") && friendlyMsg.toLowerCase().includes("registrado"));
+
+        if (isEmailError) {
+          friendlyMsg = "El correo electrónico institucional ingresado ya está registrado por otro usuario.";
+        } else if (isUsernameError) {
+          friendlyMsg = "El nombre de usuario ya está registrado por otra persona. Por favor elige otro.";
+        }
+        setErrorMsg(friendlyMsg);
         setIsErrorOpen(true);
       }
     }
@@ -198,6 +229,26 @@ export default function ProfilePage() {
 
     if (!validateAll() || hasValidationErrors) {
       return;
+    }
+
+    if (usernameHasChanged && usernameAvailable === false) {
+      setErrorMsg("El nombre de usuario ya está registrado por otra persona. Por favor elige otro.");
+      setIsErrorOpen(true);
+      return;
+    }
+
+    const emailChanged = fields.email.value.trim().toLowerCase() !== initialEmail.toLowerCase();
+    if (emailChanged) {
+      try {
+        const check = await checkEmailAvailability(fields.email.value);
+        if (check.available === false) {
+          setErrorMsg("El correo electrónico institucional ingresado ya está registrado por otro usuario.");
+          setIsErrorOpen(true);
+          return;
+        }
+      } catch (err) {
+        console.warn("No se pudo comprobar la disponibilidad del correo:", err);
+      }
     }
 
     setIsSaveConfirmOpen(true);
@@ -265,6 +316,40 @@ export default function ProfilePage() {
     return googleProvider?.photoURL || undefined;
   }, [firebaseUser]);
 
+  if (loading) {
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto animate-pulse">
+        {/* Banner skeleton */}
+        <div className="relative overflow-hidden bg-auth-surface border border-auth-input-border rounded-2xl p-6 shadow-md h-44 flex items-end gap-6">
+          <div className="h-32 w-32 rounded-full bg-auth-input-bg/50 shrink-0" />
+          <div className="space-y-2 flex-1 pb-4">
+            <div className="h-6 bg-auth-input-bg/50 rounded w-1/3" />
+            <div className="h-4 bg-auth-input-bg/50 rounded w-1/4" />
+          </div>
+        </div>
+        
+        {/* Form card skeleton */}
+        <div className="p-6 bg-auth-surface border border-auth-input-border rounded-2xl shadow-md space-y-6">
+          <div className="flex justify-between items-center border-b border-auth-input-border/60 pb-4">
+            <div className="space-y-2 w-1/3">
+              <div className="h-5 bg-auth-input-bg/50 rounded" />
+              <div className="h-3 bg-auth-input-bg/50 rounded w-2/3" />
+            </div>
+            <div className="h-10 bg-auth-input-bg/50 rounded-xl w-32" />
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="space-y-2">
+                <div className="h-4 bg-auth-input-bg/50 rounded w-1/4" />
+                <div className="h-11 bg-auth-input-bg/50 rounded-xl" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <section className="space-y-6 max-w-4xl mx-auto">
       {/* Profile Header Banner Card */}
@@ -279,6 +364,7 @@ export default function ProfilePage() {
               userId={profile?.uid}
               initialExternalUrl={googlePhotoUrl}
               value={fields.avatarUrl.value}
+              disabled={!isEditingMode}
               onChange={handleAvatarChange}
             />
           </div>
@@ -314,15 +400,34 @@ export default function ProfilePage() {
                 Actualiza los detalles de tu cuenta y configuración de perfil.
               </p>
             </div>
-            <div>
-              <Button
-                type="submit"
-                disabled={!isDirty || hasValidationErrors || checkingUsername}
-                className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text"
-              >
-                <Save className="h-4 w-4" />
-                Guardar Cambios
-              </Button>
+            <div className="flex items-center gap-2">
+              {!isEditingMode ? (
+                <Button
+                  type="button"
+                  onClick={() => setIsEditingMode(true)}
+                  className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] bg-auth-btn text-auth-btn-text"
+                >
+                  Editar Perfil
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all border border-auth-input-border hover:bg-auth-input-bg text-auth-label"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={!isDirty || hasValidationErrors}
+                    className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text"
+                  >
+                    <Save className="h-4 w-4" />
+                    Guardar Cambios
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
@@ -339,12 +444,13 @@ export default function ProfilePage() {
                   value={fields.firstName.value}
                   onChange={handleChange}
                   onBlur={() => handleBlur("firstName")}
+                  disabled={!isEditingMode}
                   error={shouldShowFieldError("firstName", showErrors) ? firstNameError : undefined}
-                  className="h-11 rounded-xl pr-10 bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
+                  className="h-11 rounded-xl pr-10 bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition disabled:opacity-50"
                   placeholder="Tu nombre"
                   required
                 />
-                {!firstNameError && fields.firstName.value.trim() && (
+                {!firstNameError && fields.firstName.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
                     <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
                   </span>
@@ -364,12 +470,13 @@ export default function ProfilePage() {
                   value={fields.lastName.value}
                   onChange={handleChange}
                   onBlur={() => handleBlur("lastName")}
+                  disabled={!isEditingMode}
                   error={shouldShowFieldError("lastName", showErrors) ? lastNameError : undefined}
-                  className="h-11 rounded-xl pr-10 bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
+                  className="h-11 rounded-xl pr-10 bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition disabled:opacity-50"
                   placeholder="Tus apellidos"
                   required
                 />
-                {!lastNameError && fields.lastName.value.trim() && (
+                {!lastNameError && fields.lastName.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
                     <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
                   </span>
@@ -392,19 +499,20 @@ export default function ProfilePage() {
                   value={fields.username.value}
                   onChange={(e) => setFieldValue("username", e.target.value.toLowerCase())}
                   onBlur={() => handleBlur("username")}
+                  disabled={!isEditingMode}
                   error={shouldShowFieldError("username", showErrors) ? usernameError : undefined}
-                  className="h-11 pl-9 pr-10 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
+                  className="h-11 pl-9 pr-10 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition disabled:opacity-50"
                   placeholder="nombre_usuario"
                   required
                 />
-                {isUsernameValid && fields.username.value.trim() && (
+                {isUsernameValid && fields.username.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
                     <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
                   </span>
                 )}
               </div>
               {/* Real-time username states */}
-              {usernameFormatValid && usernameHasChanged && (
+              {usernameFormatValid && usernameHasChanged && isEditingMode && (
                 <div className="mt-1 px-1 text-[11px]">
                   {checkingUsername && (
                     <span className="text-auth-label">Comprobando disponibilidad...</span>
@@ -439,12 +547,12 @@ export default function ProfilePage() {
                   onChange={handleChange}
                   onBlur={() => handleBlur("email")}
                   error={shouldShowFieldError("email", showErrors) ? emailError : undefined}
-                  disabled={authProvider === "google"}
+                  disabled={!isEditingMode || authProvider === "google"}
                   className="h-11 rounded-xl pr-10 bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition disabled:opacity-40"
                   placeholder="correo@ejemplo.com"
                   required
                 />
-                {!emailError && fields.email.value.trim() && (
+                {!emailError && fields.email.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
                     <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
                   </span>
@@ -480,7 +588,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Floating Changes Detected Banner */}
-      {isDirty && !toastDismissed && (
+      {isEditingMode && isDirty && !toastDismissed && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center justify-between gap-4 rounded-xl border border-auth-input-border bg-auth-surface p-4 shadow-2xl animate-scale-up min-w-[320px]">
           <div className="flex items-center gap-3">
             <CheckCircle2 className="h-5 w-5 text-emerald-500 fill-emerald-500/10" />

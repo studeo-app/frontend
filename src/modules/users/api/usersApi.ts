@@ -26,6 +26,15 @@ export async function checkUsernameAvailability(
   );
 }
 
+export async function checkEmailAvailability(
+  email: string
+): Promise<{ email: string; available: boolean }> {
+  const encoded = encodeURIComponent(email.trim().toLowerCase());
+  return apiRequest<{ email: string; available: boolean }>(
+    `/users/check-email/${encoded}`
+  );
+}
+
 export interface CompleteProfilePayload {
   username: string;
   avatarUrl?: string;

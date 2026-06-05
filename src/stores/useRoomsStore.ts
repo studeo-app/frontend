@@ -19,16 +19,18 @@ export const useRoomsStore = create<RoomsState>((set, get) => ({
   error: null,
   lastFetched: null,
   fetchRooms: async (force = false) => {
+    if (get().loading) return;
+
     const user = useAuthStore.getState().user;
     if (!user) {
       set({ rooms: [], loading: false });
       return;
     }
 
-    // Cache check (30 seconds TTL)
+    // Cache check (120 seconds TTL)
     const now = Date.now();
     const lastFetched = get().lastFetched;
-    if (!force && get().rooms.length > 0 && lastFetched && (now - lastFetched < 30000)) {
+    if (!force && get().rooms.length > 0 && lastFetched && (now - lastFetched < 120000)) {
       return;
     }
 
