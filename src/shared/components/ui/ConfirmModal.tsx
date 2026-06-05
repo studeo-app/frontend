@@ -15,6 +15,7 @@ interface ConfirmModalProps {
   critical?: boolean;
   warning?: boolean;
   confirmDisabled?: boolean;
+  confirmAriaLabel?: string;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -29,6 +30,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   critical = false,
   warning = false,
   confirmDisabled = false,
+  confirmAriaLabel,
 }) => {
   const titleId = "confirm-modal-title";
   const descriptionId = "confirm-modal-description";
@@ -74,7 +76,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             variant="outline"
             onClick={onClose}
             disabled={isLoading}
-            className="w-full cursor-pointer"
+            className="w-full cursor-pointer focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             {cancelText}
           </Button>
@@ -84,7 +86,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             onClick={onConfirm}
             isLoading={isLoading}
             disabled={confirmDisabled || isLoading}
-            className={`w-full cursor-pointer ${
+            aria-label={confirmAriaLabel}
+            className={`w-full cursor-pointer focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none ${
               critical
                 ? "bg-auth-error text-white hover:brightness-110 shadow-auth-error/20 disabled:opacity-40 disabled:hover:brightness-100 disabled:cursor-not-allowed"
                 : ""

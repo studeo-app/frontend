@@ -48,6 +48,11 @@ export default function ProfilePage() {
     newPassword: "",
     confirmNewPassword: "",
   });
+  const [passwordErrors, setPasswordErrors] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmNewPassword: "",
+  });
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   const {
@@ -186,26 +191,34 @@ export default function ProfilePage() {
   const handlePasswordFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setPasswordForm((prev) => ({ ...prev, [name]: value }));
+    setPasswordErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!passwordForm.currentPassword.trim() || !passwordForm.newPassword.trim() || !passwordForm.confirmNewPassword.trim()) {
-      setErrorMsg("Todos los campos de contraseña son obligatorios.");
-      setIsErrorOpen(true);
-      return;
+    const errors = {
+      currentPassword: "",
+      newPassword: "",
+      confirmNewPassword: "",
+    };
+
+    if (!passwordForm.currentPassword.trim()) {
+      errors.currentPassword = "La contraseña actual es obligatoria.";
+    }
+    if (!passwordForm.newPassword.trim()) {
+      errors.newPassword = "La nueva contraseña es obligatoria.";
+    } else if (!passwordValidation.isValid) {
+      errors.newPassword = "La nueva contraseña no cumple con los requisitos mínimos.";
+    }
+    if (!passwordForm.confirmNewPassword.trim()) {
+      errors.confirmNewPassword = "Debes confirmar tu nueva contraseña.";
+    } else if (!passwordFormMatches) {
+      errors.confirmNewPassword = "La nueva contraseña y la confirmación no coinciden.";
     }
 
-    if (!passwordValidation.isValid) {
-      setErrorMsg("La nueva contraseña no cumple con los requisitos mínimos.");
-      setIsErrorOpen(true);
-      return;
-    }
-
-    if (!passwordFormMatches) {
-      setErrorMsg("La nueva contraseña y la confirmación no coinciden.");
-      setIsErrorOpen(true);
+    if (errors.currentPassword || errors.newPassword || errors.confirmNewPassword) {
+      setPasswordErrors(errors);
       return;
     }
 
@@ -230,15 +243,23 @@ export default function ProfilePage() {
         newPassword: "",
         confirmNewPassword: "",
       });
+      setPasswordErrors({
+        currentPassword: "",
+        newPassword: "",
+        confirmNewPassword: "",
+      });
     } catch (err: any) {
       let friendlyMsg = err.message || "Error al actualizar la contraseña.";
       if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password") {
         friendlyMsg = "La contraseña actual ingresada es incorrecta.";
+        setPasswordErrors((prev) => ({ ...prev, currentPassword: friendlyMsg }));
       } else if (err.code === "auth/weak-password") {
         friendlyMsg = "La nueva contraseña es muy débil. Intenta usar más caracteres y símbolos.";
+        setPasswordErrors((prev) => ({ ...prev, newPassword: friendlyMsg }));
+      } else {
+        setErrorMsg(friendlyMsg);
+        setIsErrorOpen(true);
       }
-      setErrorMsg(friendlyMsg);
-      setIsErrorOpen(true);
     } finally {
       setPasswordLoading(false);
     }
@@ -397,7 +418,7 @@ export default function ProfilePage() {
     return googleProvider?.photoURL || undefined;
   }, [firebaseUser]);
 
-  if (loading) {
+  if (loading && !profile) {
     return (
       <div className="space-y-6 max-w-4xl mx-auto animate-pulse">
         {/* Banner skeleton */}
@@ -472,7 +493,7 @@ export default function ProfilePage() {
               <Button
                 type="button"
                 onClick={() => setIsEditingMode(true)}
-                className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] bg-auth-btn text-auth-btn-text"
+                className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] bg-auth-btn text-auth-btn-text focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
               >
                 Editar Perfil
               </Button>
@@ -481,20 +502,54 @@ export default function ProfilePage() {
                 <Button
                   type="button"
                   onClick={handleCancelEdit}
-                  className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all border border-auth-input-border hover:bg-auth-input-bg text-auth-label"
+                  className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all border border-auth-input-border hover:bg-auth-input-bg text-auth-label focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
                 >
                   Cancelar
                 </Button>
                 <Button
                   type="submit"
                   form="profile-form"
-                  disabled={!isDirty || hasValidationErrors}
-                  className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text"
+                  disabled={loading || !isDirty || hasValidationErrors}
+                  aria-describedby={(!isDirty || hasValidationErrors) ? "save-disabled-desc" : undefined}
+                  className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
                 >
-                  <Save className="h-4 w-4" />
-                  Guardar Cambios
+                  {loading ? (
+                    <>
+                      <svg
+                        className="animate-spin h-4 w-4 text-current"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        role="status"
+                        aria-label="Guardando..."
+                      >
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.37 0 0 5.37 0 12h4z" />
+                      </svg>
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" aria-hidden="true" />
+                      <span>Guardar Cambios</span>
+                    </>
+                  )}
                 </Button>
               </>
+            )}
+            {isEditingMode && !isDirty && (
+              <span className="sr-only" id="save-disabled-desc">
+                No disponible: no se han realizado cambios en el perfil.
+              </span>
+            )}
+            {isEditingMode && hasValidationErrors && (
+              <span className="sr-only" id="save-disabled-desc">
+                No disponible: corrige los errores de validación en el formulario antes de guardar.
+              </span>
+            )}
+            {loading && (
+              <div className="sr-only" aria-live="assertive">
+                Guardando cambios del perfil, por favor espera.
+              </div>
             )}
           </div>
         </div>
@@ -534,7 +589,7 @@ export default function ProfilePage() {
                 />
                 {!firstNameError && fields.firstName.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
                   </span>
                 )}
               </div>
@@ -560,7 +615,7 @@ export default function ProfilePage() {
                 />
                 {!lastNameError && fields.lastName.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
                   </span>
                 )}
               </div>
@@ -589,13 +644,13 @@ export default function ProfilePage() {
                 />
                 {isUsernameValid && fields.username.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
                   </span>
                 )}
               </div>
               {/* Real-time username states */}
               {usernameFormatValid && usernameHasChanged && isEditingMode && (
-                <div className="mt-1 px-1 text-[11px]">
+                <div className="mt-1 px-1 text-[11px]" aria-live="polite">
                   {checkingUsername && (
                     <span className="text-auth-label">Comprobando disponibilidad...</span>
                   )}
@@ -636,13 +691,13 @@ export default function ProfilePage() {
                 />
                 {!emailError && fields.email.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" />
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
                   </span>
                 )}
               </div>
               {authProvider === "google" && (
                 <p className="mt-1 flex items-start gap-1 text-[11px] leading-tight text-auth-label/70">
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
                   Autenticado con Google. No se puede modificar el correo.
                 </p>
               )}
@@ -668,7 +723,7 @@ export default function ProfilePage() {
                 <Button
                   type="submit"
                   disabled={!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmNewPassword || passwordLoading}
-                  className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text font-semibold text-xs"
+                  className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text font-semibold text-xs focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
                 >
                   {passwordLoading ? "Actualizando..." : "Actualizar Contraseña"}
                 </Button>
@@ -687,6 +742,7 @@ export default function ProfilePage() {
                   type="password"
                   value={passwordForm.currentPassword}
                   onChange={handlePasswordFormChange}
+                  error={passwordErrors.currentPassword || undefined}
                   className="h-11 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
                   placeholder="••••••••"
                   required
@@ -706,6 +762,7 @@ export default function ProfilePage() {
                   onChange={handlePasswordFormChange}
                   onFocus={() => setPasswordFocused(true)}
                   onBlur={() => setPasswordFocused(false)}
+                  error={passwordErrors.newPassword || undefined}
                   className="h-11 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
                   placeholder="••••••••"
                   required
@@ -727,15 +784,15 @@ export default function ProfilePage() {
                 >
                   <div className="space-y-1 px-1">
                     <div className={`flex items-center gap-2 text-xs transition-colors ${passwordValidation.minLength ? "text-auth-link" : "text-auth-error"}`}>
-                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.minLength ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} />
+                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.minLength ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} aria-hidden="true" />
                       <span>Mínimo 8 caracteres</span>
                     </div>
                     <div className={`flex items-center gap-2 text-xs transition-colors ${passwordValidation.hasUppercase ? "text-auth-link" : "text-auth-error"}`}>
-                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.hasUppercase ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} />
+                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.hasUppercase ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} aria-hidden="true" />
                       <span>Incluye una mayúscula</span>
                     </div>
                     <div className={`flex items-center gap-2 text-xs transition-colors ${passwordValidation.hasNumber ? "text-auth-link" : "text-auth-error"}`}>
-                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.hasNumber ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} />
+                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.hasNumber ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} aria-hidden="true" />
                       <span>Incluye un número</span>
                     </div>
                   </div>
@@ -753,6 +810,7 @@ export default function ProfilePage() {
                   type="password"
                   value={passwordForm.confirmNewPassword}
                   onChange={handlePasswordFormChange}
+                  error={passwordErrors.confirmNewPassword || undefined}
                   className="h-11 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
                   placeholder="••••••••"
                   required
@@ -770,7 +828,7 @@ export default function ProfilePage() {
                     `}
                   >
                     <div className="flex items-center gap-2 px-1 text-xs text-auth-link">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 fill-emerald-500/10" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
                       <span>Las contraseñas coinciden</span>
                     </div>
                   </div>
@@ -790,7 +848,7 @@ export default function ProfilePage() {
             setIsDeleteConfirmOpen(true);
           }}
           disabled={isDeleting}
-          className="text-xs font-bold text-auth-error hover:text-red-500 hover:underline transition cursor-pointer bg-transparent border-0"
+          className="text-xs font-bold text-auth-error hover:text-red-500 hover:underline transition cursor-pointer bg-transparent border-0 focus-visible:ring-2 focus-visible:ring-auth-error focus-visible:ring-offset-2 focus-visible:outline-none rounded px-1.5 py-0.5"
         >
           Eliminar cuenta permanentemente
         </button>
@@ -803,7 +861,7 @@ export default function ProfilePage() {
       {isEditingMode && isDirty && !toastDismissed && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center justify-between gap-4 rounded-xl border border-auth-input-border bg-auth-surface p-4 shadow-2xl animate-scale-up min-w-[320px]">
           <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-emerald-500 fill-emerald-500/10" />
+            <CheckCircle2 className="h-5 w-5 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
             <div>
               <p className="text-xs font-bold text-auth-title">Cambios detectados</p>
               <p className="text-[11px] text-auth-label">No olvides guardar tu progreso.</p>
@@ -813,9 +871,9 @@ export default function ProfilePage() {
             type="button"
             onClick={() => setToastDismissed(true)}
             aria-label="Cerrar aviso"
-            className="rounded-lg p-1 text-auth-label hover:bg-auth-input-bg hover:text-auth-title transition cursor-pointer"
+            className="rounded-lg p-1 text-auth-label hover:bg-auth-input-bg hover:text-auth-title transition cursor-pointer focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:outline-none"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       )}
@@ -856,6 +914,7 @@ export default function ProfilePage() {
         critical
         confirmText="Sí, eliminar cuenta"
         cancelText="Cancelar"
+        confirmAriaLabel="Confirmar eliminación permanente de la cuenta"
         confirmDisabled={deleteConfirmText !== `eliminar ${initialUsername}`}
         message={
           <div className="space-y-4">

@@ -161,10 +161,12 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                 onChange={handleNameChange}
                 disabled={isCreating}
                 maxLength={60}
+                aria-invalid={name.length > 0 && !isNameValid ? "true" : "false"}
+                aria-describedby={name.length > 0 && !isNameValid ? "room-name-error" : undefined}
                 className="w-full h-11 px-4 text-sm rounded-xl border border-auth-input-border bg-auth-input-bg text-auth-title focus:outline-none focus:ring-2 focus:ring-auth-btn focus:border-transparent transition"
               />
               <div className="flex justify-between items-center px-1">
-                <span className="text-[10px] text-auth-label">
+                <span id="room-name-error" aria-live="polite" className="text-[10px] text-auth-label">
                   {name.length > 0 && !isNameValid && (
                     <span className="text-auth-error">El nombre debe tener entre 3 y 50 caracteres</span>
                   )}
@@ -202,7 +204,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                     className="hidden"
                     disabled={isCreating}
                   />
-                  <Upload className="h-5 w-5 mb-1" />
+                  <Upload className="h-5 w-5 mb-1" aria-hidden="true" />
                   <span className="text-[10px] font-medium text-center">Subir propia</span>
                 </button>
 
@@ -228,7 +230,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                       {isSelected && (
                         <div className="absolute inset-0 bg-auth-btn/20 flex items-center justify-center">
                           <div className="h-5 w-5 bg-auth-btn text-auth-btn-text rounded-full flex items-center justify-center shadow-md">
-                            <Check className="h-3.5 w-3.5" />
+                            <Check className="h-3.5 w-3.5" aria-hidden="true" />
                           </div>
                         </div>
                       )}
@@ -261,15 +263,15 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                         type="button"
                         onClick={(e) => handleRemoveCustomUpload(e, item.id)}
                         aria-label="Remove uploaded image"
-                        className="absolute top-1 right-1 h-5 w-5 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-auth-error transition opacity-0 group-hover:opacity-100 z-20"
+                        className="absolute top-1 right-1 h-5 w-5 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-auth-error transition opacity-0 group-hover:opacity-100 z-20 focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:outline-none"
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-3 w-3" aria-hidden="true" />
                       </button>
 
                       {isSelected && (
                         <div className="absolute inset-0 bg-auth-btn/20 flex items-center justify-center">
                           <div className="h-5 w-5 bg-auth-btn text-auth-btn-text rounded-full flex items-center justify-center shadow-md">
-                            <Check className="h-3.5 w-3.5" />
+                            <Check className="h-3.5 w-3.5" aria-hidden="true" />
                           </div>
                         </div>
                       )}
@@ -284,11 +286,17 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
               <button
                 type="submit"
                 disabled={!isNameValid || isCreating}
-                className="flex-1 h-11 bg-auth-btn text-auth-btn-text font-semibold rounded-xl text-sm transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
+                className="flex-1 h-11 bg-auth-btn text-auth-btn-text font-semibold rounded-xl text-sm transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
               >
                 {isCreating ? (
                   <>
-                    <svg className="animate-spin h-4 w-4 text-current" viewBox="0 0 24 24" fill="none">
+                    <svg
+                      className="animate-spin h-4 w-4 text-current"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      role="status"
+                      aria-label="Creando sala..."
+                    >
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.37 0 0 5.37 0 12h4z" />
                     </svg>
@@ -303,7 +311,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                 type="button"
                 onClick={handleClose}
                 disabled={isCreating}
-                className="px-5 h-11 border border-auth-input-border text-auth-title font-medium rounded-xl text-sm transition hover:bg-auth-input-bg active:scale-[0.98] disabled:opacity-50"
+                className="px-5 h-11 border border-auth-input-border text-auth-title font-medium rounded-xl text-sm transition hover:bg-auth-input-bg active:scale-[0.98] disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
               >
                 Cancelar
               </button>

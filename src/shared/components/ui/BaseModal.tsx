@@ -19,16 +19,47 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   title,
   children,
 }) => {
-  const modalRef =
-    useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  const previousFocusRef =
-    useRef<HTMLElement | null>(null);
+  const getFocusableElements = (container: HTMLElement): HTMLElement[] => {
+    return Array.from(
+      container.querySelectorAll<HTMLElement>(
+        'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, [tabindex="0"], [contenteditable]'
+      )
+    ).filter((el) => el.tabIndex !== -1);
+  };
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onClose();
+        return;
+      }
+
+      if (e.key === "Tab" && modalRef.current) {
+        const focusable = getFocusableElements(modalRef.current);
+        if (focusable.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          // Shift + Tab
+          if (document.activeElement === first || document.activeElement === modalRef.current) {
+            last.focus();
+            e.preventDefault();
+          }
+        } else {
+          // Tab
+          if (document.activeElement === last) {
+            first.focus();
+            e.preventDefault();
+          }
+        }
       }
     },
     [onClose]
@@ -37,40 +68,39 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    previousFocusRef.current =
-      document.activeElement as HTMLElement;
+    previousFocusRef.current = document.activeElement as HTMLElement;
 
-    const originalStyle =
-      window.getComputedStyle(
-        document.body
-      ).overflow;
+    const originalStyle = window.getComputedStyle(document.body).overflow;
+    document.body.style.overflow = "hidden";
 
-    document.body.style.overflow =
-      "hidden";
-
-    modalRef.current?.focus();
+    const focusTimeout = setTimeout(() => {
+      if (modalRef.current) {
+        const focusable = getFocusableElements(modalRef.current);
+        if (focusable.length > 0) {
+          focusable[0].focus();
+        } else {
+          modalRef.current.focus();
+        }
+      }
+    }, 50);
 
     return () => {
-      document.body.style.overflow =
-        originalStyle;
-
-      previousFocusRef.current?.focus();
+      clearTimeout(focusTimeout);
+      document.body.style.overflow = originalStyle;
+      const prevElement = previousFocusRef.current;
+      setTimeout(() => {
+        prevElement?.focus();
+      }, 50);
     };
   }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
 
-    window.addEventListener(
-      "keydown",
-      handleKeyDown
-    );
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.removeEventListener(
-        "keydown",
-        handleKeyDown
-      );
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, handleKeyDown]);
 
