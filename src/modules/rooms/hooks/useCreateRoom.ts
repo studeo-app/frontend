@@ -24,7 +24,7 @@ export function useCreateRoom() {
       // Paso 1: Health check del backend
       try {
         await checkBackendHealth();
-      } catch (healthErr) {
+      } catch {
         throw new Error(
           "El servidor de la aplicación no está disponible. Por favor, inténtalo más tarde."
         );

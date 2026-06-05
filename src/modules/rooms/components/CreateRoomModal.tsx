@@ -119,7 +119,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
         imageFile,
         presetUrl,
       });
-    } catch (err) {
+    } catch {
       // Handled inside the hook
     }
   };
