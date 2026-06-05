@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useForm } from "@/shared/hooks/useForm";
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
 import { Input } from "@/shared/components/ui/Input";
 import { Button } from "@/shared/components/ui/Button";
 import { Card } from "@/shared/components/ui/Card";
@@ -11,7 +12,9 @@ import { ConfirmModal } from "@/shared/components/ui/ConfirmModal";
 import { ReauthModal } from "@/shared/components/ui/ReauthModal";
 import { ProfileAvatarCarousel } from "@/modules/auth/components/ProfileAvatarCarousel";
 import { useUsernameAvailability } from "@/modules/auth/hooks/useUsernameAvailability";
+import { usePasswordValidation } from "@/shared/hooks/usePasswordValidation";
 import { checkEmailAvailability } from "@/modules/users/api/usersApi";
+import { auth } from "@/config/firebase.config";
 import useDocumentTitle from "@/shared/hooks/useDocumentTitle";
 import { AlertCircle, ArrowLeft, CheckCircle2, Save, X } from "lucide-react";
 
@@ -39,6 +42,24 @@ export default function ProfilePage() {
 
   // Toast banner dismissed state
   const [toastDismissed, setToastDismissed] = useState(false);
+
+  // Password change state
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmNewPassword: "",
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  const {
+    validation: passwordValidation,
+    passwordsMatch: passwordFormMatches,
+  } = usePasswordValidation(
+    passwordForm.newPassword,
+    passwordForm.confirmNewPassword
+  );
+
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
   const initialUsername = profile?.username ?? "";
   const initialEmail = profile?.email ?? firebaseUser?.email ?? "";
@@ -161,6 +182,67 @@ export default function ProfilePage() {
 
   const handleAvatarChange = ({ secureUrl }: { secureUrl: string }) => {
     setFieldValue("avatarUrl", secureUrl);
+  };
+
+  const handlePasswordFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!passwordForm.currentPassword.trim() || !passwordForm.newPassword.trim() || !passwordForm.confirmNewPassword.trim()) {
+      setErrorMsg("Todos los campos de contraseña son obligatorios.");
+      setIsErrorOpen(true);
+      return;
+    }
+
+    if (!passwordValidation.isValid) {
+      setErrorMsg("La nueva contraseña no cumple con los requisitos mínimos.");
+      setIsErrorOpen(true);
+      return;
+    }
+
+    if (!passwordFormMatches) {
+      setErrorMsg("La nueva contraseña y la confirmación no coinciden.");
+      setIsErrorOpen(true);
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser || !currentUser.email) {
+        throw new Error("No hay una sesión activa de usuario.");
+      }
+
+      // 1. Reauthenticate user using direct auth.currentUser reference to avoid proxy/re-render method failures
+      const credential = EmailAuthProvider.credential(currentUser.email, passwordForm.currentPassword);
+      await reauthenticateWithCredential(currentUser, credential);
+
+      // 2. Update password
+      await updatePassword(currentUser, passwordForm.newPassword);
+
+      setSuccessMessage("Tu contraseña ha sido actualizada con éxito.");
+      setIsSuccessOpen(true);
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmNewPassword: "",
+      });
+    } catch (err: any) {
+      let friendlyMsg = err.message || "Error al actualizar la contraseña.";
+      if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password") {
+        friendlyMsg = "La contraseña actual ingresada es incorrecta.";
+      } else if (err.code === "auth/weak-password") {
+        friendlyMsg = "La nueva contraseña es muy débil. Intenta usar más caracteres y símbolos.";
+      }
+      setErrorMsg(friendlyMsg);
+      setIsErrorOpen(true);
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -568,6 +650,136 @@ export default function ProfilePage() {
           </div>
         </form>
       </Card>
+
+      {/* Change Password Card - Only shown if provider is email/password */}
+      {authProvider === "password" && (
+        <Card className="p-6 bg-auth-surface border-auth-input-border rounded-2xl shadow-md">
+          <form onSubmit={handlePasswordUpdate} className="space-y-6" noValidate>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-auth-input-border/60 pb-4 mb-2">
+              <div>
+                <h3 className="text-lg font-bold text-auth-title">
+                  Cambiar Contraseña
+                </h3>
+                <p className="text-xs text-auth-label">
+                  Actualiza tu contraseña de acceso de manera segura.
+                </p>
+              </div>
+              <div>
+                <Button
+                  type="submit"
+                  disabled={!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmNewPassword || passwordLoading}
+                  className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text font-semibold text-xs"
+                >
+                  {passwordLoading ? "Actualizando..." : "Actualizar Contraseña"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-3">
+              {/* Contraseña Actual */}
+              <div className="space-y-1.5">
+                <label htmlFor="currentPassword" className="block text-xs font-semibold text-auth-label">
+                  Contraseña Actual
+                </label>
+                <Input
+                  id="currentPassword"
+                  name="currentPassword"
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={handlePasswordFormChange}
+                  className="h-11 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+
+              {/* Nueva Contraseña */}
+              <div className="space-y-1.5">
+                <label htmlFor="newPassword" className="block text-xs font-semibold text-auth-label">
+                  Nueva Contraseña
+                </label>
+                <Input
+                  id="newPassword"
+                  name="newPassword"
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={handlePasswordFormChange}
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => setPasswordFocused(false)}
+                  className="h-11 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
+                  placeholder="••••••••"
+                  required
+                />
+                
+                {/* Real-time Password Rules */}
+                <div
+                  className={`
+                    overflow-hidden
+                    transition-all
+                    duration-300
+                    mt-1.5
+                    ${
+                      (!!passwordForm.newPassword && (passwordFocused || !passwordValidation.isValid))
+                        ? "max-h-40 opacity-100"
+                        : "max-h-0 opacity-0"
+                    }
+                  `}
+                >
+                  <div className="space-y-1 px-1">
+                    <div className={`flex items-center gap-2 text-xs transition-colors ${passwordValidation.minLength ? "text-auth-link" : "text-auth-error"}`}>
+                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.minLength ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} />
+                      <span>Mínimo 8 caracteres</span>
+                    </div>
+                    <div className={`flex items-center gap-2 text-xs transition-colors ${passwordValidation.hasUppercase ? "text-auth-link" : "text-auth-error"}`}>
+                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.hasUppercase ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} />
+                      <span>Incluye una mayúscula</span>
+                    </div>
+                    <div className={`flex items-center gap-2 text-xs transition-colors ${passwordValidation.hasNumber ? "text-auth-link" : "text-auth-error"}`}>
+                      <CheckCircle2 className={`h-3.5 w-3.5 ${passwordValidation.hasNumber ? "text-emerald-500 fill-emerald-500/10" : "text-auth-error"}`} />
+                      <span>Incluye un número</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Confirmar Nueva Contraseña */}
+              <div className="space-y-1.5">
+                <label htmlFor="confirmNewPassword" className="block text-xs font-semibold text-auth-label">
+                  Confirmar Nueva Contraseña
+                </label>
+                <Input
+                  id="confirmNewPassword"
+                  name="confirmNewPassword"
+                  type="password"
+                  value={passwordForm.confirmNewPassword}
+                  onChange={handlePasswordFormChange}
+                  className="h-11 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
+                  placeholder="••••••••"
+                  required
+                />
+                
+                {/* Password Match Confirmation */}
+                {!!passwordForm.confirmNewPassword && (
+                  <div
+                    className={`
+                      overflow-hidden
+                      transition-all
+                      duration-200
+                      mt-1.5
+                      ${passwordFormMatches && passwordForm.newPassword === passwordForm.confirmNewPassword ? "max-h-10 opacity-100" : "max-h-0 opacity-0"}
+                    `}
+                  >
+                    <div className="flex items-center gap-2 px-1 text-xs text-auth-link">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 fill-emerald-500/10" />
+                      <span>Las contraseñas coinciden</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </form>
+        </Card>
+      )}
 
       {/* Discreet account deletion section at bottom */}
       <div className="pt-8 border-t border-auth-input-border/40 flex flex-col items-center gap-2">
