@@ -339,7 +339,7 @@ export default function ProfilePage() {
   const handleSaveConfirm = async () => {
     setIsSaveConfirmOpen(false);
     const emailChanged = fields.email.value.trim().toLowerCase() !== initialEmail.toLowerCase();
-    if (emailChanged && authProvider === "password" && checkNeedsReauth()) {
+    if (emailChanged && authProvider === "password") {
       setPendingAction("update");
       setIsReauthOpen(true);
       return;
@@ -439,78 +439,79 @@ export default function ProfilePage() {
         {/* Banner background graphic */}
         <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-r from-auth-btn/20 to-auth-btn/5" />
 
-        <div className="relative pt-8 flex flex-col md:flex-row items-center md:items-end gap-6">
-          <div className="shrink-0">
-            <ProfileAvatarCarousel
-              displayName={`${profile?.firstName || ""} ${profile?.lastName || ""}`}
-              userId={profile?.uid}
-              initialExternalUrl={googlePhotoUrl}
-              value={fields.avatarUrl.value}
-              disabled={!isEditingMode}
-              onChange={handleAvatarChange}
-            />
-          </div>
-          <div className="flex-1 text-center md:text-left">
-            <h2 className="text-2xl font-extrabold text-auth-title tracking-tight">
-              {profile ? `${profile.firstName} ${profile.lastName}` : "Usuario Pro"}
-            </h2>
-            <p className="text-sm text-auth-label font-medium mt-0.5">
-              {fields.username.value ? `@${fields.username.value}` : profile?.email ?? firebaseUser?.email}
-            </p>
-            <div className="mt-2 flex flex-wrap justify-center md:justify-start gap-2">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-auth-btn/10 text-auth-btn">
-                Estudiante
-              </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-auth-input-bg text-auth-label border border-auth-input-border">
-                {authProvider === "google" ? "Google Auth" : "Correo y Contraseña"}
-              </span>
+        <div className="relative pt-8 flex flex-col md:flex-row items-center md:items-end justify-between gap-6">
+          <div className="flex flex-col md:flex-row items-center md:items-end gap-6 flex-1">
+            <div className="shrink-0">
+              <ProfileAvatarCarousel
+                displayName={`${profile?.firstName || ""} ${profile?.lastName || ""}`}
+                userId={profile?.uid}
+                initialExternalUrl={googlePhotoUrl}
+                value={fields.avatarUrl.value}
+                disabled={!isEditingMode}
+                onChange={handleAvatarChange}
+              />
             </div>
+            <div className="text-center md:text-left flex-1">
+              <h2 className="text-2xl font-extrabold text-auth-title tracking-tight">
+                {profile ? `${profile.firstName} ${profile.lastName}` : "Usuario Pro"}
+              </h2>
+              <p className="text-sm text-auth-label font-medium mt-0.5">
+                {fields.username.value ? `@${fields.username.value}` : profile?.email ?? firebaseUser?.email}
+              </p>
+              <div className="mt-2 flex flex-wrap justify-center md:justify-start gap-2">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-auth-btn/10 text-auth-btn">
+                  Estudiante
+                </span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-auth-input-bg text-auth-label border border-auth-input-border">
+                  {authProvider === "google" ? "Google Auth" : "Correo y Contraseña"}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="w-full md:w-auto flex items-center justify-center md:justify-end gap-2 shrink-0">
+            {!isEditingMode ? (
+              <Button
+                type="button"
+                onClick={() => setIsEditingMode(true)}
+                className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] bg-auth-btn text-auth-btn-text"
+              >
+                Editar Perfil
+              </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all border border-auth-input-border hover:bg-auth-input-bg text-auth-label"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  form="profile-form"
+                  disabled={!isDirty || hasValidationErrors}
+                  className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text"
+                >
+                  <Save className="h-4 w-4" />
+                  Guardar Cambios
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </Card>
 
       {/* Main Profile Edit Form Card */}
       <Card className="p-6 bg-auth-surface border-auth-input-border rounded-2xl shadow-md">
-        <form onSubmit={handleSave} className="space-y-6" noValidate>
+        <form id="profile-form" onSubmit={handleSave} className="space-y-6" noValidate>
           {/* Header Action section */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-auth-input-border/60 pb-4 mb-2">
-            <div>
-              <h3 className="text-lg font-bold text-auth-title">
-                Información Personal
-              </h3>
-              <p className="text-xs text-auth-label">
-                Actualiza los detalles de tu cuenta y configuración de perfil.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {!isEditingMode ? (
-                <Button
-                  type="button"
-                  onClick={() => setIsEditingMode(true)}
-                  className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] bg-auth-btn text-auth-btn-text"
-                >
-                  Editar Perfil
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    type="button"
-                    onClick={handleCancelEdit}
-                    className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all border border-auth-input-border hover:bg-auth-input-bg text-auth-label"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={!isDirty || hasValidationErrors}
-                    className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text"
-                  >
-                    <Save className="h-4 w-4" />
-                    Guardar Cambios
-                  </Button>
-                </>
-              )}
-            </div>
+          <div className="border-b border-auth-input-border/60 pb-4 mb-2">
+            <h3 className="text-lg font-bold text-auth-title">
+              Información Personal
+            </h3>
+            <p className="text-xs text-auth-label">
+              Actualiza los detalles de tu cuenta y configuración de perfil.
+            </p>
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2">
