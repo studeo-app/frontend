@@ -3,6 +3,7 @@ import type {
   CheckUsernameResponse,
   CompleteProfileResponse,
   ProfileStatusResponse,
+  UserProfile,
 } from "@/types/user";
 
 
@@ -25,6 +26,15 @@ export async function checkUsernameAvailability(
   );
 }
 
+export async function checkEmailAvailability(
+  email: string
+): Promise<{ email: string; available: boolean }> {
+  const encoded = encodeURIComponent(email.trim().toLowerCase());
+  return apiRequest<{ email: string; available: boolean }>(
+    `/users/check-email/${encoded}`
+  );
+}
+
 export interface CompleteProfilePayload {
   username: string;
   avatarUrl?: string;
@@ -38,5 +48,33 @@ export async function completeUserProfile(
     method: "POST",
     token,
     body: payload,
+  });
+}
+
+export interface UpdateProfilePayload {
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  avatarUrl?: string;
+  email?: string;
+}
+
+export async function updateUserProfile(
+  token: string,
+  payload: UpdateProfilePayload
+): Promise<UserProfile> {
+  return apiRequest<UserProfile>("/users/profile", {
+    method: "PATCH",
+    token,
+    body: payload,
+  });
+}
+
+export async function deleteUserAccount(
+  token: string
+): Promise<{ deleted: boolean; message: string }> {
+  return apiRequest<{ deleted: boolean; message: string }>("/users/profile", {
+    method: "DELETE",
+    token,
   });
 }

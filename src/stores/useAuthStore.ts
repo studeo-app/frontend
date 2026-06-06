@@ -9,12 +9,17 @@ import {
   signInWithEmailAndPassword,
   fetchSignInMethodsForEmail,
   deleteUser,
+  updateEmail,
 } from "firebase/auth";
 import { auth, googleProvider } from "@/config/firebase.config";
+import { getApiErrorMessage } from "@/shared/api/apiError";
 import { registerOrSyncUser } from "@/modules/auth/api/authApi";
 import {
   completeUserProfile,
   fetchUserProfile,
+  updateUserProfile,
+  deleteUserAccount,
+  backendCheck,
 } from "@/modules/users/api/usersApi";
 import type {
   AuthProvider,
@@ -32,6 +37,7 @@ interface AuthState {
   suggestedProfile: SuggestedProfile | null;
   loading: boolean;
   error: string | null;
+  profileLoadError: string | null;
   /** Evita redirigir al dashboard antes de cerrar el modal de éxito */
   pendingProfileSuccessModal: boolean;
 
@@ -41,6 +47,7 @@ interface AuthState {
     lastName?: string;
   }) => Promise<RegisterSyncResponse>;
   fetchProfile: () => Promise<ProfileStatusResponse>;
+  retryLoadProfile: () => Promise<void>;
   loginWithGoogle: () => Promise<RegisterSyncResponse>;
   loginWithEmail: (
     email: string,
@@ -59,6 +66,14 @@ interface AuthState {
   acknowledgeProfileSuccess: () => void;
   logout: () => Promise<void>;
   clearError: () => void;
+  updateProfileData: (payload: {
+    firstName: string;
+    lastName: string;
+    username: string;
+    email: string;
+    avatarUrl?: string;
+  }) => Promise<void>;
+  deleteAccountAction: () => Promise<void>;
 }
 
 function applyProfileState(
@@ -75,6 +90,7 @@ function applyProfileState(
     profile: data.user ?? null,
     authProvider: data.authProvider ?? null,
     suggestedProfile: data.suggestedProfile ?? null,
+    profileLoadError: null,
   });
 }
 
@@ -86,6 +102,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   suggestedProfile: null,
   loading: true,
   error: null,
+  profileLoadError: null,
   pendingProfileSuccessModal: false,
 
   getIdToken: async () => {
@@ -122,6 +139,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
 
     return response;
+  },
+
+  retryLoadProfile: async () => {
+    set({ loading: true, profileLoadError: null });
+    try {
+      await get().fetchProfile();
+    } catch (err) {
+      set({
+        profile: null,
+        profileComplete: null,
+        authProvider: null,
+        suggestedProfile: null,
+        profileLoadError: getApiErrorMessage(
+          err,
+          "No pudimos cargar tu perfil desde el servidor."
+        ),
+      });
+    } finally {
+      set({ loading: false });
+    }
   },
 
   loginWithGoogle: async () => {
@@ -219,6 +256,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         authProvider: null,
         suggestedProfile: null,
         pendingProfileSuccessModal: false,
+        profileLoadError: null,
       });
     } catch (err) {
       const message =
@@ -228,6 +266,78 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  updateProfileData: async (payload) => {
+    set({ error: null });
+    try {
+      try {
+        await backendCheck();
+      } catch {
+        throw new Error("El servidor de la aplicación no está disponible. Por favor, inténtalo más tarde.");
+      }
+
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error("No hay sesión activa.");
+      }
+
+      const currentProfile = get().profile;
+      const currentEmail = currentProfile?.email ?? currentUser.email ?? "";
+      const emailChanged = payload.email.trim().toLowerCase() !== currentEmail.trim().toLowerCase();
+
+      if (emailChanged) {
+        const provider = get().authProvider;
+        if (provider === "google") {
+          throw new Error("Los usuarios autenticados mediante Google no pueden modificar su correo electrónico desde la aplicación.");
+        }
+
+        await updateEmail(currentUser, payload.email.trim().toLowerCase());
+      }
+
+      const token = await get().getIdToken();
+      await updateUserProfile(token, {
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        username: payload.username.trim().toLowerCase(),
+        avatarUrl: payload.avatarUrl,
+        email: payload.email.trim().toLowerCase(),
+      });
+
+      await get().fetchProfile();
+
+      try {
+        if (auth.currentUser) {
+          await auth.currentUser.reload();
+          set({ user: auth.currentUser });
+        }
+      } catch (err) {
+        console.warn("No se pudo recargar el usuario de Firebase Auth:", err);
+      }
+    } catch (err: unknown) {
+      throw err;
+    }
+  },
+
+  deleteAccountAction: async () => {
+    set({ error: null });
+    try {
+      const token = await get().getIdToken();
+      await deleteUserAccount(token);
+
+      await signOut(auth);
+      set({
+        user: null,
+        profile: null,
+        profileComplete: null,
+        authProvider: null,
+        suggestedProfile: null,
+        loading: false,
+        pendingProfileSuccessModal: false,
+      });
+    } catch (err: unknown) {
+      throw err;
+    }
+  },
 }));
 
 onAuthStateChanged(auth, async (user) => {
@@ -248,33 +358,48 @@ onAuthStateChanged(auth, async (user) => {
         authProvider: null,
         suggestedProfile: null,
         pendingProfileSuccessModal: false,
+        profileLoadError: null,
       });
       return;
     }
   }
 
-  useAuthStore.setState({ user, loading: true });
-
   if (!user) {
     useAuthStore.setState({
+      user: null,
       loading: false,
       profile: null,
       profileComplete: null,
       authProvider: null,
       suggestedProfile: null,
       pendingProfileSuccessModal: false,
+      profileLoadError: null,
     });
     return;
   }
 
+  const previousUid = useAuthStore.getState().user?.uid;
+  const isSameUser = previousUid === user.uid;
+
+  if (isSameUser) {
+    useAuthStore.setState({ user });
+    return;
+  }
+
+  useAuthStore.setState({ user, loading: true, profileLoadError: null });
+
   try {
     await useAuthStore.getState().fetchProfile();
-  } catch {
+  } catch (err) {
     useAuthStore.setState({
       profile: null,
       profileComplete: null,
       authProvider: null,
       suggestedProfile: null,
+      profileLoadError: getApiErrorMessage(
+        err,
+        "No pudimos cargar tu perfil desde el servidor."
+      ),
     });
   } finally {
     useAuthStore.setState({ loading: false });

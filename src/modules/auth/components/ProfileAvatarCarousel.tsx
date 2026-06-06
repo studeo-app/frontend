@@ -39,7 +39,7 @@ function sortCarouselItems(items: AvatarCarouselItem[]): AvatarCarouselItem[] {
   });
 }
 
-function buildInitialItems(initialExternalUrl?: string): AvatarCarouselItem[] {
+function buildInitialItems(initialExternalUrl?: string, currentValue?: string): AvatarCarouselItem[] {
   const defaults: AvatarCarouselItem[] = DEFAULT_PROFILE_AVATARS.map(
     (avatar) => ({
       id: avatar.id,
@@ -50,6 +50,11 @@ function buildInitialItems(initialExternalUrl?: string): AvatarCarouselItem[] {
 
   const items: AvatarCarouselItem[] = [];
   const external = initialExternalUrl?.trim();
+  const current = currentValue?.trim();
+
+  if (current && current !== external && !defaults.some((item) => item.src === current)) {
+    items.push({ id: "current-avatar", src: current, kind: "upload" });
+  }
 
   if (external && !defaults.some((item) => item.src === external)) {
     items.push({ id: "google", src: external, kind: "google" });
@@ -91,12 +96,12 @@ function AvatarThumb({
       disabled={disabled}
       aria-pressed={selected}
       className={`
-        relative h-[4.25rem] w-[4.25rem] shrink-0 snap-center overflow-hidden rounded-full border-2 transition-all duration-200
+        relative h-[3.25rem] w-[3.25rem] shrink-0 snap-center overflow-hidden rounded-full border-2 transition-all duration-200
         disabled:pointer-events-none disabled:opacity-50
         ${
           selected
             ? "border-auth-btn shadow-md shadow-auth-btn/25"
-            : "border-transparent opacity-80 hover:opacity-100"
+            : "border-transparent opacity-85 hover:opacity-100"
         }
       `}
     >
@@ -140,7 +145,7 @@ export const ProfileAvatarCarousel: React.FC<ProfileAvatarCarouselProps> = ({
   const uploadCounter = useRef(0);
 
   const [items, setItems] = useState<AvatarCarouselItem[]>(() =>
-    buildInitialItems(initialExternalUrl)
+    buildInitialItems(initialExternalUrl, value)
   );
   const [uploadErrorOpen, setUploadErrorOpen] = useState(false);
   const [uploadErrorMessage, setUploadErrorMessage] = useState("");
