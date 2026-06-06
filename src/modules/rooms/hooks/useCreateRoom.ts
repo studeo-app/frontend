@@ -1,7 +1,22 @@
 import { useState } from "react";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { uploadImageToCloudinary } from "@/modules/media/cloudinary/uploadImage";
+import { getApiErrorMessage } from "@/shared/api/apiError";
+import {
+  CloudinaryUploadError,
+  uploadImageToCloudinary,
+} from "@/modules/media/cloudinary/uploadImage";
 import { checkBackendHealth, createRoom } from "../api/roomsApi";
+
+function resolveCreateRoomError(error: unknown): string {
+  if (error instanceof CloudinaryUploadError) {
+    return error.message;
+  }
+
+  return getApiErrorMessage(
+    error,
+    "No pudimos crear la sala. Inténtalo de nuevo."
+  );
+}
 
 interface CreateRoomParams {
   name: string;
@@ -37,15 +52,24 @@ export function useCreateRoom() {
         try {
           const uploadRes = await uploadImageToCloudinary(imageFile, "ROOMS");
           finalImageUrl = uploadRes.secureUrl;
-        } catch (uploadErr: any) {
-          throw new Error(
-            `No se pudo subir la imagen de portada: ${uploadErr?.message ?? "Error de red"}`
-          );
+        } catch (uploadErr: unknown) {
+          throw uploadErr instanceof CloudinaryUploadError
+            ? uploadErr
+            : new Error(
+                `No se pudo subir la imagen de portada: ${getApiErrorMessage(uploadErr, "Error de red")}`
+              );
         }
       }
 
       // Paso 3 & 4: Crear la sala en backend
-      const token = await getIdToken();
+      let token: string;
+      try {
+        token = await getIdToken();
+      } catch {
+        throw new Error(
+          "Tu sesión ha expirado. Vuelve a iniciar sesión e inténtalo de nuevo."
+        );
+      }
       const payload = {
         name,
         ...(finalImageUrl ? { imageUrl: finalImageUrl } : {}),
@@ -56,8 +80,9 @@ export function useCreateRoom() {
       // Paso 5: Guardar el ID de la sala creada para gatillar éxito y redirección
       setSuccessRoomId(room.id);
       return room;
-    } catch (err: any) {
-      setErrorMsg(err?.message ?? "Error inesperado al crear la sala");
+    } catch (err: unknown) {
+      const message = resolveCreateRoomError(err);
+      setErrorMsg(message);
       throw err;
     } finally {
       setIsCreating(false);

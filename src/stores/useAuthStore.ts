@@ -12,6 +12,7 @@ import {
   updateEmail,
 } from "firebase/auth";
 import { auth, googleProvider } from "@/config/firebase.config";
+import { getApiErrorMessage } from "@/shared/api/apiError";
 import { registerOrSyncUser } from "@/modules/auth/api/authApi";
 import {
   completeUserProfile,
@@ -36,6 +37,7 @@ interface AuthState {
   suggestedProfile: SuggestedProfile | null;
   loading: boolean;
   error: string | null;
+  profileLoadError: string | null;
   /** Evita redirigir al dashboard antes de cerrar el modal de éxito */
   pendingProfileSuccessModal: boolean;
 
@@ -45,6 +47,7 @@ interface AuthState {
     lastName?: string;
   }) => Promise<RegisterSyncResponse>;
   fetchProfile: () => Promise<ProfileStatusResponse>;
+  retryLoadProfile: () => Promise<void>;
   loginWithGoogle: () => Promise<RegisterSyncResponse>;
   loginWithEmail: (
     email: string,
@@ -87,6 +90,7 @@ function applyProfileState(
     profile: data.user ?? null,
     authProvider: data.authProvider ?? null,
     suggestedProfile: data.suggestedProfile ?? null,
+    profileLoadError: null,
   });
 }
 
@@ -98,6 +102,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   suggestedProfile: null,
   loading: true,
   error: null,
+  profileLoadError: null,
   pendingProfileSuccessModal: false,
 
   getIdToken: async () => {
@@ -134,6 +139,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
 
     return response;
+  },
+
+  retryLoadProfile: async () => {
+    set({ loading: true, profileLoadError: null });
+    try {
+      await get().fetchProfile();
+    } catch (err) {
+      set({
+        profile: null,
+        profileComplete: null,
+        authProvider: null,
+        suggestedProfile: null,
+        profileLoadError: getApiErrorMessage(
+          err,
+          "No pudimos cargar tu perfil desde el servidor."
+        ),
+      });
+    } finally {
+      set({ loading: false });
+    }
   },
 
   loginWithGoogle: async () => {
@@ -231,6 +256,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         authProvider: null,
         suggestedProfile: null,
         pendingProfileSuccessModal: false,
+        profileLoadError: null,
       });
     } catch (err) {
       const message =
@@ -242,7 +268,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   clearError: () => set({ error: null }),
 
   updateProfileData: async (payload) => {
-    set({ error: null, loading: true });
+    set({ error: null });
     try {
       try {
         await backendCheck();
@@ -287,16 +313,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch (err) {
         console.warn("No se pudo recargar el usuario de Firebase Auth:", err);
       }
-
-      set({ loading: false });
-    } catch (err: any) {
-      set({ loading: false });
+    } catch (err: unknown) {
       throw err;
     }
   },
 
   deleteAccountAction: async () => {
-    set({ error: null, loading: true });
+    set({ error: null });
     try {
       const token = await get().getIdToken();
       await deleteUserAccount(token);
@@ -311,8 +334,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         loading: false,
         pendingProfileSuccessModal: false,
       });
-    } catch (err: any) {
-      set({ loading: false });
+    } catch (err: unknown) {
       throw err;
     }
   },
@@ -336,33 +358,48 @@ onAuthStateChanged(auth, async (user) => {
         authProvider: null,
         suggestedProfile: null,
         pendingProfileSuccessModal: false,
+        profileLoadError: null,
       });
       return;
     }
   }
 
-  useAuthStore.setState({ user, loading: true });
-
   if (!user) {
     useAuthStore.setState({
+      user: null,
       loading: false,
       profile: null,
       profileComplete: null,
       authProvider: null,
       suggestedProfile: null,
       pendingProfileSuccessModal: false,
+      profileLoadError: null,
     });
     return;
   }
 
+  const previousUid = useAuthStore.getState().user?.uid;
+  const isSameUser = previousUid === user.uid;
+
+  if (isSameUser) {
+    useAuthStore.setState({ user });
+    return;
+  }
+
+  useAuthStore.setState({ user, loading: true, profileLoadError: null });
+
   try {
     await useAuthStore.getState().fetchProfile();
-  } catch {
+  } catch (err) {
     useAuthStore.setState({
       profile: null,
       profileComplete: null,
       authProvider: null,
       suggestedProfile: null,
+      profileLoadError: getApiErrorMessage(
+        err,
+        "No pudimos cargar tu perfil desde el servidor."
+      ),
     });
   } finally {
     useAuthStore.setState({ loading: false });

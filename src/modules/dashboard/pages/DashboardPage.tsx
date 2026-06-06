@@ -5,7 +5,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useRooms } from "@/modules/rooms/hooks/useRooms";
 import { CreateRoomModal } from "@/modules/rooms/components/CreateRoomModal";
 import { DEFAULT_ROOM_COVERS } from "@/modules/rooms/constants/defaultRoomCovers";
-import { ArrowRight, Plus, Compass, Users, Filter, Search, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { ArrowRight, Plus, Compass, Users, Filter, Search, ChevronLeft, ChevronRight, AlertCircle, LayoutGrid } from "lucide-react";
 import { useNavigate } from "react-router";
 
 export default function DashboardPage() {
@@ -109,8 +109,14 @@ export default function DashboardPage() {
       return 0;
     });
 
+  const hasActiveFilters =
+    searchQuery.trim() !== "" || filterType !== "all";
+  const isTrulyEmpty =
+    !loading && !error && rooms.length === 0 && !hasActiveFilters;
+
   // Pagination calculation
-  const showCreateCard = currentPage === 1 && searchQuery.trim() === "" && filterType === "all";
+  const showCreateCard =
+    currentPage === 1 && !hasActiveFilters && !isTrulyEmpty;
   const totalItems = filteredRooms.length + (showCreateCard ? 1 : 0);
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
 
@@ -211,6 +217,7 @@ export default function DashboardPage() {
             Mis Salas
           </h2>
 
+          {!isTrulyEmpty && (
           <div className="flex items-center gap-3 w-full sm:w-auto">
             {/* Search Input Filter */}
             <div className="relative flex-1 sm:flex-initial">
@@ -238,10 +245,11 @@ export default function DashboardPage() {
               <span>Filtros</span>
             </button>
           </div>
+          )}
         </div>
 
         {/* Filters Toggle Panel */}
-        {showFilters && (
+        {!isTrulyEmpty && showFilters && (
           <div className="p-4 bg-auth-surface border border-auth-input-border rounded-2xl flex flex-wrap gap-6 text-sm animate-scale-up shadow-sm">
             <div className="space-y-1.5">
               <span className="block text-xs font-bold text-auth-label uppercase tracking-wider">Mostrar</span>
@@ -293,7 +301,56 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {loading ? (
+        {isTrulyEmpty ? (
+          <div
+            className="relative flex min-h-[min(70vh,560px)] flex-col items-center justify-center rounded-3xl border border-auth-input-border bg-auth-surface px-6 py-16 text-center shadow-sm animate-scale-up overflow-hidden"
+            role="status"
+            aria-labelledby="empty-rooms-title"
+          >
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-gradient-to-b from-auth-btn/8 via-transparent to-auth-link/5"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -top-24 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-auth-btn/10 blur-3xl"
+            />
+
+            <div className="relative mb-8 flex h-24 w-24 items-center justify-center rounded-full border border-auth-btn/20 bg-auth-btn/10 text-auth-btn shadow-lg shadow-auth-btn/10">
+              <LayoutGrid className="h-11 w-11" strokeWidth={1.75} />
+            </div>
+
+            <div className="relative max-w-lg space-y-4">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-auth-label">
+                Sin espacios todavía
+              </p>
+              <h3
+                id="empty-rooms-title"
+                className="text-3xl font-extrabold tracking-tight text-auth-title sm:text-4xl"
+              >
+                Aún no tienes salas
+              </h3>
+              <p className="mx-auto max-w-md text-base leading-relaxed text-auth-label sm:text-lg">
+                Crea tu primer espacio de trabajo para estudiar en equipo, compartir
+                recursos y colaborar con tu comunidad.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="relative mt-10 inline-flex h-12 items-center justify-center gap-2.5 rounded-2xl bg-auth-btn px-8 text-base font-semibold text-auth-btn-text shadow-lg shadow-auth-btn/20 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:ring-offset-auth-bg cursor-pointer"
+            >
+              <Plus className="h-5 w-5" aria-hidden="true" />
+              Crear mi primer espacio
+            </button>
+
+            <p className="relative mt-5 max-w-sm text-sm text-auth-label/80">
+              También puedes unirte a una sala existente con un código de invitación
+              en la sección de arriba.
+            </p>
+          </div>
+        ) : loading ? (
           /* Loading Skeletal State */
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <div className="aspect-[4/5] rounded-2xl border border-dashed border-auth-input-border bg-auth-input-bg/10 flex items-center justify-center animate-pulse" />
@@ -366,12 +423,6 @@ export default function DashboardPage() {
                   Nueva Sala
                 </span>
               </button>
-            )}
-
-            {rooms.length === 0 && (
-              <div className="col-span-full py-8 text-center text-auth-label font-medium bg-auth-surface border border-auth-input-border rounded-2xl p-6 shadow-sm">
-                No tienes salas activas. Haz clic en "Nueva Sala" para crear tu primer espacio de estudio.
-              </div>
             )}
 
             {/* Room cards */}

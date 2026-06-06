@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { BaseModal } from "@/shared/components/ui/BaseModal";
 import { ErrorModal } from "@/shared/components/ui/ErrorModal";
 import { SuccessModal } from "@/shared/components/ui/SuccessModal";
@@ -30,6 +30,12 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { startCreateRoom, isCreating, errorMsg, setErrorMsg, successRoomId, setSuccessRoomId } = useCreateRoom();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setErrorMsg(null);
+    setSuccessRoomId(null);
+  }, [isOpen, setErrorMsg, setSuccessRoomId]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value);
@@ -91,6 +97,8 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+    setErrorMsg(null);
+    setSuccessRoomId(null);
     onClose();
   };
 

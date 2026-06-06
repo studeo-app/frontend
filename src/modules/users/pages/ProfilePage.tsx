@@ -13,18 +13,30 @@ import { ProfileAvatarCarousel } from "@/modules/auth/components/ProfileAvatarCa
 import { useUsernameAvailability } from "@/modules/auth/hooks/useUsernameAvailability";
 import { usePasswordValidation } from "@/shared/hooks/usePasswordValidation";
 import { checkEmailAvailability } from "@/modules/users/api/usersApi";
+import { getApiErrorMessage } from "@/shared/api/apiError";
 import { auth } from "@/config/firebase.config";
 import useDocumentTitle from "@/shared/hooks/useDocumentTitle";
-import { AlertCircle, CheckCircle2, Save, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, RefreshCw, Save, UserX, X } from "lucide-react";
 
 export default function ProfilePage() {
   useDocumentTitle("Perfil - Studeo");
-  const { profile, user: firebaseUser, updateProfileData, deleteAccountAction, loading } = useAuthStore();
+  const {
+    profile,
+    user: firebaseUser,
+    updateProfileData,
+    deleteAccountAction,
+    loading,
+    profileLoadError,
+    retryLoadProfile,
+  } = useAuthStore();
 
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [successTitle, setSuccessTitle] = useState("¡Vamos bien!");
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorTitle, setErrorTitle] = useState("Algo salió mal");
   const [isErrorOpen, setIsErrorOpen] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isEditingMode, setIsEditingMode] = useState(false);
 
   // Deletion modals state
@@ -236,6 +248,7 @@ export default function ProfilePage() {
       // 2. Update password
       await updatePassword(currentUser, passwordForm.newPassword);
 
+      setSuccessTitle("Contraseña actualizada");
       setSuccessMessage("Tu contraseña ha sido actualizada con éxito.");
       setIsSuccessOpen(true);
       setPasswordForm({
@@ -257,8 +270,7 @@ export default function ProfilePage() {
         friendlyMsg = "La nueva contraseña es muy débil. Intenta usar más caracteres y símbolos.";
         setPasswordErrors((prev) => ({ ...prev, newPassword: friendlyMsg }));
       } else {
-        setErrorMsg(friendlyMsg);
-        setIsErrorOpen(true);
+        showErrorModal(friendlyMsg, "No se pudo actualizar la contraseña");
       }
     } finally {
       setPasswordLoading(false);
@@ -275,10 +287,49 @@ export default function ProfilePage() {
     setShowErrors(false);
   };
 
+  const showErrorModal = (message: string, title = "Algo salió mal") => {
+    setErrorTitle(title);
+    setErrorMsg(message);
+    setIsErrorOpen(true);
+  };
+
   const checkNeedsReauth = (): boolean => {
     const lastSignInTime = firebaseUser?.metadata.lastSignInTime;
     if (!lastSignInTime) return true;
     return Date.now() - new Date(lastSignInTime).getTime() > 5 * 60 * 1000;
+  };
+
+  const resolveProfileUpdateError = (err: unknown): string => {
+    const firebaseErr = err as { code?: string; message?: string };
+    let friendlyMsg = getApiErrorMessage(
+      err,
+      "No pudimos guardar tus cambios. Inténtalo de nuevo."
+    );
+
+    const isEmailError =
+      firebaseErr.code === "auth/email-already-in-use" ||
+      friendlyMsg.includes("email-already-in-use") ||
+      friendlyMsg.toLowerCase().includes("email is already in use") ||
+      friendlyMsg.toLowerCase().includes("email_already_in_use") ||
+      (friendlyMsg.toLowerCase().includes("correo") &&
+        friendlyMsg.toLowerCase().includes("registrado"));
+
+    const isUsernameError =
+      friendlyMsg.includes("Username is already taken") ||
+      (friendlyMsg.toLowerCase().includes("username") &&
+        friendlyMsg.toLowerCase().includes("taken")) ||
+      friendlyMsg.toLowerCase().includes("username_taken") ||
+      (friendlyMsg.toLowerCase().includes("nombre de usuario") &&
+        friendlyMsg.toLowerCase().includes("registrado"));
+
+    if (isEmailError) {
+      return "El correo electrónico institucional ingresado ya está registrado por otro usuario.";
+    }
+    if (isUsernameError) {
+      return "El nombre de usuario ya está registrado por otra persona. Por favor elige otro.";
+    }
+
+    return friendlyMsg;
   };
 
   const executeUpdate = async () => {
@@ -290,38 +341,27 @@ export default function ProfilePage() {
         email: fields.email.value.trim().toLowerCase(),
         avatarUrl: fields.avatarUrl.value.trim() || undefined,
       });
-      setSuccessMessage("Tu perfil ha sido actualizado con éxito.");
+      setSuccessTitle("Cambios guardados");
+      setSuccessMessage("Tus cambios se han guardado correctamente.");
       setIsSuccessOpen(true);
       setShowErrors(false);
       setToastDismissed(false);
       setIsEditingMode(false);
-    } catch (err: any) {
-      if (err.code === "auth/requires-recent-login" || err.message?.includes("recent-login")) {
+    } catch (err: unknown) {
+      const firebaseErr = err as { code?: string; message?: string };
+      if (
+        firebaseErr.code === "auth/requires-recent-login" ||
+        firebaseErr.message?.includes("recent-login")
+      ) {
         setPendingAction("update");
         setIsReauthOpen(true);
-      } else {
-        let friendlyMsg = err.message || "Error al actualizar el perfil.";
-        const isEmailError = 
-          err.code === "auth/email-already-in-use" || 
-          friendlyMsg.includes("email-already-in-use") || 
-          friendlyMsg.toLowerCase().includes("email is already in use") ||
-          friendlyMsg.toLowerCase().includes("email_already_in_use") ||
-          (friendlyMsg.toLowerCase().includes("correo") && friendlyMsg.toLowerCase().includes("registrado"));
-
-        const isUsernameError = 
-          friendlyMsg.includes("Username is already taken") || 
-          (friendlyMsg.toLowerCase().includes("username") && friendlyMsg.toLowerCase().includes("taken")) ||
-          friendlyMsg.toLowerCase().includes("username_taken") ||
-          (friendlyMsg.toLowerCase().includes("nombre de usuario") && friendlyMsg.toLowerCase().includes("registrado"));
-
-        if (isEmailError) {
-          friendlyMsg = "El correo electrónico institucional ingresado ya está registrado por otro usuario.";
-        } else if (isUsernameError) {
-          friendlyMsg = "El nombre de usuario ya está registrado por otra persona. Por favor elige otro.";
-        }
-        setErrorMsg(friendlyMsg);
-        setIsErrorOpen(true);
+        return;
       }
+
+      showErrorModal(
+        resolveProfileUpdateError(err),
+        "No se pudieron guardar los cambios"
+      );
     }
   };
 
@@ -334,8 +374,10 @@ export default function ProfilePage() {
     }
 
     if (usernameHasChanged && usernameAvailable === false) {
-      setErrorMsg("El nombre de usuario ya está registrado por otra persona. Por favor elige otro.");
-      setIsErrorOpen(true);
+      showErrorModal(
+        "El nombre de usuario ya está registrado por otra persona. Por favor elige otro.",
+        "No se pudieron guardar los cambios"
+      );
       return;
     }
 
@@ -344,8 +386,10 @@ export default function ProfilePage() {
       try {
         const check = await checkEmailAvailability(fields.email.value);
         if (check.available === false) {
-          setErrorMsg("El correo electrónico institucional ingresado ya está registrado por otro usuario.");
-          setIsErrorOpen(true);
+          showErrorModal(
+            "El correo electrónico institucional ingresado ya está registrado por otro usuario.",
+            "No se pudieron guardar los cambios"
+          );
           return;
         }
       } catch (err) {
@@ -357,21 +401,30 @@ export default function ProfilePage() {
   };
 
   const handleSaveConfirm = async () => {
-    setIsSaveConfirmOpen(false);
-    const emailChanged = fields.email.value.trim().toLowerCase() !== initialEmail.toLowerCase();
+    const emailChanged =
+      fields.email.value.trim().toLowerCase() !== initialEmail.toLowerCase();
+
     if (emailChanged && authProvider === "password") {
+      setIsSaveConfirmOpen(false);
       setPendingAction("update");
       setIsReauthOpen(true);
       return;
     }
 
-    await executeUpdate();
+    setIsSavingProfile(true);
+    try {
+      await executeUpdate();
+      setIsSaveConfirmOpen(false);
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const executeDelete = async () => {
     setIsDeleting(true);
     try {
       await deleteAccountAction();
+      setSuccessTitle("Cuenta eliminada");
       setSuccessMessage("Tu cuenta ha sido eliminada permanentemente.");
       setIsSuccessOpen(true);
     } catch (err: any) {
@@ -379,8 +432,10 @@ export default function ProfilePage() {
         setPendingAction("delete");
         setIsReauthOpen(true);
       } else {
-        setErrorMsg(err.message || "Error al eliminar la cuenta.");
-        setIsErrorOpen(true);
+        showErrorModal(
+          err.message || "Error al eliminar la cuenta.",
+          "No se pudo eliminar la cuenta"
+        );
       }
     } finally {
       setIsDeleting(false);
@@ -405,7 +460,12 @@ export default function ProfilePage() {
     setPendingAction(null);
 
     if (action === "update") {
-      await executeUpdate();
+      setIsSavingProfile(true);
+      try {
+        await executeUpdate();
+      } finally {
+        setIsSavingProfile(false);
+      }
     } else if (action === "delete") {
       await executeDelete();
     }
@@ -418,7 +478,7 @@ export default function ProfilePage() {
     return googleProvider?.photoURL || undefined;
   }, [firebaseUser]);
 
-  if (loading && !profile) {
+  if (loading && !profile && !profileLoadError) {
     return (
       <div className="space-y-6 max-w-4xl mx-auto animate-pulse">
         {/* Banner skeleton */}
@@ -449,6 +509,85 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (profileLoadError && !profile) {
+    return (
+      <section className="mx-auto max-w-4xl">
+        <div
+          className="relative flex min-h-[min(70vh,520px)] flex-col items-center justify-center rounded-3xl border border-auth-error/25 bg-auth-surface px-6 py-16 text-center shadow-sm animate-scale-up overflow-hidden"
+          role="alert"
+          aria-labelledby="profile-error-title"
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-auth-error/8 via-transparent to-transparent"
+          />
+
+          <div className="relative mb-8 flex h-24 w-24 items-center justify-center rounded-full border border-auth-error/20 bg-auth-error/10 text-auth-error shadow-lg shadow-auth-error/10">
+            <UserX className="h-11 w-11" strokeWidth={1.75} />
+          </div>
+
+          <div className="relative max-w-lg space-y-4">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-auth-label">
+              Error al cargar perfil
+            </p>
+            <h2
+              id="profile-error-title"
+              className="text-3xl font-extrabold tracking-tight text-auth-title sm:text-4xl"
+            >
+              No pudimos obtener tus datos
+            </h2>
+            <p className="mx-auto max-w-md text-base leading-relaxed text-auth-label sm:text-lg">
+              {profileLoadError}
+            </p>
+            <p className="mx-auto max-w-md text-sm text-auth-label/80">
+              Tu sesión sigue activa, pero no pudimos conectar con la base de
+              datos para mostrar tu perfil.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void retryLoadProfile()}
+            disabled={loading}
+            className="relative mt-10 inline-flex h-12 items-center justify-center gap-2.5 rounded-2xl bg-auth-btn px-8 text-base font-semibold text-auth-btn-text shadow-lg shadow-auth-btn/20 transition hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:ring-offset-auth-bg cursor-pointer"
+          >
+            {loading ? (
+              <>
+                <svg
+                  className="h-5 w-5 animate-spin"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  role="status"
+                  aria-label="Reintentando..."
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.37 0 0 5.37 0 12h4z"
+                  />
+                </svg>
+                Reintentando...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-5 w-5" aria-hidden="true" />
+                Reintentar
+              </>
+            )}
+          </button>
+        </div>
+      </section>
     );
   }
 
@@ -509,11 +648,11 @@ export default function ProfilePage() {
                 <Button
                   type="submit"
                   form="profile-form"
-                  disabled={loading || !isDirty || hasValidationErrors}
+                  disabled={isSavingProfile || !isDirty || hasValidationErrors}
                   aria-describedby={(!isDirty || hasValidationErrors) ? "save-disabled-desc" : undefined}
                   className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
                 >
-                  {loading ? (
+                  {isSavingProfile ? (
                     <>
                       <svg
                         className="animate-spin h-4 w-4 text-current"
@@ -546,7 +685,7 @@ export default function ProfilePage() {
                 No disponible: corrige los errores de validación en el formulario antes de guardar.
               </span>
             )}
-            {loading && (
+            {isSavingProfile && (
               <div className="sr-only" aria-live="assertive">
                 Guardando cambios del perfil, por favor espera.
               </div>
@@ -881,12 +1020,13 @@ export default function ProfilePage() {
       {/* Confirmation modal for saving changes */}
       <ConfirmModal
         isOpen={isSaveConfirmOpen}
-        onClose={() => setIsSaveConfirmOpen(false)}
-        onConfirm={handleSaveConfirm}
+        onClose={() => !isSavingProfile && setIsSaveConfirmOpen(false)}
+        onConfirm={() => void handleSaveConfirm()}
         title="Confirmar Cambios"
         warning
         confirmText="Guardar"
         cancelText="Cancelar"
+        isLoading={isSavingProfile}
         message={
           <div className="space-y-3">
             <p className="text-sm text-auth-label">¿Estás seguro de que deseas guardar los siguientes cambios?</p>
@@ -958,10 +1098,11 @@ export default function ProfilePage() {
         isOpen={isSuccessOpen}
         onClose={() => {
           setIsSuccessOpen(false);
-          if (successMessage.includes("eliminada")) {
+          if (successTitle === "Cuenta eliminada") {
             window.location.href = "/login";
           }
         }}
+        title={successTitle}
         message={successMessage}
       />
 
@@ -969,7 +1110,7 @@ export default function ProfilePage() {
       <ErrorModal
         isOpen={isErrorOpen}
         onClose={() => setIsErrorOpen(false)}
-        title="Algo salió mal"
+        title={errorTitle}
         message={errorMsg || ""}
       />
     </section>
