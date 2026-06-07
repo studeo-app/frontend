@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
+import { useAuthStore } from '@/stores/useAuthStore'
 import useDocumentTitle from '@/shared/hooks/useDocumentTitle'
 import { ChatPanel } from '../components/ChatPanel'
 import { ControlBar } from '../components/ControlBar'
@@ -8,17 +9,24 @@ import { RoomHeader } from '../components/RoomHeader'
 import { RoomSettingsPanel } from '../components/RoomSettingsPanel'
 import { RoomSidebar } from '../components/RoomSidebar'
 import { VideoGrid } from '../components/VideoGrid'
+import { useRoom } from '../hooks/useRoom'
 import { useRoomSession } from '../hooks/useRoomSession'
 import type { RoomSidebarPanel } from '../types/roomSession'
 
 export default function RoomPage() {
+  const navigate = useNavigate()
   const { id } = useParams()
   const roomId = id ?? ''
+  const firebaseUser = useAuthStore((s) => s.user)
 
+  const { room, setRoom } = useRoom(roomId)
   const { session, actions } = useRoomSession(roomId)
   const [activePanel, setActivePanel] = useState<RoomSidebarPanel>('chat')
 
-  useDocumentTitle(`${session.roomName} - Studeo`)
+  const roomName = room?.name ?? session.roomName
+  const isOwner = room?.ownerUid === firebaseUser?.uid
+
+  useDocumentTitle(`${roomName} - Studeo`)
 
   const renderSidePanel = () => {
     switch (activePanel) {
@@ -47,9 +55,13 @@ export default function RoomPage() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <RoomHeader
-          roomName={session.roomName}
+          roomName={roomName}
           participantCount={session.participants.length}
           roomCode={session.roomCode}
+          room={room}
+          isOwner={isOwner}
+          onRoomUpdated={setRoom}
+          onRoomDeleted={() => navigate('/dashboard')}
         />
 
         <div className="flex min-h-0 flex-1">

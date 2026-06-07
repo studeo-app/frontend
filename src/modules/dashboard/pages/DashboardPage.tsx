@@ -4,6 +4,7 @@ import { UserAvatar } from "@/shared/components/user/UserAvatar";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useRooms } from "@/modules/rooms/hooks/useRooms";
 import { CreateRoomModal } from "@/modules/rooms/components/CreateRoomModal";
+import { RoomActionsMenu } from "@/modules/rooms/components/RoomActionsMenu";
 import { DEFAULT_ROOM_COVERS } from "@/modules/rooms/constants/defaultRoomCovers";
 import { ArrowRight, Plus, Compass, Users, Filter, Search, ChevronLeft, ChevronRight, AlertCircle, LayoutGrid } from "lucide-react";
 import { useNavigate } from "react-router";
@@ -461,6 +462,11 @@ export default function DashboardPage() {
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" aria-hidden="true" />
+                    {isOwner && (
+                      <div className="absolute top-3 right-3 z-10">
+                        <RoomActionsMenu room={room} isOwner={isOwner} variant="card" />
+                      </div>
+                    )}
                   </div>
 
                   {/* Details */}

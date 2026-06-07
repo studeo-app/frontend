@@ -10,6 +10,7 @@ interface RoomsState {
   lastFetched: number | null;
   fetchRooms: (force?: boolean) => Promise<void>;
   addRoomLocally: (room: Room) => void;
+  updateRoomLocally: (room: Room) => void;
   removeRoomLocally: (roomId: string) => void;
 }
 
@@ -53,6 +54,15 @@ export const useRoomsStore = create<RoomsState>((set, get) => ({
       );
       return { rooms: updated };
     });
+  },
+  updateRoomLocally: (room) => {
+    set((state) => ({
+      rooms: state.rooms
+        .map((r) => (r.id === room.id ? room : r))
+        .sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        ),
+    }));
   },
   removeRoomLocally: (roomId) => {
     set((state) => ({

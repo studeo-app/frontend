@@ -1,5 +1,5 @@
 import { apiRequest } from "@/shared/api/apiClient";
-import type { Room, CreateRoomPayload } from "@/types/room";
+import type { Room, CreateRoomPayload, UpdateRoomPayload } from "@/types/room";
 
 export async function checkBackendHealth(): Promise<{ status: string }> {
   return apiRequest<{ status: string }>("/health");
@@ -14,6 +14,24 @@ export async function getMyRooms(token: string): Promise<Room[]> {
 export async function createRoom(token: string, payload: CreateRoomPayload): Promise<Room> {
   return apiRequest<Room>("/rooms", {
     method: "POST",
+    token,
+    body: payload,
+  });
+}
+
+export async function getRoomById(token: string, roomId: string): Promise<Room> {
+  return apiRequest<Room>(`/rooms/${roomId}`, {
+    token,
+  });
+}
+
+export async function updateRoom(
+  token: string,
+  roomId: string,
+  payload: UpdateRoomPayload,
+): Promise<Room> {
+  return apiRequest<Room>(`/rooms/${roomId}`, {
+    method: "PATCH",
     token,
     body: payload,
   });
