@@ -185,7 +185,7 @@ export default function AppLayout() {
                               rooms.map((room) => (
                                 <li key={room.id}>
                                   <NavLink
-                                    to={`/room/${room.id}`}
+                                    to={`/room/${room.id}/lobby`}
                                     title={room.name}
                                     className={({ isActive }) =>
                                       `flex items-center gap-2 rounded-md py-1.5 px-2 text-xs font-medium transition-colors duration-200 cursor-pointer ${isActive
@@ -219,7 +219,7 @@ export default function AppLayout() {
                             {rooms.map((room) => (
                               <li key={room.id} className="relative group/tooltip">
                                 <NavLink
-                                  to={`/room/${room.id}`}
+                                  to={`/room/${room.id}/lobby`}
                                   aria-label={`Ir a la sala ${room.name}`}
                                   className={({ isActive }) =>
                                     `flex h-9 w-9 items-center justify-center rounded-3xl transition-all duration-300 cursor-pointer overflow-hidden border border-auth-input-border/40 ${

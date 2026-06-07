@@ -41,14 +41,14 @@ export default function DashboardPage() {
     e.preventDefault();
     if (!inviteCode.trim()) return;
     // Redirigir a la sala usando el código ingresado
-    navigate(`/room/${inviteCode.trim()}`);
+    navigate(`/room/${inviteCode.trim()}/lobby`);
   };
 
   const handleCreateSuccess = (roomId: string) => {
     setIsCreateModalOpen(false);
     refreshRooms();
     // Redirigir automáticamente a la sala creada
-    navigate(`/room/${roomId}`);
+    navigate(`/room/${roomId}/lobby`);
   };
 
   const formatDate = (dateString: string) => {
@@ -491,7 +491,7 @@ export default function DashboardPage() {
                     </div>
 
                     <button
-                      onClick={() => navigate(`/room/${room.id}`)}
+                      onClick={() => navigate(`/room/${room.id}/lobby`)}
                       aria-label={`Entrar a la sala ${room.name}`}
                       className="w-full h-10 bg-auth-btn text-auth-btn-text text-sm font-semibold rounded-xl transition hover:brightness-110 active:scale-[0.98] cursor-pointer shadow-sm focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
                     >
