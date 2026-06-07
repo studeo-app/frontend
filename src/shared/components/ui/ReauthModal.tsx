@@ -22,6 +22,7 @@ export const ReauthModal: React.FC<ReauthModalProps> = ({
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const passwordErrorId = "reauth-password-error";
 
   const handlePasswordReauth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,12 +100,14 @@ export const ReauthModal: React.FC<ReauthModalProps> = ({
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
                 required
+                aria-invalid={error ? "true" : undefined}
+                aria-describedby={error ? passwordErrorId : undefined}
                 className="h-11"
               />
             </div>
 
             {error && (
-              <p role="alert" aria-live="assertive" className="text-xs text-auth-error animate-fade-in">
+              <p id={passwordErrorId} role="alert" className="text-xs text-auth-error animate-fade-in">
                 {error}
               </p>
             )}

@@ -146,12 +146,23 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
 
   return (
     <>
-      <BaseModal isOpen={isOpen} onClose={handleClose}>
+      <BaseModal
+        isOpen={isOpen}
+        onClose={handleClose}
+        labelledBy="create-room-modal-title"
+        describedBy="create-room-modal-desc"
+      >
         <div className="flex flex-col text-left">
-          <h2 className="text-2xl font-bold tracking-tight text-center text-auth-title">
+          <h2
+            id="create-room-modal-title"
+            className="text-2xl font-bold tracking-tight text-center text-auth-title"
+          >
             Crear Nueva Sala
           </h2>
-          <p className="mt-1.5 text-xs text-center text-auth-label">
+          <p
+            id="create-room-modal-desc"
+            className="mt-1.5 text-xs text-center text-auth-label"
+          >
             Define el nombre y la identidad visual de tu espacio de estudio.
           </p>
 
@@ -186,34 +197,40 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
             </div>
 
             {/* Cover Image */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-auth-label">
-                  Imagen de portada
-                </span>
-                <span className="text-[10px] text-auth-label font-normal lowercase">
+            <fieldset className="space-y-2 border-0 p-0 m-0">
+              <legend className="flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-auth-label">
+                <span>Imagen de portada</span>
+                <span className="text-[10px] font-normal normal-case">
                   Selecciona una imagen o sube la tuya
                 </span>
-              </div>
+              </legend>
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                id="room-cover-upload"
+                onChange={handleFileChange}
+                accept="image/*"
+                className="sr-only"
+                disabled={isCreating}
+                aria-label="Subir imagen de portada personalizada"
+              />
 
               {/* Grid Options */}
-              <div className="grid grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1">
+              <div
+                className="grid grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1"
+                role="radiogroup"
+                aria-label="Opciones de imagen de portada"
+              >
                 {/* Upload own button card */}
                 <button
                   type="button"
                   onClick={() => !isCreating && fileInputRef.current?.click()}
+                  aria-label="Subir imagen propia"
                   className="flex flex-col items-center justify-center aspect-video rounded-lg border-2 border-dashed border-auth-input-border bg-auth-input-bg/20 hover:bg-auth-input-bg/40 text-auth-label hover:text-auth-title cursor-pointer transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
                 >
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    accept="image/*"
-                    className="hidden"
-                    disabled={isCreating}
-                  />
                   <Upload className="h-5 w-5 mb-1" aria-hidden="true" />
-                  <span className="text-[10px] font-medium text-center">Subir propia</span>
+                  <span className="text-[10px] font-medium text-center" aria-hidden="true">Subir propia</span>
                 </button>
 
                 {/* Preset covers */}
@@ -223,6 +240,9 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                     <button
                       key={cover.id}
                       type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      aria-label={`Portada ${cover.name}${isSelected ? ", seleccionada" : ""}`}
                       onClick={() => !isCreating && setSelectedCoverId(cover.id)}
                       className={`
                         relative aspect-video rounded-lg overflow-hidden cursor-pointer border-2 transition text-left p-0
@@ -232,8 +252,9 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                     >
                       <img
                         src={cover.src}
-                        alt={cover.name}
+                        alt=""
                         className="w-full h-full object-cover"
+                        aria-hidden="true"
                       />
                       {isSelected && (
                         <div className="absolute inset-0 bg-auth-btn/20 flex items-center justify-center">
@@ -247,47 +268,53 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                 })}
 
                 {/* Custom uploaded covers */}
-                {customUploads.map((item) => {
+                {customUploads.map((item, index) => {
                   const isSelected = selectedCoverId === item.id;
                   return (
-                    <button
+                    <div
                       key={item.id}
-                      type="button"
-                      onClick={() => !isCreating && setSelectedCoverId(item.id)}
                       className={`
-                        relative aspect-video rounded-lg overflow-hidden cursor-pointer border-2 transition group text-left p-0
-                        hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn
+                        relative aspect-video rounded-lg overflow-hidden border-2 transition group
                         ${isSelected ? "border-auth-btn shadow-md" : "border-transparent opacity-85 hover:opacity-100"}
                       `}
                     >
-                      <img
-                        src={item.previewUrl}
-                        alt="Uploaded preview"
-                        className="w-full h-full object-cover"
-                      />
-                      
-                      {/* X Button to remove upload */}
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        aria-label={`Imagen personalizada ${index + 1}${isSelected ? ", seleccionada" : ""}`}
+                        onClick={() => !isCreating && setSelectedCoverId(item.id)}
+                        className="relative w-full h-full cursor-pointer text-left p-0 hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-inset"
+                      >
+                        <img
+                          src={item.previewUrl}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          aria-hidden="true"
+                        />
+
+                        {isSelected && (
+                          <div className="absolute inset-0 bg-auth-btn/20 flex items-center justify-center pointer-events-none">
+                            <div className="h-5 w-5 bg-auth-btn text-auth-btn-text rounded-full flex items-center justify-center shadow-md">
+                              <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                            </div>
+                          </div>
+                        )}
+                      </button>
+
                       <button
                         type="button"
                         onClick={(e) => handleRemoveCustomUpload(e, item.id)}
-                        aria-label="Remove uploaded image"
-                        className="absolute top-1 right-1 h-5 w-5 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-auth-error transition opacity-0 group-hover:opacity-100 z-20 focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:outline-none"
+                        aria-label={`Eliminar imagen personalizada ${index + 1}`}
+                        className="absolute top-1 right-1 h-5 w-5 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-auth-error transition opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 z-20 focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:outline-none focus-visible:opacity-100"
                       >
                         <X className="h-3 w-3" aria-hidden="true" />
                       </button>
-
-                      {isSelected && (
-                        <div className="absolute inset-0 bg-auth-btn/20 flex items-center justify-center">
-                          <div className="h-5 w-5 bg-auth-btn text-auth-btn-text rounded-full flex items-center justify-center shadow-md">
-                            <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                          </div>
-                        </div>
-                      )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
-            </div>
+            </fieldset>
 
             {/* Actions */}
             <div className="flex gap-3 pt-2">
