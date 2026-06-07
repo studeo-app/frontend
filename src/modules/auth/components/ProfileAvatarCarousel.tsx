@@ -64,16 +64,33 @@ function buildInitialItems(initialExternalUrl?: string, currentValue?: string): 
   return sortCarouselItems(items);
 }
 
+const AVATAR_KIND_LABELS: Record<AvatarCarouselItem["kind"], string> = {
+  default: "predeterminado",
+  google: "de Google",
+  upload: "subido",
+};
+
+function getAvatarOptionLabel(item: AvatarCarouselItem, index: number): string {
+  const kindLabel = AVATAR_KIND_LABELS[item.kind];
+  const position =
+    item.kind === "default"
+      ? ` ${index + 1}`
+      : item.kind === "upload"
+        ? ` ${index + 1}`
+        : "";
+  return `Avatar ${kindLabel}${position}`;
+}
+
 function AvatarThumb({
   src,
-  alt,
+  ariaLabel,
   publicId,
   selected,
   onClick,
   disabled,
 }: {
   src: string;
-  alt: string;
+  ariaLabel: string;
   publicId?: string;
   selected: boolean;
   onClick: () => void;
@@ -95,6 +112,7 @@ function AvatarThumb({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={selected}
+      aria-label={`${ariaLabel}${selected ? ", seleccionado" : ""}`}
       className={`
         relative h-[3.25rem] w-[3.25rem] shrink-0 snap-center overflow-hidden rounded-full border-2 transition-all duration-200
         disabled:pointer-events-none disabled:opacity-50
@@ -108,15 +126,17 @@ function AvatarThumb({
       {cloudinaryImage ? (
         <AdvancedImage
           cldImg={cloudinaryImage}
-          alt={alt}
+          alt=""
           className="h-full w-full object-cover"
+          aria-hidden="true"
         />
       ) : (
         <img
           src={src}
-          alt={alt}
+          alt=""
           className="h-full w-full object-cover"
           referrerPolicy="no-referrer"
+          aria-hidden="true"
         />
       )}
     </button>
@@ -141,6 +161,7 @@ export const ProfileAvatarCarousel: React.FC<ProfileAvatarCarouselProps> = ({
   onChange,
 }) => {
   const inputId = useId();
+  const uploadButtonId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadCounter = useRef(0);
 
@@ -276,6 +297,7 @@ export const ProfileAvatarCarousel: React.FC<ProfileAvatarCarouselProps> = ({
           )}
 
           <button
+            id={uploadButtonId}
             type="button"
             onClick={handlePickFile}
             disabled={disabled || isUploading}
@@ -315,16 +337,17 @@ export const ProfileAvatarCarousel: React.FC<ProfileAvatarCarouselProps> = ({
             className="sr-only"
             onChange={handleFileChange}
             disabled={disabled || isUploading}
+            aria-labelledby={uploadButtonId}
           />
         </div>
 
         <div className="w-full min-w-0 self-stretch">
           <AvatarCarouselStrip itemCount={sortedItems.length}>
-            {sortedItems.map((item) => (
+            {sortedItems.map((item, index) => (
             <AvatarThumb
               key={item.id}
               src={item.src}
-              alt={`Opción de avatar ${item.kind}`}
+              ariaLabel={getAvatarOptionLabel(item, index)}
               publicId={item.publicId}
               selected={item.id === selectedId}
               disabled={disabled || isUploading}

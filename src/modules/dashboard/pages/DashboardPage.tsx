@@ -147,7 +147,7 @@ export default function DashboardPage() {
             className="border-auth-btn/50 shadow-lg shadow-auth-btn/10"
           />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold uppercase tracking-widest text-auth-label/85">
+            <p className="text-xs font-bold uppercase tracking-widest text-auth-label">
               Panel de Control
             </p>
             <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-auth-title sm:text-3xl">
@@ -187,13 +187,16 @@ export default function DashboardPage() {
             onSubmit={handleJoinRoom}
             className="flex items-center gap-2.5 max-w-md w-full"
           >
+            <label htmlFor="invite-code" className="sr-only">
+              Código de invitación de la sala
+            </label>
             <input
+              id="invite-code"
               type="text"
-              aria-label="Código de invitación de la sala"
               placeholder="Código de la sala (Ej: STU-452)"
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value)}
-              className="flex-1 h-11 px-4 text-sm rounded-xl border border-auth-input-border bg-auth-input-bg/40 text-auth-title placeholder:opacity-50 focus:outline-none focus:ring-2 focus:ring-auth-btn focus:border-transparent transition"
+              className="flex-1 h-11 px-4 text-sm rounded-xl border border-auth-input-border bg-auth-input-bg/40 text-auth-title placeholder:text-auth-label focus:outline-none focus:ring-2 focus:ring-auth-btn focus:border-transparent transition"
             />
             <button
               type="submit"
@@ -221,13 +224,16 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3 w-full sm:w-auto">
             {/* Search Input Filter */}
             <div className="relative flex-1 sm:flex-initial">
+              <label htmlFor="room-search" className="sr-only">
+                Buscar salas
+              </label>
               <input
-                type="text"
-                aria-label="Buscar salas"
+                id="room-search"
+                type="search"
                 placeholder="Buscar salas..."
                 value={searchQuery}
                 onChange={handleSearchChange}
-                className="h-10 pl-9 pr-4 text-sm rounded-xl border border-auth-input-border bg-auth-surface text-auth-title placeholder:opacity-50 focus:outline-none focus:ring-2 focus:ring-auth-btn focus:border-transparent transition w-full sm:w-60 shadow-sm"
+                className="h-10 pl-9 pr-4 text-sm rounded-xl border border-auth-input-border bg-auth-surface text-auth-title placeholder:text-auth-label focus:outline-none focus:ring-2 focus:ring-auth-btn focus:border-transparent transition w-full sm:w-60 shadow-sm"
               />
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-auth-label" aria-hidden="true">
                 <Search className="h-4 w-4 opacity-70" />
@@ -236,7 +242,10 @@ export default function DashboardPage() {
 
             {/* Filter Toggle Button */}
             <button
+              type="button"
               onClick={() => setShowFilters(!showFilters)}
+              aria-expanded={showFilters}
+              aria-controls="room-filters-panel"
               className={`h-10 px-4 flex items-center justify-center gap-2 border border-auth-input-border bg-auth-surface text-auth-title rounded-xl text-sm font-semibold hover:bg-auth-input-bg transition cursor-pointer shadow-sm focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none ${
                 showFilters ? "border-auth-btn bg-auth-btn/5 text-auth-btn" : ""
               }`}
@@ -250,7 +259,10 @@ export default function DashboardPage() {
 
         {/* Filters Toggle Panel */}
         {!isTrulyEmpty && showFilters && (
-          <div className="p-4 bg-auth-surface border border-auth-input-border rounded-2xl flex flex-wrap gap-6 text-sm animate-scale-up shadow-sm">
+          <div
+            id="room-filters-panel"
+            className="p-4 bg-auth-surface border border-auth-input-border rounded-2xl flex flex-wrap gap-6 text-sm animate-scale-up shadow-sm"
+          >
             <div className="space-y-1.5">
               <span className="block text-xs font-bold text-auth-label uppercase tracking-wider">Mostrar</span>
               <div className="flex gap-2">
@@ -345,14 +357,20 @@ export default function DashboardPage() {
               Crear mi primer espacio
             </button>
 
-            <p className="relative mt-5 max-w-sm text-sm text-auth-label/80">
+            <p className="relative mt-5 max-w-sm text-sm text-auth-label">
               También puedes unirte a una sala existente con un código de invitación
               en la sección de arriba.
             </p>
           </div>
         ) : loading ? (
           /* Loading Skeletal State */
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div
+            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            aria-busy="true"
+            aria-live="polite"
+            role="status"
+            aria-label="Cargando salas"
+          >
             <div className="aspect-[4/5] rounded-2xl border border-dashed border-auth-input-border bg-auth-input-bg/10 flex items-center justify-center animate-pulse" />
             {[1, 2, 3].map((n) => (
               <div key={n} className="rounded-2xl border border-auth-input-border bg-auth-surface overflow-hidden shadow-sm animate-pulse">
@@ -451,7 +469,7 @@ export default function DashboardPage() {
                       <h3 className="font-bold text-base text-auth-title tracking-tight line-clamp-1 group-hover:text-auth-btn transition-colors">
                         {room.name}
                       </h3>
-                      <p className="text-xs text-auth-label/80">
+                      <p className="text-xs text-auth-label">
                         Creado el {formatDate(room.createdAt)}
                       </p>
                       
@@ -493,7 +511,7 @@ export default function DashboardPage() {
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
               aria-label="Página anterior"
-              className="p-2 border border-auth-input-border rounded-xl bg-auth-surface text-auth-title disabled:opacity-40 disabled:cursor-not-allowed hover:bg-auth-input-bg transition cursor-pointer shadow-sm focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
+              className="p-2 border border-auth-input-border rounded-xl bg-auth-surface text-auth-title disabled:opacity-60 disabled:cursor-not-allowed hover:bg-auth-input-bg transition cursor-pointer shadow-sm focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
             >
               <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -504,7 +522,7 @@ export default function DashboardPage() {
               onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
               aria-label="Página siguiente"
-              className="p-2 border border-auth-input-border rounded-xl bg-auth-surface text-auth-title disabled:opacity-40 disabled:cursor-not-allowed hover:bg-auth-input-bg transition cursor-pointer shadow-sm focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
+              className="p-2 border border-auth-input-border rounded-xl bg-auth-surface text-auth-title disabled:opacity-60 disabled:cursor-not-allowed hover:bg-auth-input-bg transition cursor-pointer shadow-sm focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
             >
               <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </button>

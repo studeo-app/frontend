@@ -542,7 +542,7 @@ export default function ProfilePage() {
             <p className="mx-auto max-w-md text-base leading-relaxed text-auth-label sm:text-lg">
               {profileLoadError}
             </p>
-            <p className="mx-auto max-w-md text-sm text-auth-label/80">
+            <p className="mx-auto max-w-md text-sm text-auth-label">
               Tu sesión sigue activa, pero no pudimos conectar con la base de
               datos para mostrar tu perfil.
             </p>
@@ -611,9 +611,9 @@ export default function ProfilePage() {
               />
             </div>
             <div className="text-center md:text-left flex-1">
-              <h2 className="text-2xl font-extrabold text-auth-title tracking-tight">
+              <h1 className="text-2xl font-extrabold text-auth-title tracking-tight">
                 {profile ? `${profile.firstName} ${profile.lastName}` : "Usuario Pro"}
-              </h2>
+              </h1>
               <p className="text-sm text-auth-label font-medium mt-0.5">
                 {fields.username.value ? `@${fields.username.value}` : profile?.email ?? firebaseUser?.email}
               </p>
@@ -675,14 +675,11 @@ export default function ProfilePage() {
                 </Button>
               </>
             )}
-            {isEditingMode && !isDirty && (
+            {isEditingMode && (!isDirty || hasValidationErrors) && (
               <span className="sr-only" id="save-disabled-desc">
-                No disponible: no se han realizado cambios en el perfil.
-              </span>
-            )}
-            {isEditingMode && hasValidationErrors && (
-              <span className="sr-only" id="save-disabled-desc">
-                No disponible: corrige los errores de validación en el formulario antes de guardar.
+                {!isDirty
+                  ? "No disponible: no se han realizado cambios en el perfil."
+                  : "No disponible: corrige los errores de validación en el formulario antes de guardar."}
               </span>
             )}
             {isSavingProfile && (
@@ -699,9 +696,9 @@ export default function ProfilePage() {
         <form id="profile-form" onSubmit={handleSave} className="space-y-6" noValidate>
           {/* Header Action section */}
           <div className="border-b border-auth-input-border/60 pb-4 mb-2">
-            <h3 className="text-lg font-bold text-auth-title">
+            <h2 className="text-lg font-bold text-auth-title">
               Información Personal
-            </h3>
+            </h2>
             <p className="text-xs text-auth-label">
               Actualiza los detalles de tu cuenta y configuración de perfil.
             </p>
@@ -766,7 +763,7 @@ export default function ProfilePage() {
                 Username
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-auth-label/60 font-semibold font-mono" aria-hidden="true">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-auth-label font-semibold font-mono" aria-hidden="true">
                   @
                 </span>
                 <Input
@@ -804,7 +801,7 @@ export default function ProfilePage() {
                   )}
                 </div>
               )}
-              <p className="text-[11px] text-auth-label/70">
+              <p className="text-[11px] text-auth-label">
                 Este nombre será visible para otros estudiantes en las salas de estudio.
               </p>
             </div>
@@ -835,7 +832,7 @@ export default function ProfilePage() {
                 )}
               </div>
               {authProvider === "google" && (
-                <p className="mt-1 flex items-start gap-1 text-[11px] leading-tight text-auth-label/70">
+                <p className="mt-1 flex items-start gap-1 text-[11px] leading-tight text-auth-label">
                   <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
                   Autenticado con Google. No se puede modificar el correo.
                 </p>
@@ -851,9 +848,9 @@ export default function ProfilePage() {
           <form onSubmit={handlePasswordUpdate} className="space-y-6" noValidate>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-auth-input-border/60 pb-4 mb-2">
               <div>
-                <h3 className="text-lg font-bold text-auth-title">
+                <h2 className="text-lg font-bold text-auth-title">
                   Cambiar Contraseña
-                </h3>
+                </h2>
                 <p className="text-xs text-auth-label">
                   Actualiza tu contraseña de acceso de manera segura.
                 </p>
@@ -991,14 +988,18 @@ export default function ProfilePage() {
         >
           Eliminar cuenta permanentemente
         </button>
-        <p className="text-[10px] text-auth-label/70">
+        <p className="text-[10px] text-auth-label">
           Se borrarán todos tus datos de forma definitiva e irreversible.
         </p>
       </div>
 
       {/* Floating Changes Detected Banner */}
       {isEditingMode && isDirty && !toastDismissed && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center justify-between gap-4 rounded-xl border border-auth-input-border bg-auth-surface p-4 shadow-2xl animate-scale-up min-w-[320px]">
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center justify-between gap-4 rounded-xl border border-auth-input-border bg-auth-surface p-4 shadow-2xl animate-scale-up min-w-[320px]"
+        >
           <div className="flex items-center gap-3">
             <CheckCircle2 className="h-5 w-5 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
             <div>
@@ -1067,16 +1068,21 @@ export default function ProfilePage() {
               <li>Imposibilidad absoluta de recuperar tu cuenta en el futuro.</li>
             </ul>
             <div className="space-y-2 pt-3 border-t border-auth-input-border/40">
-              <p className="text-xs text-auth-label font-semibold">
+              <label htmlFor="delete-confirm-input" className="text-xs text-auth-label font-semibold block">
                 Para confirmar, por favor escribe <span className="text-auth-error font-mono bg-auth-error/5 px-1.5 py-0.5 rounded border border-auth-error/20 select-all">eliminar {initialUsername}</span> a continuación:
-              </p>
+              </label>
               <Input
+                id="delete-confirm-input"
                 type="text"
                 placeholder={`eliminar ${initialUsername}`}
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
-                className="h-10 rounded-xl text-center bg-auth-input-bg/30 border-auth-input-border focus-visible:ring-auth-error focus-visible:border-auth-error placeholder:text-auth-label/20 placeholder:opacity-25"
+                aria-describedby="delete-confirm-hint"
+                className="h-10 rounded-xl text-center bg-auth-input-bg/30 border-auth-input-border focus-visible:ring-auth-error focus-visible:border-auth-error placeholder:text-auth-label"
               />
+              <p id="delete-confirm-hint" className="sr-only">
+                Escribe exactamente eliminar {initialUsername} para habilitar la eliminación de la cuenta.
+              </p>
             </div>
           </div>
         }

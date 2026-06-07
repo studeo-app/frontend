@@ -19,13 +19,14 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
   const descriptionId = "success-modal-description";
 
   return (
-    <BaseModal isOpen={isOpen} onClose={onClose}>
-      <div
-        className="flex flex-col items-center py-4 text-center"
-        role="alertdialog"
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
-      >
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      role="alertdialog"
+      labelledBy={titleId}
+      describedBy={descriptionId}
+    >
+      <div className="flex flex-col items-center py-4 text-center">
         <div
           className="
             mb-4
@@ -54,7 +55,6 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
         <p
           id={descriptionId}
           className="mb-6 px-4 text-sm leading-relaxed text-auth-label"
-          aria-live="polite"
         >
           {message}
         </p>
@@ -62,7 +62,6 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Continuar"
           className="
             h-11
             w-full

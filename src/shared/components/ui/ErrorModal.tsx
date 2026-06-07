@@ -15,12 +15,18 @@ export const ErrorModal: React.FC<ErrorModalProps> = ({
   message,
   title = "Oops! Ha ocurrido un error:",
 }) => {
+  const titleId = "error-modal-title";
+  const descriptionId = "error-modal-description";
+
   return (
-    <BaseModal isOpen={isOpen} onClose={onClose}>
-      <div
-        className="flex flex-col items-center py-4 text-center"
-        aria-live="assertive"
-      >
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      role="alertdialog"
+      labelledBy={titleId}
+      describedBy={descriptionId}
+    >
+      <div className="flex flex-col items-center py-4 text-center">
         <div
           className="
             mb-4
@@ -43,14 +49,14 @@ export const ErrorModal: React.FC<ErrorModalProps> = ({
         </div>
 
         <h3
-          id="error-modal-title"
+          id={titleId}
           className="mb-2 text-xl font-bold tracking-tight text-auth-title"
         >
           {title}
         </h3>
 
         <p
-          id="error-modal-description"
+          id={descriptionId}
           className="mb-6 px-4 text-sm leading-relaxed text-auth-label"
         >
           {message}
@@ -59,7 +65,6 @@ export const ErrorModal: React.FC<ErrorModalProps> = ({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Cerrar mensaje de error"
           className="
             h-11
             w-full

@@ -2,6 +2,7 @@ import React, {
   useEffect,
   useCallback,
   useRef,
+  useId,
 } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
@@ -11,6 +12,12 @@ export interface BaseModalProps {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
+  /** Defaults to "dialog". Use "alertdialog" for confirmations and alerts. */
+  role?: "dialog" | "alertdialog";
+  /** Override aria-labelledby. Defaults to "modal-title" when title prop is set. */
+  labelledBy?: string;
+  /** Sets aria-describedby when provided. */
+  describedBy?: string;
 }
 
 export const BaseModal: React.FC<BaseModalProps> = ({
@@ -18,9 +25,14 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   onClose,
   title,
   children,
+  role = "dialog",
+  labelledBy,
+  describedBy,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const instanceId = useId();
+  const titleId = labelledBy ?? (title ? `modal-title-${instanceId}` : undefined);
 
   const getFocusableElements = (container: HTMLElement): HTMLElement[] => {
     return Array.from(
@@ -48,13 +60,11 @@ export const BaseModal: React.FC<BaseModalProps> = ({
         const last = focusable[focusable.length - 1];
 
         if (e.shiftKey) {
-          // Shift + Tab
           if (document.activeElement === first || document.activeElement === modalRef.current) {
             last.focus();
             e.preventDefault();
           }
         } else {
-          // Tab
           if (document.activeElement === last) {
             first.focus();
             e.preventDefault();
@@ -108,14 +118,6 @@ export const BaseModal: React.FC<BaseModalProps> = ({
 
   return createPortal(
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={
-        title
-          ? "modal-title"
-          : undefined
-      }
-      aria-describedby="modal-content"
       className="
         fixed
         inset-0
@@ -124,14 +126,26 @@ export const BaseModal: React.FC<BaseModalProps> = ({
         items-center
         justify-center
         p-4
-        bg-auth-bg/60
-        backdrop-blur-sm
         animate-fade-in
       "
-      onClick={onClose}
     >
       <div
+        className="
+          absolute
+          inset-0
+          bg-auth-bg/60
+          backdrop-blur-sm
+        "
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      <div
         ref={modalRef}
+        role={role}
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={describedBy}
         tabIndex={-1}
         className="
           relative
@@ -147,14 +161,12 @@ export const BaseModal: React.FC<BaseModalProps> = ({
           shadow-black/10
           animate-scale-up
         "
-        onClick={(e) =>
-          e.stopPropagation()
-        }
+        onClick={(e) => e.stopPropagation()}
       >
         {title ? (
           <div className="mb-4 flex items-center justify-between">
             <h2
-              id="modal-title"
+              id={titleId}
               className="
                 text-lg
                 font-semibold
@@ -190,14 +202,7 @@ export const BaseModal: React.FC<BaseModalProps> = ({
           </div>
         ) : null}
 
-        <div
-          id="modal-content"
-          className={
-            title
-              ? "mt-2"
-              : undefined
-          }
-        >
+        <div className={title ? "mt-2" : undefined}>
           {children}
         </div>
       </div>

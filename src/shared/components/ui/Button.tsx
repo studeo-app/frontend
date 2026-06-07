@@ -90,6 +90,8 @@ export const Button = React.forwardRef<
             className="h-4 w-4 animate-spin"
             viewBox="0 0 24 24"
             fill="none"
+            role="status"
+            aria-label="Cargando"
           >
             <circle
               className="opacity-25"

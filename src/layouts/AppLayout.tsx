@@ -61,6 +61,12 @@ export default function AppLayout() {
 
   return (
     <div className="h-screen w-screen bg-auth-bg font-sans text-auth-title transition-colors duration-500 overflow-hidden">
+      <a
+        href="#main-content"
+        className="absolute left-4 -top-16 z-[100] rounded-lg bg-auth-btn px-4 py-2 text-sm font-semibold text-auth-btn-text outline-none ring-2 ring-auth-btn ring-offset-2 transition-[top] focus:top-4"
+      >
+        Saltar al contenido principal
+      </a>
       <div className="grid h-screen grid-cols-[auto_1fr] relative overflow-hidden">
 
         {/* Sidebar */}
@@ -160,6 +166,8 @@ export default function AppLayout() {
                                 setRoomsDropdownOpen(!roomsDropdownOpen);
                               }}
                               aria-label="Alternar lista de salas"
+                              aria-expanded={roomsDropdownOpen}
+                              aria-controls="sidebar-rooms-list"
                               className="absolute right-2 p-1 rounded-md text-auth-label hover:bg-auth-input-bg hover:text-auth-title transition-colors cursor-pointer"
                             >
                               <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${roomsDropdownOpen ? "rotate-180" : ""}`} />
@@ -168,11 +176,11 @@ export default function AppLayout() {
                         </div>
                         {/* Rooms dropdown list */}
                         {isExpanded && roomsDropdownOpen && (
-                          <ul className="pl-4 mt-1.5 space-y-1 border-l border-auth-input-border/60 ml-5 animate-fade-in">
+                          <ul id="sidebar-rooms-list" className="pl-4 mt-1.5 space-y-1 border-l border-auth-input-border/60 ml-5 animate-fade-in">
                             {loading ? (
-                              <li className="text-xs text-auth-label/60 py-1 px-3">Cargando salas...</li>
+                              <li className="text-xs text-auth-label py-1 px-3" role="status">Cargando salas...</li>
                             ) : rooms.length === 0 ? (
-                              <li className="text-xs text-auth-label/60 py-1 px-3">Sin salas</li>
+                              <li className="text-xs text-auth-label py-1 px-3">Sin salas</li>
                             ) : (
                               rooms.map((room) => (
                                 <li key={room.id}>
@@ -182,7 +190,7 @@ export default function AppLayout() {
                                     className={({ isActive }) =>
                                       `flex items-center gap-2 rounded-md py-1.5 px-2 text-xs font-medium transition-colors duration-200 cursor-pointer ${isActive
                                         ? "bg-auth-btn/10 text-auth-btn font-semibold"
-                                        : "text-auth-label/80 hover:bg-auth-input-bg hover:text-auth-title"
+                                        : "text-auth-label hover:bg-auth-input-bg hover:text-auth-title"
                                       }`
                                     }
                                   >
@@ -212,6 +220,7 @@ export default function AppLayout() {
                               <li key={room.id} className="relative group/tooltip">
                                 <NavLink
                                   to={`/room/${room.id}`}
+                                  aria-label={`Ir a la sala ${room.name}`}
                                   className={({ isActive }) =>
                                     `flex h-9 w-9 items-center justify-center rounded-3xl transition-all duration-300 cursor-pointer overflow-hidden border border-auth-input-border/40 ${
                                       isActive
@@ -234,7 +243,10 @@ export default function AppLayout() {
                                 </NavLink>
                                 
                                 {/* Discord-style tooltip */}
-                                <div className="absolute left-12 top-1/2 -translate-y-1/2 hidden group-hover/tooltip:block bg-slate-900 text-slate-100 text-xs font-semibold px-2.5 py-1.5 rounded-lg whitespace-nowrap z-[100] pointer-events-none shadow-lg border border-slate-700/50">
+                                <div
+                                  role="tooltip"
+                                  className="absolute left-12 top-1/2 -translate-y-1/2 hidden group-hover/tooltip:block group-focus-within/tooltip:block bg-slate-900 text-slate-100 text-xs font-semibold px-2.5 py-1.5 rounded-lg whitespace-nowrap z-[100] pointer-events-none shadow-lg border border-slate-700/50"
+                                >
                                   {room.name}
                                 </div>
                               </li>
@@ -336,7 +348,7 @@ export default function AppLayout() {
         </aside>
 
         {/* Main Content Area */}
-        <main className="h-screen bg-auth-bg p-4 sm:p-8 overflow-y-auto">
+        <main id="main-content" className="h-screen bg-auth-bg p-4 sm:p-8 overflow-y-auto" tabIndex={-1}>
           <div className="mx-auto max-w-6xl">
             <Outlet />
           </div>
