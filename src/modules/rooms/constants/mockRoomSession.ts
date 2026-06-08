@@ -53,6 +53,8 @@ export function createMockRoomSession(
       },
     ],
     messages: [],
+    loadingHistory: false,
+    hasMoreHistory: false,
   }
 }
 

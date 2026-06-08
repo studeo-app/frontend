@@ -14,4 +14,16 @@ export interface CreateRoomPayload {
 
 export interface UpdateRoomPayload {
   name?: string;
+  imageUrl?: string;
+}
+
+export interface RoomMember {
+  id: string;
+  roomId: string;
+  uid: string;
+  joinedAt: string;
+  displayName: string;
+  email?: string;
+  username?: string;
+  avatarUrl?: string;
 }

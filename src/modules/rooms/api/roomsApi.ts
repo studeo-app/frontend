@@ -1,5 +1,5 @@
 import { apiRequest } from "@/shared/api/apiClient";
-import type { Room, CreateRoomPayload, UpdateRoomPayload } from "@/types/room";
+import type { Room, CreateRoomPayload, UpdateRoomPayload, RoomMember } from "@/types/room";
 
 export async function checkBackendHealth(): Promise<{ status: string }> {
   return apiRequest<{ status: string }>("/health");
@@ -25,6 +25,25 @@ export async function getRoomById(token: string, roomId: string): Promise<Room> 
   });
 }
 
+export async function joinRoomById(token: string, roomId: string): Promise<Room> {
+  return apiRequest<Room>(`/rooms/${roomId}/join`, {
+    method: "POST",
+    token,
+  });
+}
+
+export async function getRoomMembers(token: string, roomId: string): Promise<RoomMember[]> {
+  return apiRequest<RoomMember[]>(`/rooms/${roomId}/members`, {
+    token,
+  });
+}
+
+export async function getMyRoomsMembers(token: string): Promise<Record<string, RoomMember[]>> {
+  return apiRequest<Record<string, RoomMember[]>>("/rooms/my-rooms/members", {
+    token,
+  });
+}
+
 export async function updateRoom(
   token: string,
   roomId: string,
@@ -39,6 +58,16 @@ export async function updateRoom(
 
 export async function deleteRoom(token: string, roomId: string): Promise<{ deleted: boolean; message: string }> {
   return apiRequest<{ deleted: boolean; message: string }>(`/rooms/${roomId}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
+export async function removeRoomMembership(
+  token: string,
+  roomId: string,
+): Promise<{ removed: boolean; message: string }> {
+  return apiRequest<{ removed: boolean; message: string }>(`/rooms/${roomId}/membership`, {
     method: "DELETE",
     token,
   });

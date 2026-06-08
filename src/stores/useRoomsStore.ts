@@ -1,17 +1,23 @@
 import { create } from "zustand";
 import { useAuthStore } from "./useAuthStore";
-import { getMyRooms } from "@/modules/rooms/api/roomsApi";
-import type { Room } from "@/types/room";
+import { getMyRooms, getMyRoomsMembers } from "@/modules/rooms/api/roomsApi";
+import type { Room, RoomMember } from "@/types/room";
 
 interface RoomsState {
   rooms: Room[];
   loading: boolean;
   error: string | null;
   lastFetched: number | null;
+  membersByRoomId: Record<string, RoomMember[]>;
+  membersLoading: boolean;
+  membersError: string | null;
+  membersCacheKey: string;
   fetchRooms: (force?: boolean) => Promise<void>;
+  fetchRoomsMembers: (rooms: Room[], force?: boolean) => Promise<void>;
   addRoomLocally: (room: Room) => void;
   updateRoomLocally: (room: Room) => void;
   removeRoomLocally: (roomId: string) => void;
+  removeRoomMembersLocally: (roomId: string) => void;
 }
 
 export const useRoomsStore = create<RoomsState>((set, get) => ({
@@ -19,6 +25,10 @@ export const useRoomsStore = create<RoomsState>((set, get) => ({
   loading: false,
   error: null,
   lastFetched: null,
+  membersByRoomId: {},
+  membersLoading: false,
+  membersError: null,
+  membersCacheKey: "",
   fetchRooms: async (force = false) => {
     if (get().loading) return;
 
@@ -47,6 +57,52 @@ export const useRoomsStore = create<RoomsState>((set, get) => ({
       set({ error: err?.message ?? "Error al obtener las salas", loading: false });
     }
   },
+  fetchRoomsMembers: async (rooms, force = false) => {
+    const roomsCacheKey = rooms.map((room) => room.id).sort().join("|");
+
+    if (rooms.length === 0) {
+      set({ membersByRoomId: {}, membersLoading: false, membersError: null, membersCacheKey: "" });
+      return;
+    }
+
+    if (get().membersLoading) return;
+
+    if (!force && get().membersCacheKey === roomsCacheKey) {
+      return;
+    }
+
+    const user = useAuthStore.getState().user;
+    if (!user) {
+      set({ membersByRoomId: {}, membersLoading: false, membersError: null, membersCacheKey: "" });
+      return;
+    }
+
+    set({ membersLoading: true, membersError: null });
+
+    try {
+      const token = await useAuthStore.getState().getIdToken();
+      const membersMap = await getMyRoomsMembers(token);
+      const normalizedMembersMap = Object.fromEntries(
+        rooms.map((room) => [room.id, membersMap[room.id] ?? []]),
+      );
+
+      set((state) => ({
+        membersByRoomId: {
+          ...state.membersByRoomId,
+          ...normalizedMembersMap,
+        },
+        membersLoading: false,
+        membersError: null,
+        membersCacheKey: roomsCacheKey,
+      }));
+    } catch (err: any) {
+      set({
+        membersError: err?.message ?? "No pudimos cargar los miembros de las salas.",
+        membersLoading: false,
+        membersCacheKey: roomsCacheKey,
+      });
+    }
+  },
   addRoomLocally: (room) => {
     set((state) => {
       const updated = [room, ...state.rooms].sort(
@@ -68,5 +124,19 @@ export const useRoomsStore = create<RoomsState>((set, get) => ({
     set((state) => ({
       rooms: state.rooms.filter((r) => r.id !== roomId),
     }));
+  },
+  removeRoomMembersLocally: (roomId) => {
+    set((state) => {
+      const nextMembers = { ...state.membersByRoomId };
+      delete nextMembers[roomId];
+      return {
+        membersByRoomId: nextMembers,
+        membersCacheKey: state.rooms
+          .filter((room) => room.id !== roomId)
+          .map((room) => room.id)
+          .sort()
+          .join("|"),
+      };
+    });
   },
 }));

@@ -3,7 +3,7 @@ import ThemeToggle from "@/shared/theme/components/ThemeToggle";
 import { UserAvatar } from "@/shared/components/user/UserAvatar";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { Home, LogOut, Palette, User, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
-import { NavLink, Outlet, useNavigate } from "react-router";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useRooms } from "@/modules/rooms/hooks/useRooms";
 
 const appLinks = [
@@ -16,6 +16,7 @@ const appLinks = [
 
 export default function AppLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const profile = useAuthStore((state) => state.profile);
   const firebaseUser = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
@@ -58,6 +59,7 @@ export default function AppLayout() {
   };
 
   const sidebarWidthClass = isExpanded ? "w-[280px]" : "w-[80px]";
+  const isActiveRoomPage = /^\/room\/[^/]+$/.test(location.pathname);
 
   return (
     <div className="h-screen w-screen bg-auth-bg font-sans text-auth-title transition-colors duration-500 overflow-hidden">
@@ -348,8 +350,12 @@ export default function AppLayout() {
         </aside>
 
         {/* Main Content Area */}
-        <main id="main-content" className="h-screen bg-auth-bg p-4 sm:p-8 overflow-y-auto" tabIndex={-1}>
-          <div className="mx-auto max-w-6xl">
+        <main
+          id="main-content"
+          className={`h-screen bg-auth-bg overflow-y-auto ${isActiveRoomPage ? "p-0" : "p-4 sm:p-8"}`}
+          tabIndex={-1}
+        >
+          <div className={isActiveRoomPage ? "h-full" : "mx-auto max-w-6xl"}>
             <Outlet />
           </div>
         </main>

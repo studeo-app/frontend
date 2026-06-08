@@ -4,6 +4,7 @@ export interface LobbyWaitingParticipant {
   displayName: string
   initials: string
   avatarColor: string
+  avatarUrl?: string
 }
 
 export interface MediaDeviceOption {

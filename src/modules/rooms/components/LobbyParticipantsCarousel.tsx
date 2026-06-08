@@ -137,7 +137,15 @@ export function LobbyParticipantsCarousel({
                     `}
                     aria-hidden="true"
                   >
-                    {participant.initials}
+                    {participant.avatarUrl ? (
+                      <img
+                        src={participant.avatarUrl}
+                        alt=""
+                        className="h-full w-full rounded-2xl object-cover"
+                      />
+                    ) : (
+                      participant.initials
+                    )}
                   </div>
                   <span
                     className={`

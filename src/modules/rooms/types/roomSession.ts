@@ -35,6 +35,8 @@ export interface RoomSessionState {
   messages: RoomChatMessage[]
   localMedia: LocalMediaState
   connectionStatus: RoomConnectionStatus
+  loadingHistory: boolean
+  hasMoreHistory: boolean
 }
 
 export type RoomSidebarPanel = 'participants' | 'chat' | 'settings' | null
@@ -45,4 +47,5 @@ export interface RoomSessionActions {
   toggleScreenShare: () => void
   sendMessage: (text: string) => void
   leaveRoom: () => void
+  loadMoreHistory: () => void
 }

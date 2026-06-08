@@ -3,8 +3,7 @@ import { useParams } from 'react-router'
 import useDocumentTitle from '@/shared/hooks/useDocumentTitle'
 import { DeviceSelect } from '../components/DeviceSelect'
 import { LobbyParticipantsCarousel } from '../components/LobbyParticipantsCarousel'
-import { MOCK_LOBBY_WAITING_PARTICIPANTS } from '../constants/mockLobbyParticipants'
-import { createMockRoomSession } from '../constants/mockRoomSession'
+import { useRoom } from '../hooks/useRoom'
 import { useRoomLobby } from '../hooks/useRoomLobby'
 
 function getRoomShortName(fullName: string): string {
@@ -15,12 +14,9 @@ function getRoomShortName(fullName: string): string {
 export default function RoomLobbyPage() {
   const { id } = useParams()
   const roomId = id ?? ''
-
-  const mockSession = createMockRoomSession(roomId, {
-    id: 'local',
-    displayName: 'Usuario',
-  })
-  const roomShortName = getRoomShortName(mockSession.roomName)
+  const { room, loading: loadingRoom } = useRoom(roomId)
+  const roomName = room?.name ?? 'Sala'
+  const roomShortName = getRoomShortName(roomName)
 
   const {
     localMedia,
@@ -28,6 +24,9 @@ export default function RoomLobbyPage() {
     selectedCameraId,
     micDevices,
     cameraDevices,
+    waitingParticipants,
+    loadingParticipants,
+    previewError,
     toggleMic,
     toggleCamera,
     setSelectedMicId,
@@ -35,18 +34,28 @@ export default function RoomLobbyPage() {
     joinRoom,
   } = useRoomLobby(roomId)
 
-  useDocumentTitle(`Lobby - ${mockSession.roomName}`)
+  useDocumentTitle(`Lobby - ${roomName}`)
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col items-center animate-fade-in pb-16">
       <h1 className="mb-10 max-w-xl text-center text-lg font-semibold leading-snug text-auth-title sm:text-xl md:text-2xl">
         Estás a punto de entrar a la sala{' '}
-        <span className="text-auth-btn">{roomShortName}</span>, comprueba que todo
-        funcione
+        <span className="text-auth-btn">{loadingRoom ? '...' : roomShortName}</span>,
+        comprueba que todo funcione
       </h1>
 
       <div className="mb-10 w-full">
-        <LobbyParticipantsCarousel participants={MOCK_LOBBY_WAITING_PARTICIPANTS} />
+        {loadingParticipants ? (
+          <div className="rounded-2xl border border-auth-input-border bg-auth-surface px-5 py-8 text-center text-sm text-auth-label">
+            Cargando participantes conectados...
+          </div>
+        ) : previewError ? (
+          <div className="rounded-2xl border border-auth-error/20 bg-auth-error/5 px-5 py-6 text-center text-sm text-auth-error">
+            {previewError}
+          </div>
+        ) : (
+          <LobbyParticipantsCarousel participants={waitingParticipants} />
+        )}
       </div>
 
       <div
