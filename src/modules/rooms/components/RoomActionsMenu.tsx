@@ -71,8 +71,8 @@ export function RoomActionsMenu({
   }
 
   const handleDeleteSuccessClose = () => {
-    setDeleteSuccess(false)
     onDeleted?.()
+    setDeleteSuccess(false)
   }
 
   const buttonClass =

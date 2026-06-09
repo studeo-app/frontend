@@ -19,7 +19,7 @@ export function useDeleteRoom() {
     try {
       const token = await getIdToken()
       await deleteRoom(token, roomId)
-      removeRoomLocally(roomId)
+      //removeRoomLocally(roomId)
       setDeleteSuccess(true)
     } catch (err: unknown) {
       const message = getApiErrorMessage(

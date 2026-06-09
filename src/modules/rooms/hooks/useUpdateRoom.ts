@@ -52,7 +52,7 @@ export function useUpdateRoom() {
         ...(finalImageUrl !== undefined ? { imageUrl: finalImageUrl } : {}),
       })
 
-      updateRoomLocally(room)
+      //updateRoomLocally(room)
       setUpdatedRoom(room)
       return room
     } catch (err: unknown) {
