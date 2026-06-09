@@ -162,7 +162,11 @@ export default function DashboardPage() {
         />
         <div className="absolute right-3 top-3 z-10">
           {isOwner ? (
-            <RoomActionsMenu room={room} isOwner={isOwner} variant="card" />
+            <RoomActionsMenu
+             room={room} 
+             isOwner={isOwner} 
+             variant="card"
+             onUpdated={refreshRooms} />
           ) : (
             <button
               type="button"
@@ -437,7 +441,7 @@ export default function DashboardPage() {
         </div>
       ) : isTrulyEmpty ? (
         <div
-          className="relative flex min-h-[min(70vh,560px)] flex-col items-center justify-center overflow-hidden rounded-3xl border border-auth-input-border bg-auth-surface px-6 py-16 text-center shadow-sm animate-scale-up"
+          className="relative flex min-h-[min(300px)] flex-col items-center justify-center overflow-hidden rounded-3xl border border-auth-input-border bg-auth-surface px-6 py-8 text-center shadow-sm animate-scale-up"
           role="status"
           aria-labelledby="empty-rooms-title"
         >
@@ -445,11 +449,11 @@ export default function DashboardPage() {
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 bg-gradient-to-b from-auth-btn/8 via-transparent to-auth-link/5"
           />
-          <div className="relative mb-8 flex h-24 w-24 items-center justify-center rounded-full border border-auth-btn/20 bg-auth-btn/10 text-auth-btn shadow-lg shadow-auth-btn/10">
+          <div className="relative mb-4 flex h-24 w-24 items-center justify-center rounded-full border border-auth-btn/20 bg-auth-btn/10 text-auth-btn shadow-lg shadow-auth-btn/10">
             <LayoutGrid className="h-11 w-11" strokeWidth={1.75} />
           </div>
 
-          <div className="relative max-w-lg space-y-4">
+          <div className="relative max-w-md space-y-2">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-auth-label">
               Sin espacios todavía
             </p>
@@ -467,7 +471,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => setIsCreateModalOpen(true)}
-            className="relative mt-10 inline-flex h-12 cursor-pointer items-center justify-center gap-2.5 rounded-2xl bg-auth-btn px-8 text-base font-semibold text-auth-btn-text shadow-lg shadow-auth-btn/20 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:ring-offset-auth-bg"
+            className="relative mt-3 inline-flex h-12 cursor-pointer items-center justify-center gap-2.5 rounded-2xl bg-auth-btn px-8 text-base font-semibold text-auth-btn-text shadow-lg shadow-auth-btn/20 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:ring-offset-auth-bg"
           >
             <Plus className="h-5 w-5" aria-hidden="true" />
             Crear mi primer espacio

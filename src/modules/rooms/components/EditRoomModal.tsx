@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, ImagePlus } from 'lucide-react'
+import { Check, ImagePlus, Loader2 } from 'lucide-react'
 import { BaseModal } from '@/shared/components/ui/BaseModal'
 import { ErrorModal } from '@/shared/components/ui/ErrorModal'
 import { SuccessModal } from '@/shared/components/ui/SuccessModal'
@@ -133,10 +133,11 @@ export function EditRoomModal({
   )
   const visiblePreview = previewUrl ?? selectedImageUrl
 
+
   return (
     <>
       <BaseModal
-        isOpen={isOpen}
+        isOpen={isOpen && !updatedRoom}
         onClose={handleClose}
         labelledBy="edit-room-modal-title"
         describedBy="edit-room-modal-desc"
@@ -287,7 +288,13 @@ export function EditRoomModal({
                 disabled={!isNameValid || !hasChanges || isUpdating}
                 className="h-11 flex-1 cursor-pointer rounded-xl bg-auth-btn text-sm font-semibold text-auth-btn-text transition hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2"
               >
-                {isUpdating ? 'Guardando...' : 'Guardar cambios'}
+                {isUpdating ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Guardando...
+                  </span>
+                ) : ( 'Guardar cambios')
+                }
               </button>
               <button
                 type="button"
