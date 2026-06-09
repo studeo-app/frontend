@@ -116,8 +116,9 @@ export function EditRoomModal({
     if (updatedRoom) {
       const updated = updatedRoom
       resetLocalImage()
-      setUpdatedRoom(null)
       onSuccess(updated)
+      
+      setUpdatedRoom(null)
       onClose()
     }
   }

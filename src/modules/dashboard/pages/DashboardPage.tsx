@@ -46,6 +46,7 @@ export default function DashboardPage() {
   const [membersRoom, setMembersRoom] = useState<Room | null>(null);
   const membersByRoomId = useRoomsStore((state) => state.membersByRoomId);
   const membersLoading = useRoomsStore((state) => state.membersLoading);
+  const updateRoomLocally = useRoomsStore((state) => state.updateRoomLocally)
   const membersError = useRoomsStore((state) => state.membersError);
   const fetchRoomsMembers = useRoomsStore((state) => state.fetchRoomsMembers);
   const removeRoomMembersLocally = useRoomsStore((state) => state.removeRoomMembersLocally);
@@ -166,7 +167,8 @@ export default function DashboardPage() {
              room={room} 
              isOwner={isOwner} 
              variant="card"
-             onUpdated={refreshRooms} />
+             onUpdated={(updatedRoom) => {updateRoomLocally(updatedRoom)}}
+             onDeleted={refreshRooms} />
           ) : (
             <button
               type="button"
