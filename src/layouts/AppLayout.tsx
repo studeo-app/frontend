@@ -335,6 +335,7 @@ export default function AppLayout() {
                 className={`
                   flex items-center transition-colors duration-200 cursor-pointer
                   font-medium text-sm
+                  bg-red-600 text-white hover:bg-red-500 active:bg-red-700
                   ${isExpanded
                     ? "px-4 py-2.5 justify-start w-full border border-auth-error/30 bg-auth-error/5 hover:bg-auth-error/15 text-auth-error active:bg-auth-error/25 shadow-sm rounded-lg gap-3"
                     : "h-10 w-10 mx-auto justify-center text-auth-error hover:bg-auth-error/10 rounded-lg"

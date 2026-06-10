@@ -131,11 +131,12 @@ export function RoomActionsMenu({
                   handleDeleteClick()
                 }}
                 className="
-                  flex w-full items-center gap-2 px-3 py-2 text-sm text-auth-error
-                  transition hover:bg-auth-error/10 cursor-pointer
+                  flex w-full items-center gap-2 px-3 py-2 text-sm cursor-pointer
+                  text-red-400 hover:bg-red-500/10 hover:text-red-300
+                  transition-colors duration-200
                 "
               >
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                <Trash2 className="h-4 w-4 text-current" aria-hidden="true" />
                 Eliminar
               </button>
             </li>
