@@ -22,7 +22,7 @@ export default function RoomPage() {
 
   const { room, setRoom } = useRoom(roomId)
   const { session, actions } = useRoomSession(roomId)
-  const [activePanel, setActivePanel] = useState<RoomSidebarPanel>('chat')
+  const [activePanel, setActivePanel] = useState<RoomSidebarPanel | null>('chat')
   const getIdToken = useAuthStore((s) => s.getIdToken)
   const [members, setMembers] = useState<RoomMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(false)
@@ -118,6 +118,9 @@ export default function RoomPage() {
             loadingHistory={session.loadingHistory}
             hasMoreHistory={session.hasMoreHistory}
             onLoadMore={actions.loadMoreHistory}
+            connectionStatus={session.connectionStatus}
+            isOpen={activePanel === 'chat'}
+            onClose={() => setActivePanel(null)}
           />
         )
     }
@@ -150,12 +153,33 @@ export default function RoomPage() {
               onLeave={actions.leaveRoom}
             />
           </div>
+          <div className="relative flex h-full shrink-0">
+            {renderSidePanel()}
 
-          {activePanel && (
-            <div className="flex w-full shrink-0 sm:w-[300px] lg:w-[320px]">
-              {renderSidePanel()}
-            </div>
-          )}
+            {activePanel !== 'chat' && (
+              <button
+                type="button"
+                onClick={() => setActivePanel('chat')}
+                className="
+                  h-40 w-8 shrink-0 cursor-pointer
+                  flex items-center justify-center 
+                  rounded-l-2xl border border-r-0 
+                  /* COLORES DINÁMICOS: Súper visibles y contrastados en ambos modos */
+                  border-auth-input-border bg-auth-btn text-auth-btn-text
+                  /* TRANSICIONES: Efecto sutil de hover para indicar que es clickeable */
+                  transition-all duration-200 hover:brightness-110 hover:w-9
+                  shadow-2xl self-center my-auto
+                "
+              >
+                <span 
+                  className="text-xs font-bold tracking-widest uppercase whitespace-nowrap"
+                  style={{ writingMode: 'vertical-lr', transform: 'rotate(180deg)' }}
+                >
+                  Mostrar Chat
+                </span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

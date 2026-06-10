@@ -23,10 +23,11 @@ export function VideoTile({ participant }: VideoTileProps) {
   return (
     <div
       className={`
-        relative flex aspect-video items-center justify-center overflow-hidden
-        rounded-2xl bg-auth-input-bg/60
-        ${isSpeaking ? 'ring-2 ring-auth-link ring-offset-2 ring-offset-auth-bg' : ''}
-      `}
+      relative flex aspect-video items-center justify-center overflow-hidden
+      rounded-2xl 
+      bg-auth-input-bg/90 border border-gray-300 dark:border-transparent shadow-md
+      ${isSpeaking ? 'ring-2 ring-auth-link ring-offset-2 ring-offset-auth-bg' : ''}
+    `}
     >
       {isCameraOn && videoStream ? (
         <video
@@ -65,7 +66,7 @@ export function VideoTile({ participant }: VideoTileProps) {
         {isMicOn ? (
           <Mic className="h-3 w-3 text-auth-link" aria-label="Micrófono activo" />
         ) : (
-          <MicOff className="h-3 w-3 text-rose-400" aria-label="Micrófono silenciado" />
+          <MicOff className="h-3 w-3 text-red-500" aria-label="Micrófono silenciado" />
         )}
       </div>
     </div>
