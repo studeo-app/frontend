@@ -1,4 +1,4 @@
-import { Loader2, MoreVertical } from 'lucide-react'
+import { ChevronDown, ChevronRight, Loader2, MoreVertical } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { RoomChatMessage } from '../types/roomSession'
 
@@ -9,6 +9,8 @@ interface ChatPanelProps {
   loadingHistory?: boolean
   hasMoreHistory?: boolean
   onLoadMore?: () => void
+  isOpen?: boolean
+  onClose?: () => void
 
   connectionStatus?: 'connected' | 'connecting' | 'disconnected'
 }
@@ -38,6 +40,8 @@ export function ChatPanel({
   hasMoreHistory = false,
   onLoadMore,
   connectionStatus = 'connected',
+  isOpen = true,
+  onClose,
 }: ChatPanelProps) {
   const [draft, setDraft] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -76,16 +80,22 @@ export function ChatPanel({
   return (
     <aside
       aria-label="Chat de sala"
-      className="flex w-full shrink-0 flex-col border-l border-auth-input-border bg-auth-surface sm:w-[300px] lg:w-[320px]"
+      className={`
+    flex h-full shrink-0 flex-col border-l border-auth-input-border bg-auth-surface 
+    transition-all duration-300 ease-in-out overflow-hidden
+    ${isOpen ? 'w-full sm:w-[300px] lg:w-[320px] opacity-100' : 'w-0 opacity-0 border-l-0'}
+  `}
     >
       <div className="flex items-center justify-between border-b border-auth-input-border px-4 py-3.5">
         <h2 className="text-sm font-semibold text-auth-title">Chat</h2>
         <button
           type="button"
-          aria-label="Opciones del chat"
+          onClick={onClose}
+          aria-label="Esconder chat"
+          title="Esconder chat"
           className="rounded-lg p-1 text-auth-label transition-colors hover:bg-auth-input-bg hover:text-auth-title cursor-pointer"
         >
-          <MoreVertical className="h-4 w-4" aria-hidden="true" />
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </button>
       
       </div>
@@ -123,13 +133,51 @@ export function ChatPanel({
           </div>
         )}
 
-        {/* Spinner de carga inicial */}
         {loadingHistory && messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-2 py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-auth-btn" aria-hidden="true" />
-            <p className="text-xs text-auth-label">Cargando mensajes…</p>
-          </div>
-        )}
+            <div className="space-y-4 px-2 py-4">
+              {[1, 2, 3, 4, 5].map((item) => {
+                const isOwn = item % 2 === 0
+
+                return (
+                  <div
+                    key={item}
+                    className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-pulse`}
+                  >
+                    <div className="max-w-[75%]">
+                      <div
+                        className={`
+                          mb-2 h-3 rounded bg-auth-input-bg
+                          ${isOwn ? 'ml-auto w-16' : 'w-20'}
+                        `}
+                      />
+
+                      <div
+                        className={`
+                          rounded-2xl bg-auth-input-bg
+                          ${
+                            item === 1
+                              ? 'h-10 w-40'
+                              : item === 2
+                              ? 'h-8 w-28'
+                              : item === 3
+                              ? 'h-12 w-52'
+                              : item === 4
+                              ? 'h-8 w-36'
+                              : 'h-10 w-44'
+                          }
+                        `}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+              <div className="mt-4 text-center">
+              <p className="text-xs text-auth-label">
+                Cargando historial...
+              </p>
+            </div>
+            </div>
+          )}
 
         {/* Estado vacío */}
         {!loadingHistory && messages.length === 0 && (
