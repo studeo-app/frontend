@@ -8,7 +8,7 @@ export function createMockRoomSession(
   return {
     roomId,
     roomName: 'Algoritmos Avanzados - Sala 04',
-    roomCode: formatRoomCode(roomId),
+    roomCode: 'DEMO01',
     connectionStatus: 'connected',
     localMedia: {
       isMicOn: false,
@@ -58,11 +58,3 @@ export function createMockRoomSession(
   }
 }
 
-export function formatRoomCode(roomId: string): string {
-  const compact = roomId.replace(/-/g, '').toUpperCase().slice(0, 9)
-  if (compact.length <= 3) return `STU-${compact}`
-  const part1 = compact.slice(0, 3)
-  const part2 = compact.slice(3, 6)
-  const part3 = compact.slice(6, 8)
-  return part3 ? `STU-${part1}-${part2}-${part3}` : `STU-${part1}-${part2}`
-}

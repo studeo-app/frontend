@@ -1,5 +1,6 @@
 export interface Room {
   id: string;
+  roomCode: string;
   name: string;
   ownerUid: string;
   createdAt: string;

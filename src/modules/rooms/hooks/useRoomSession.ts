@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { connectSocket, disconnectSocket, getSocket } from '@/config/socket.config'
 import { getRoomMessages } from '../api/chatApi'
-import { formatRoomCode } from '../constants/mockRoomSession'
 import type {
   RoomChatMessage,
   RoomSessionActions,
@@ -19,7 +18,7 @@ interface UseRoomSessionResult {
  * Hook de sesión de sala con conexión real a Socket.IO (backend-realtime)
  * y carga de historial desde el backend NestJS REST.
  */
-export function useRoomSession(roomId: string): UseRoomSessionResult {
+export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessionResult {
   const navigate = useNavigate()
   const profile = useAuthStore((s) => s.profile)
   const firebaseUser = useAuthStore((s) => s.user)
@@ -40,7 +39,7 @@ export function useRoomSession(roomId: string): UseRoomSessionResult {
   const [session, setSession] = useState<RoomSessionState>(() => ({
     roomId,
     roomName: '',
-    roomCode: formatRoomCode(roomId),
+    roomCode: roomCode ?? '',
     connectionStatus: 'disconnected',
     localMedia: {
       isMicOn: false,
@@ -65,6 +64,11 @@ export function useRoomSession(roomId: string): UseRoomSessionResult {
   // ── Refs para paginación del historial ────────────────────────────
   const nextCursorRef = useRef<string | null>(null)
   const loadingHistoryRef = useRef(false)
+
+  useEffect(() => {
+    if (!roomCode) return
+    setSession((prev) => ({ ...prev, roomCode }))
+  }, [roomCode])
 
   // ── Conectar Socket.IO + cargar historial al montar ───────────────
   useEffect(() => {

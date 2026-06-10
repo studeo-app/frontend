@@ -24,7 +24,8 @@ import { useRooms } from "@/modules/rooms/hooks/useRooms";
 import { CreateRoomModal } from "@/modules/rooms/components/CreateRoomModal";
 import { RoomActionsMenu } from "@/modules/rooms/components/RoomActionsMenu";
 import { DEFAULT_ROOM_COVERS } from "@/modules/rooms/constants/defaultRoomCovers";
-import { joinRoomById, removeRoomMembership } from "@/modules/rooms/api/roomsApi";
+import { joinRoomByCode, removeRoomMembership } from "@/modules/rooms/api/roomsApi";
+import { isValidRoomCode, parseRoomCodeFromInput } from "@/modules/rooms/utils/roomCode";
 import type { Room } from "@/types/room";
 
 export default function DashboardPage() {
@@ -58,23 +59,21 @@ export default function DashboardPage() {
   const username = profile?.username;
   const avatarUrl = profile?.avatarUrl ?? firebaseUser?.photoURL ?? undefined;
 
-  const getRoomIdFromInput = (value: string) => {
-    const cleanValue = value.trim();
-    const match = cleanValue.match(/\/room\/([^/]+)/);
-    return decodeURIComponent(match?.[1] ?? cleanValue);
-  };
-
   const handleJoinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
-    const roomId = getRoomIdFromInput(inviteCode);
-    if (!roomId) return;
+    const roomCode = parseRoomCodeFromInput(inviteCode);
+    if (!isValidRoomCode(roomCode)) {
+      setJoinErrorTitle("Código inválido");
+      setJoinError("Ingresa un código alfanumérico de 6 caracteres.");
+      return;
+    }
 
     setJoinError(null);
     setJoinErrorTitle("No pudimos unirte a la sala");
     setIsJoining(true);
     try {
       const token = await getIdToken();
-      const room = await joinRoomById(token, roomId);
+      const room = await joinRoomByCode(token, roomCode);
       await refreshRooms();
       setInviteCode("");
       navigate(`/room/${room.id}/lobby`);
@@ -336,7 +335,7 @@ export default function DashboardPage() {
               Unirse a una Sala
             </h2>
             <p className="text-sm text-auth-label">
-              Escribe el ID de la sala para guardarla como miembro y entrar.
+              Escribe el código de la sala para guardarla como miembro y entrar.
             </p>
           </div>
           <form
@@ -344,12 +343,12 @@ export default function DashboardPage() {
             className="flex w-full max-w-md items-center gap-2.5"
           >
             <label htmlFor="invite-code" className="sr-only">
-              ID de la sala
+              Código de la sala
             </label>
             <input
               id="invite-code"
               type="text"
-              placeholder="ID de la sala"
+              placeholder="Código de la sala"
               value={inviteCode}
               disabled={isJoining}
               onChange={(e) => setInviteCode(e.target.value)}
@@ -466,7 +465,7 @@ export default function DashboardPage() {
               Aún no tienes salas
             </h3>
             <p className="mx-auto max-w-md text-base leading-relaxed text-auth-label sm:text-lg">
-              Crea tu primer espacio de trabajo o únete a una sala existente con su ID.
+              Crea tu primer espacio de trabajo o únete a una sala existente con su código.
             </p>
           </div>
 
@@ -552,7 +551,7 @@ export default function DashboardPage() {
                 Salas en las que soy miembro
               </h2>
               <p className="mt-1 text-sm text-auth-label">
-                Salas a las que te uniste escribiendo su ID.
+                Salas a las que te uniste escribiendo su código.
               </p>
             </div>
             {memberRooms.length > 0 ? (
@@ -561,7 +560,7 @@ export default function DashboardPage() {
               <EmptySection
                 icon={UserRoundPlus}
                 title="Todavía no eres miembro de ninguna sala"
-                message="Cuando escribas el ID de una sala y te unas, aparecerá aquí separada de tus salas propias."
+                message="Cuando escribas el código de una sala y te unas, aparecerá aquí separada de tus salas propias."
                 action={
                   <button
                     type="button"
@@ -569,7 +568,7 @@ export default function DashboardPage() {
                     className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-auth-input-border bg-auth-input-bg px-5 text-sm font-semibold text-auth-title transition hover:border-auth-btn/40 hover:bg-auth-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
                   >
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                    Unirme con ID
+                    Unirme con código
                   </button>
                 }
               />
@@ -611,7 +610,7 @@ export default function DashboardPage() {
             <EmptySection
               icon={Users}
               title="Sin miembros todavía"
-              message="Cuando alguien se una con el ID de la sala, aparecerá en esta lista."
+              message="Cuando alguien se una con el código de la sala, aparecerá en esta lista."
             />
           ) : (
             <ul className="max-h-[360px] space-y-2 overflow-y-auto pr-1">

@@ -101,7 +101,7 @@ export function RoomHeader({
         <button
           type="button"
           onClick={handleCopy}
-          title="Copiar ID de sala"
+          title="Copiar código de sala"
           className="
             flex items-center gap-2 rounded-xl border border-auth-input-border
             bg-auth-input-bg/50 px-3 py-1.5 font-auth text-xs text-auth-label
@@ -109,7 +109,7 @@ export function RoomHeader({
             cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn
           "
         >
-          <span>ID: {roomCode}</span>
+          <span>Código: {roomCode}</span>
           {copied ? (
             <Check className="h-3.5 w-3.5 text-auth-link" aria-hidden="true" />
           ) : (
