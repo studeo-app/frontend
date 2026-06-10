@@ -25,10 +25,11 @@ export async function getRoomById(token: string, roomId: string): Promise<Room> 
   });
 }
 
-export async function joinRoomById(token: string, roomId: string): Promise<Room> {
-  return apiRequest<Room>(`/rooms/${roomId}/join`, {
+export async function joinRoomByCode(token: string, roomCode: string): Promise<Room> {
+  return apiRequest<Room>("/rooms/join", {
     method: "POST",
     token,
+    body: { roomCode },
   });
 }
 

@@ -21,7 +21,7 @@ export default function RoomPage() {
   const firebaseUser = useAuthStore((s) => s.user)
 
   const { room, setRoom } = useRoom(roomId)
-  const { session, actions } = useRoomSession(roomId)
+  const { session, actions } = useRoomSession(roomId, room?.roomCode)
   const [activePanel, setActivePanel] = useState<RoomSidebarPanel | null>('chat')
   const getIdToken = useAuthStore((s) => s.getIdToken)
   const [members, setMembers] = useState<RoomMember[]>([])
@@ -132,7 +132,7 @@ export default function RoomPage() {
         <RoomHeader
           roomName={roomName}
           participantCount={session.participants.length}
-          roomCode={room?.id ?? session.roomId}
+          roomCode={room?.roomCode ?? session.roomCode}
           room={room}
           isOwner={isOwner}
           onRoomUpdated={setRoom}
