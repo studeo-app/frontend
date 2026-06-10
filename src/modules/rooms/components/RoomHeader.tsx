@@ -53,7 +53,10 @@ export function RoomHeader({
         <h1 className="truncate text-sm font-medium text-auth-title sm:text-base">
           {roomName}
         </h1>
-        <span className="hidden shrink-0 rounded-full bg-auth-link px-3 py-1 text-xs font-semibold text-auth-bg sm:inline-block">
+        <span className="
+          px-2.5 py-1 text-xs font-semibold rounded-full
+          bg-auth-input-bg text-auth-title border border-auth-input-border
+        ">
           {participantCount} online
         </span>
       </div>

@@ -49,6 +49,7 @@ export default function DashboardPage() {
   const membersLoading = useRoomsStore((state) => state.membersLoading);
   const updateRoomLocally = useRoomsStore((state) => state.updateRoomLocally)
   const membersError = useRoomsStore((state) => state.membersError);
+  const [connectionMessage, setConnectionMessage] = useState<string | null>(null)
   const fetchRoomsMembers = useRoomsStore((state) => state.fetchRoomsMembers);
   const removeRoomMembersLocally = useRoomsStore((state) => state.removeRoomMembersLocally);
 
@@ -72,6 +73,7 @@ export default function DashboardPage() {
     setJoinErrorTitle("No pudimos unirte a la sala");
     setIsJoining(true);
     try {
+      setConnectionMessage("Conectando a la sala...")
       const token = await getIdToken();
       const room = await joinRoomByCode(token, roomCode);
       await refreshRooms();
@@ -81,6 +83,7 @@ export default function DashboardPage() {
       setJoinError(err?.message ?? "No pudimos unirnos a esa sala.");
     } finally {
       setIsJoining(false);
+      setConnectionMessage(null);
     }
   };
 
@@ -367,6 +370,14 @@ export default function DashboardPage() {
               )}
             </button>
           </form>
+          {connectionMessage && (
+            <p
+              className="text-sm font-medium text-auth-btn"
+              role="status">
+                {connectionMessage}
+              </p>
+          )
+          }
         </div>
       </section>
 
