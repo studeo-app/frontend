@@ -118,6 +118,7 @@ export default function RoomPage() {
             loadingHistory={session.loadingHistory}
             hasMoreHistory={session.hasMoreHistory}
             onLoadMore={actions.loadMoreHistory}
+            connectionStatus={session.connectionStatus}
           />
         )
     }

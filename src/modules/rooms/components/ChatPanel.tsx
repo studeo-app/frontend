@@ -9,6 +9,8 @@ interface ChatPanelProps {
   loadingHistory?: boolean
   hasMoreHistory?: boolean
   onLoadMore?: () => void
+
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected'
 }
 
 /**
@@ -35,6 +37,7 @@ export function ChatPanel({
   loadingHistory = false,
   hasMoreHistory = false,
   onLoadMore,
+  connectionStatus = 'connected',
 }: ChatPanelProps) {
   const [draft, setDraft] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -84,7 +87,15 @@ export function ChatPanel({
         >
           <MoreVertical className="h-4 w-4" aria-hidden="true" />
         </button>
+      
       </div>
+      {connectionStatus !== 'connected' && (
+          <div className="border-b border-auth-error/20 bg-auth-error/10 px-4 py-2 text-center text-xs text-auth-error">
+            {connectionStatus == 'connecting'
+            ? 'Reconectando...'
+          : 'Conexión perdida. Intentando reconectar...'}
+            </div>
+        )}
 
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4">
         {/* Botón para cargar mensajes anteriores */}
@@ -190,10 +201,15 @@ export function ChatPanel({
         className="flex gap-2 border-t border-auth-input-border p-3"
       >
         <input
+          disabled={connectionStatus !== 'connected'}
           type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Escribir mensaje..."
+          placeholder={
+            connectionStatus === 'connected'
+            ? 'Escribir un mensaje...'
+            : 'Sin conexión'
+          }
           className="
             min-w-0 flex-1 rounded-xl border border-auth-input-border bg-auth-input-bg
             px-3 py-2 text-sm text-auth-input-text placeholder:text-auth-label/70
@@ -202,7 +218,10 @@ export function ChatPanel({
         />
         <button
           type="submit"
-          disabled={!draft.trim()}
+          disabled={
+            !draft.trim() ||
+            connectionStatus !== 'connected'
+          }
           className="
             shrink-0 rounded-xl bg-auth-btn px-4 py-2 text-sm font-semibold text-auth-btn-text
             transition-all hover:brightness-110 active:scale-[0.98]

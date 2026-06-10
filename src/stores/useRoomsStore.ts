@@ -41,7 +41,7 @@ export const useRoomsStore = create<RoomsState>((set, get) => ({
     // Cache check (120 seconds TTL)
     const now = Date.now();
     const lastFetched = get().lastFetched;
-    if (!force && get().rooms.length > 0 && lastFetched && (now - lastFetched < 120000)) {
+    if (!force && get().rooms.length > 0 && lastFetched && (now - lastFetched < 30000)) {
       return;
     }
 
