@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import useDocumentTitle from "@/shared/hooks/useDocumentTitle";
+import { connectSocket } from "@/config/socket.config";
 import { UserAvatar } from "@/shared/components/user/UserAvatar";
 import { BaseModal } from "@/shared/components/ui/BaseModal";
 import { ErrorModal } from "@/shared/components/ui/ErrorModal";
@@ -50,7 +51,7 @@ export default function DashboardPage() {
   const updateRoomLocally = useRoomsStore((state) => state.updateRoomLocally)
   const membersError = useRoomsStore((state) => state.membersError);
   const [connectionMessage, setConnectionMessage] = useState<string | null>(null)
-  const fetchRoomsMembers = useRoomsStore((state) => state.fetchRoomsMembers);
+  const subscribeRoomsMembers = useRoomsStore((state) => state.subscribeRoomsMembers);
   const removeRoomMembersLocally = useRoomsStore((state) => state.removeRoomMembersLocally);
 
   const displayName = profile
@@ -59,6 +60,28 @@ export default function DashboardPage() {
 
   const username = profile?.username;
   const avatarUrl = profile?.avatarUrl ?? firebaseUser?.photoURL ?? undefined;
+
+  const emitRoomSocketEvent = (
+    token: string,
+    event: "deleteRoom" | "leaveRoom",
+    roomId: string,
+  ) => {
+    const socket = connectSocket(token);
+    const emit = () => {
+      if (event === "deleteRoom") {
+        socket.emit("deleteRoom", { roomId });
+        return;
+      }
+
+      socket.emit("leaveRoom", roomId);
+    };
+
+    if (socket.connected) {
+      emit();
+    } else {
+      socket.once("connect", emit);
+    }
+  };
 
   const handleJoinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +99,6 @@ export default function DashboardPage() {
       setConnectionMessage("Conectando a la sala...")
       const token = await getIdToken();
       const room = await joinRoomByCode(token, roomCode);
-      await refreshRooms();
       setInviteCode("");
       navigate(`/room/${room.id}/lobby`);
     } catch (err: any) {
@@ -94,8 +116,8 @@ export default function DashboardPage() {
     try {
       const token = await getIdToken();
       await removeRoomMembership(token, roomId);
+      emitRoomSocketEvent(token, "leaveRoom", roomId);
       removeRoomMembersLocally(roomId);
-      await refreshRooms();
     } catch (err: any) {
       setJoinError(err?.message ?? "No pudimos quitar la sala del dashboard.");
     } finally {
@@ -109,15 +131,17 @@ export default function DashboardPage() {
 
   const handleCreateSuccess = (roomId: string) => {
     setIsCreateModalOpen(false);
-    refreshRooms();
     navigate(`/room/${roomId}/lobby`);
   };
 
-  const roomsCacheKey = rooms.map((room) => room.id).sort().join("|");
+  const handleRoomDeleted = async (roomId: string) => {
+    const token = await getIdToken();
+    emitRoomSocketEvent(token, "deleteRoom", roomId);
+  };
 
   useEffect(() => {
-    fetchRoomsMembers(rooms);
-  }, [rooms, roomsCacheKey, fetchRoomsMembers]);
+    return subscribeRoomsMembers(rooms);
+  }, [rooms, subscribeRoomsMembers]);
 
   const formatDate = (dateString: string) => {
     try {
@@ -170,7 +194,7 @@ export default function DashboardPage() {
              isOwner={isOwner} 
              variant="card"
              onUpdated={(updatedRoom) => {updateRoomLocally(updatedRoom)}}
-             onDeleted={refreshRooms} />
+             onDeleted={handleRoomDeleted} />
           ) : (
             <button
               type="button"
@@ -442,6 +466,7 @@ export default function DashboardPage() {
             <h3 className="text-lg font-bold text-auth-title">Error de Conexión</h3>
             <p className="text-sm text-auth-label">
               Ocurrió un error con el servidor, por favor intenta más tarde.
+              Error: {error}
             </p>
           </div>
           <button

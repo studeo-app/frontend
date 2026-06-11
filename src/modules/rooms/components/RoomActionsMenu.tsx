@@ -12,7 +12,7 @@ interface RoomActionsMenuProps {
   isOwner: boolean
   variant?: 'card' | 'header'
   onUpdated?: (room: Room) => void
-  onDeleted?: () => void
+  onDeleted?: (roomId: string) => void
 }
 
 export function RoomActionsMenu({
@@ -71,7 +71,7 @@ export function RoomActionsMenu({
   }
 
   const handleDeleteSuccessClose = () => {
-    onDeleted?.()
+    onDeleted?.(room.id)
     setDeleteSuccess(false)
   }
 
