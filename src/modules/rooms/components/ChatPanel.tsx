@@ -81,10 +81,10 @@ export function ChatPanel({
     <aside
       aria-label="Chat de sala"
       className={`
-    flex h-full shrink-0 flex-col border-l border-auth-input-border bg-auth-surface 
-    transition-all duration-300 ease-in-out overflow-hidden
-    ${isOpen ? 'w-full sm:w-[300px] lg:w-[320px] opacity-100' : 'w-0 opacity-0 border-l-0'}
-  `}
+        flex h-full shrink-0 flex-col border-l border-auth-input-border bg-auth-surface 
+        transition-all duration-300 ease-in-out overflow-hidden
+        ${isOpen ? 'w-full sm:w-[320px] opacity-100' : 'w-0 opacity-0 border-l-0'}
+      `}
     >
       <div className="flex items-center justify-between border-b border-auth-input-border px-4 py-3.5">
         <h2 className="text-sm font-semibold text-auth-title">Chat</h2>

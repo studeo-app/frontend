@@ -101,24 +101,39 @@ export function RoomHeader({
           />
         )}
 
-        <button
-          type="button"
-          onClick={handleCopy}
-          title="Copiar código de sala"
-          className="
-            flex items-center gap-2 rounded-xl border border-auth-input-border
-            bg-auth-input-bg/50 px-3 py-1.5 font-auth text-xs text-auth-label
-            transition-colors hover:border-auth-btn/40 hover:text-auth-title
-            cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn
-          "
-        >
-          <span>Código: {roomCode}</span>
-          {copied ? (
-            <Check className="h-3.5 w-3.5 text-auth-link" aria-hidden="true" />
-          ) : (
-            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+        {/* Contenedor relativo para posicionar el Microcopy flotante */}
+        <div className="relative">
+          {copied && (
+            <span 
+              className="absolute top-10 right-0 z-20 whitespace-nowrap rounded-md bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm animate-scale-up"
+              aria-live="polite"
+              role="status"
+            >
+              ¡Copiado con éxito!
+            </span>
           )}
-        </button>
+          
+          <button
+            type="button"
+            onClick={handleCopy}
+            title="Copiar código de sala"
+            aria-label={copied ? "Código copiado" : "Copiar código de la sala"}
+            className="
+              flex items-center gap-2 rounded-xl border border-auth-input-border
+              bg-auth-input-bg/50 px-3 py-1.5 font-auth text-xs text-auth-label
+              transition-colors hover:border-auth-btn/40 hover:text-auth-title
+              cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn
+            "
+          >
+            <span>Código: {roomCode}</span>
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-emerald-500 transition-scale animate-scale-up" aria-hidden="true" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 opacity-70 transition-opacity" aria-hidden="true" />
+            )
+          }
+          </button>
+        </div>
       </div>
     </header>
   )
