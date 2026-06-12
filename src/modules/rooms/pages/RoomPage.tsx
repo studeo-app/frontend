@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useAuthStore } from '@/stores/useAuthStore'
 import useDocumentTitle from '@/shared/hooks/useDocumentTitle'
@@ -27,6 +27,26 @@ export default function RoomPage() {
   const [members, setMembers] = useState<RoomMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(false)
 
+  const loadMembers = useCallback(async (options?: { showLoading?: boolean }) => {
+    if (!roomId) return
+    if (options?.showLoading ?? true) {
+      setLoadingMembers(true)
+    }
+
+    try {
+      const token = await getIdToken()
+      const data = await getRoomMembers(token, roomId)
+      setMembers(data)
+    } catch (err) {
+      console.error('[RoomMembers] load:error', { roomId, err })
+      setMembers([])
+    } finally {
+      if (options?.showLoading ?? true) {
+        setLoadingMembers(false)
+      }
+    }
+  }, [getIdToken, roomId])
+
   // ── Indicador de mensajes no leídos ───────────────────────────────
   const [chatHasUnread, setChatHasUnread] = useState(false)
   const prevMsgCountRef = useRef(session.messages.length)
@@ -51,32 +71,31 @@ export default function RoomPage() {
     if (!roomId) return
     let cancelled = false
 
-    async function loadMembers() {
-      setLoadingMembers(true)
+    async function loadInitialMembers() {
       try {
-        const token = await getIdToken()
-        const data = await getRoomMembers(token, roomId)
+        setLoadingMembers(true)
+        await loadMembers({ showLoading: false })
         if (!cancelled) {
-          setMembers(data)
+          setLoadingMembers(false)
         }
       } catch (err) {
-        console.error('[RoomMembers] load:error', { roomId, err })
-        if (!cancelled) {
-          setMembers([])
-        }
-      } finally {
         if (!cancelled) {
           setLoadingMembers(false)
         }
       }
     }
 
-    loadMembers()
+    loadInitialMembers()
 
     return () => {
       cancelled = true
     }
-  }, [roomId, getIdToken])
+  }, [roomId, loadMembers])
+
+  useEffect(() => {
+    if (session.participants.length === 0) return
+    loadMembers({ showLoading: false })
+  }, [loadMembers, session.participants.length])
 
   const roomName = room?.name ?? session.roomName
   const isOwner = room?.ownerUid === firebaseUser?.uid
