@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { getApiErrorMessage } from '@/shared/api/apiError'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { useRoomsStore } from '@/stores/useRoomsStore'
 import {
   CloudinaryUploadError,
   uploadImageToCloudinary,
@@ -30,7 +29,6 @@ export function useUpdateRoom() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [updatedRoom, setUpdatedRoom] = useState<Room | null>(null)
-  const updateRoomLocally = useRoomsStore((s) => s.updateRoomLocally)
   const getIdToken = useAuthStore((s) => s.getIdToken)
 
   const startUpdateRoom = async (roomId: string, params: UpdateRoomParams) => {
@@ -52,7 +50,6 @@ export function useUpdateRoom() {
         ...(finalImageUrl !== undefined ? { imageUrl: finalImageUrl } : {}),
       })
 
-      //updateRoomLocally(room)
       setUpdatedRoom(room)
       return room
     } catch (err: unknown) {

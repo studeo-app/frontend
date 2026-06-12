@@ -1,0 +1,27 @@
+export const ROOM_DELETED_REASON = 'OWNER_DELETED_ROOM'
+
+export const ROOM_DELETED_DASHBOARD_NOTICE = {
+  stateKey: 'roomDeletedByOwner',
+  message: 'Fuiste desconectado porque la sala fue eliminada por el dueño.',
+} as const
+
+export interface RoomDeletedDashboardState {
+  [ROOM_DELETED_DASHBOARD_NOTICE.stateKey]?: boolean
+}
+
+export function createRoomDeletedDashboardState(): RoomDeletedDashboardState {
+  return {
+    [ROOM_DELETED_DASHBOARD_NOTICE.stateKey]: true,
+  }
+}
+
+export function hasRoomDeletedDashboardNotice(
+  state: unknown,
+): state is RoomDeletedDashboardState {
+  return (
+    typeof state === 'object' &&
+    state !== null &&
+    (state as RoomDeletedDashboardState)[ROOM_DELETED_DASHBOARD_NOTICE.stateKey] === true
+  )
+}
+

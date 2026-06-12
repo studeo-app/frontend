@@ -21,7 +21,6 @@ export const WarningModal: React.FC<WarningModalProps> = ({
     <BaseModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Advertencia"
     >
       <div
         className="flex flex-col items-center py-4 text-center"

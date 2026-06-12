@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import {
   AlertCircle,
   ArrowRight,
@@ -21,11 +21,16 @@ import { connectSocket } from "@/config/socket.config";
 import { UserAvatar } from "@/shared/components/user/UserAvatar";
 import { BaseModal } from "@/shared/components/ui/BaseModal";
 import { ErrorModal } from "@/shared/components/ui/ErrorModal";
+import { WarningModal } from "@/shared/components/ui/WarningModal";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useRoomsStore } from "@/stores/useRoomsStore";
 import { useRooms } from "@/modules/rooms/hooks/useRooms";
 import { CreateRoomModal } from "@/modules/rooms/components/CreateRoomModal";
 import { RoomActionsMenu } from "@/modules/rooms/components/RoomActionsMenu";
+import {
+  ROOM_DELETED_DASHBOARD_NOTICE,
+  hasRoomDeletedDashboardNotice,
+} from "@/modules/rooms/constants/roomDeletionNotice";
 import { DEFAULT_ROOM_COVERS } from "@/modules/rooms/constants/defaultRoomCovers";
 import { joinRoomByCode, removeRoomMembership } from "@/modules/rooms/api/roomsApi";
 import { isValidRoomCode, parseRoomCodeFromInput } from "@/modules/rooms/utils/roomCode";
@@ -34,6 +39,7 @@ import type { Room } from "@/types/room";
 export default function DashboardPage() {
   useDocumentTitle("Dashboard - Mis Salas");
   const navigate = useNavigate();
+  const location = useLocation();
 
   const profile = useAuthStore((state) => state.profile);
   const firebaseUser = useAuthStore((state) => state.user);
@@ -57,6 +63,9 @@ export default function DashboardPage() {
   const updateRoomLocally = useRoomsStore((state) => state.updateRoomLocally);
   const membersError = useRoomsStore((state) => state.membersError);
   const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
+  const [roomDeletedWarningOpen, setRoomDeletedWarningOpen] = useState(() =>
+    hasRoomDeletedDashboardNotice(location.state),
+  );
   const subscribeRoomsMembers = useRoomsStore((state) => state.subscribeRoomsMembers);
   const removeRoomMembersLocally = useRoomsStore((state) => state.removeRoomMembersLocally);
 
@@ -67,18 +76,9 @@ export default function DashboardPage() {
   const username = profile?.username;
   const avatarUrl = profile?.avatarUrl ?? firebaseUser?.photoURL ?? undefined;
 
-  const emitRoomSocketEvent = (
-    token: string,
-    event: "deleteRoom" | "leaveRoom",
-    roomId: string,
-  ) => {
+  const emitLeaveRoomSocketEvent = (token: string, roomId: string) => {
     const socket = connectSocket(token);
     const emit = () => {
-      if (event === "deleteRoom") {
-        socket.emit("deleteRoom", { roomId });
-        return;
-      }
-
       socket.emit("leaveRoom", roomId);
     };
 
@@ -87,6 +87,17 @@ export default function DashboardPage() {
     } else {
       socket.once("connect", emit);
     }
+  };
+
+  useEffect(() => {
+    if (hasRoomDeletedDashboardNotice(location.state)) {
+      setRoomDeletedWarningOpen(true);
+    }
+  }, [location.state]);
+
+  const handleRoomDeletedWarningClose = () => {
+    setRoomDeletedWarningOpen(false);
+    navigate("/dashboard", { replace: true, state: null });
   };
 
   const handleJoinRoom = async (e: React.FormEvent) => {
@@ -122,7 +133,7 @@ export default function DashboardPage() {
     try {
       const token = await getIdToken();
       await removeRoomMembership(token, roomId);
-      emitRoomSocketEvent(token, "leaveRoom", roomId);
+      emitLeaveRoomSocketEvent(token, roomId);
       removeRoomMembersLocally(roomId);
     } catch (err: any) {
       setJoinError(err?.message ?? "No pudimos quitar la sala del dashboard.");
@@ -158,11 +169,6 @@ export default function DashboardPage() {
   const handleCreateSuccess = (roomId: string) => {
     setIsCreateModalOpen(false);
     navigate(`/room/${roomId}/lobby`);
-  };
-
-  const handleRoomDeleted = async (roomId: string) => {
-    const token = await getIdToken();
-    emitRoomSocketEvent(token, "deleteRoom", roomId);
   };
 
   useEffect(() => {
@@ -220,7 +226,7 @@ export default function DashboardPage() {
               isOwner={isOwner} 
               variant="card"
               onUpdated={(updatedRoom) => {updateRoomLocally(updatedRoom)}}
-              onDeleted={handleRoomDeleted} />
+              onDeleted={refreshRooms} />
           ) : (
             <button
               type="button"
@@ -778,6 +784,12 @@ export default function DashboardPage() {
           </div>
         </div>
       </BaseModal>
+
+      <WarningModal
+        isOpen={roomDeletedWarningOpen}
+        onClose={handleRoomDeletedWarningClose}
+        message={ROOM_DELETED_DASHBOARD_NOTICE.message}
+      />
 
       <ErrorModal
         isOpen={!!joinError}
