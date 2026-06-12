@@ -27,6 +27,7 @@ import { useRoomsStore } from "@/stores/useRoomsStore";
 import { useRooms } from "@/modules/rooms/hooks/useRooms";
 import { CreateRoomModal } from "@/modules/rooms/components/CreateRoomModal";
 import { RoomActionsMenu } from "@/modules/rooms/components/RoomActionsMenu";
+import { ROOM_SOCKET_EVENTS } from "@/modules/rooms/constants/socketEvents";
 import {
   ROOM_DELETED_DASHBOARD_NOTICE,
   hasRoomDeletedDashboardNotice,
@@ -104,17 +105,22 @@ export default function DashboardPage() {
 
   const emitRoomSocketEvent = (
     token: string,
-    event: "deleteRoom" | "leaveRoom",
+    event: "deleteRoom" | "leaveRoom" | "roomMemberRemoved",
     roomId: string,
   ) => {
     const socket = connectSocket(token);
     const emit = () => {
-      if (event === "deleteRoom") {
-        socket.emit("deleteRoom", { roomId });
+      if (event === ROOM_SOCKET_EVENTS.DELETE_ROOM) {
+        socket.emit(ROOM_SOCKET_EVENTS.DELETE_ROOM, { roomId });
         return;
       }
 
-      socket.emit("leaveRoom", roomId);
+      if (event === ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED) {
+        socket.emit(ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED, { roomId });
+        return;
+      }
+
+      socket.emit(ROOM_SOCKET_EVENTS.LEAVE_ROOM, roomId);
     };
 
     if (socket.connected) {
@@ -168,7 +174,7 @@ export default function DashboardPage() {
     try {
       const token = await getIdToken();
       await removeRoomMembership(token, roomId);
-      emitRoomSocketEvent(token, "leaveRoom", roomId);
+      emitRoomSocketEvent(token, ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED, roomId);
       removeRoomMembersLocally(roomId);
     } catch (err: any) {
       setJoinError(err?.message ?? "No pudimos quitar la sala del dashboard.");
@@ -208,7 +214,7 @@ export default function DashboardPage() {
 
   const handleRoomDeleted = async (roomId: string) => {
     const token = await getIdToken();
-    emitRoomSocketEvent(token, "deleteRoom", roomId);
+    emitRoomSocketEvent(token, ROOM_SOCKET_EVENTS.DELETE_ROOM, roomId);
   };
 
   useEffect(() => {

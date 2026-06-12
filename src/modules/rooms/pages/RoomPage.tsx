@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useAuthStore } from '@/stores/useAuthStore'
+import { getSocket } from '@/config/socket.config'
 import useDocumentTitle from '@/shared/hooks/useDocumentTitle'
 import { getRoomMembers } from '../api/roomsApi'
 import { ChatPanel } from '../components/ChatPanel'
@@ -11,6 +12,7 @@ import { RoomSettingsPanel } from '../components/RoomSettingsPanel'
 import { VideoGrid } from '../components/VideoGrid'
 import { useRoom } from '../hooks/useRoom'
 import { useRoomSession } from '../hooks/useRoomSession'
+import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
 import type { RoomSidebarPanel } from '../types/roomSession'
 import type { RoomMember } from '@/types/room'
 
@@ -26,6 +28,7 @@ export default function RoomPage() {
   const getIdToken = useAuthStore((s) => s.getIdToken)
   const [members, setMembers] = useState<RoomMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(false)
+  const [removedMemberUids, setRemovedMemberUids] = useState<Set<string>>(() => new Set())
 
   const loadMembers = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!roomId) return
@@ -97,6 +100,39 @@ export default function RoomPage() {
     loadMembers({ showLoading: false })
   }, [loadMembers, session.participants.length])
 
+  useEffect(() => {
+    if (session.connectionStatus !== 'connected') return
+
+    const socket = getSocket()
+    if (!socket) return
+
+    const handleRoomMemberRemoved = (payload: { roomId: string; uid: string }) => {
+      if (payload.roomId !== roomId) return
+      setRemovedMemberUids((prev) => new Set(prev).add(payload.uid))
+      setMembers((prev) => prev.filter((member) => member.uid !== payload.uid))
+    }
+
+    socket.on(ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED, handleRoomMemberRemoved)
+
+    return () => {
+      socket.off(ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED, handleRoomMemberRemoved)
+    }
+  }, [roomId, session.connectionStatus])
+
+  useEffect(() => {
+    setRemovedMemberUids(new Set())
+  }, [roomId])
+
+  const visibleMembers = useMemo(
+    () => members.filter((member) => !removedMemberUids.has(member.uid)),
+    [members, removedMemberUids],
+  )
+
+  const visibleOnlineParticipants = useMemo(
+    () => session.participants.filter((participant) => !removedMemberUids.has(participant.id)),
+    [removedMemberUids, session.participants],
+  )
+
   const roomName = room?.name ?? session.roomName
   const isOwner = room?.ownerUid === firebaseUser?.uid
 
@@ -145,8 +181,8 @@ export default function RoomPage() {
             />
 
             <ParticipantsPanel
-              members={members}
-              onlineParticipants={session.participants}
+              members={visibleMembers}
+              onlineParticipants={visibleOnlineParticipants}
               loadingMembers={loadingMembers}
               isOpen={activePanel === 'participants'}
             />
