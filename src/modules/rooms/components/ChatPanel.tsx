@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, Loader2, MoreVertical } from 'lucide-react'
+import { ChevronRight, Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { RoomChatMessage } from '../types/roomSession'
 

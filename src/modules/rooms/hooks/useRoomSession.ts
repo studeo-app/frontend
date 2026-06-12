@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { connectSocket, disconnectSocket, getSocket } from '@/config/socket.config'
 import { getRoomMessages } from '../api/chatApi'
+import {
+  ROOM_DELETED_REASON,
+  createRoomDeletedDashboardState,
+} from '../constants/roomDeletionNotice'
+import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
 import type {
   RoomChatMessage,
   RoomSessionActions,
@@ -12,6 +17,12 @@ import type {
 interface UseRoomSessionResult {
   session: RoomSessionState
   actions: RoomSessionActions
+}
+
+interface RoomDeletedPayload {
+  roomId: string
+  deletedBy: string
+  reason: string
 }
 
 /**
@@ -84,21 +95,21 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
 
         setSession((prev) => ({ ...prev, connectionStatus: 'connecting' }))
 
-        socket.on('connect', () => {
+        socket.on(ROOM_SOCKET_EVENTS.CONNECT, () => {
           if (cancelled) return
           setSession((prev) => ({ ...prev, connectionStatus: 'connected' }))
           // Registrar presencia global antes de unirse a la sala
-          socket.emit('newUser')
-          socket.emit('joinRoom', { roomId })
+          socket.emit(ROOM_SOCKET_EVENTS.NEW_USER)
+          socket.emit(ROOM_SOCKET_EVENTS.JOIN_ROOM, { roomId })
         })
 
-        socket.on('disconnect', () => {
+        socket.on(ROOM_SOCKET_EVENTS.DISCONNECT, () => {
           if (cancelled) return
           setSession((prev) => ({ ...prev, connectionStatus: 'disconnected' }))
         })
 
         // ── Eventos de mensajes ──────────────────────────────────────
-        socket.on('message:new', (msg) => {
+        socket.on(ROOM_SOCKET_EVENTS.MESSAGE_NEW, (msg) => {
           if (cancelled) return
           const chatMsg: RoomChatMessage = {
             id: `rt-${msg.uid}-${msg.timestamp}`,
@@ -113,11 +124,11 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           }))
         })
 
-        socket.on('message:error', (err) => {
+        socket.on(ROOM_SOCKET_EVENTS.MESSAGE_ERROR, (err) => {
           console.error('[Chat] message:error', err)
         })
 
-        socket.on('roomUsers', (users: Array<{
+        socket.on(ROOM_SOCKET_EVENTS.ROOM_USERS, (users: Array<{
           socketId: string
           uid: string | null
           username?: string | null
@@ -149,15 +160,37 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         })
 
         // ── Eventos de sala ──────────────────────────────────────────
-        socket.on('errorMessage', (err) => {
+        socket.on(ROOM_SOCKET_EVENTS.ERROR_MESSAGE, (err) => {
           console.error('[Room] errorMessage', err)
+        })
+
+        socket.on(ROOM_SOCKET_EVENTS.ROOM_DELETED, (payload: RoomDeletedPayload) => {
+          if (
+            cancelled ||
+            payload.roomId !== roomId ||
+            payload.reason !== ROOM_DELETED_REASON ||
+            payload.deletedBy === firebaseUser?.uid
+          ) {
+            return
+          }
+
+          setSession((prev) => ({
+            ...prev,
+            connectionStatus: 'disconnected',
+            participants: [],
+          }))
+          disconnectSocket()
+          navigate('/dashboard', {
+            replace: true,
+            state: createRoomDeletedDashboardState(),
+          })
         })
 
         // Si el socket ya estaba conectado (reconexión), unirse directamente
         if (socket.connected) {
           setSession((prev) => ({ ...prev, connectionStatus: 'connected' }))
-          socket.emit('newUser')
-          socket.emit('joinRoom', { roomId })
+          socket.emit(ROOM_SOCKET_EVENTS.NEW_USER)
+          socket.emit(ROOM_SOCKET_EVENTS.JOIN_ROOM, { roomId })
         }
 
         // 2) Cargar historial de mensajes desde el backend REST
@@ -200,17 +233,18 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       cancelled = true
       const socket = getSocket()
       if (socket) {
-        socket.emit('leaveRoom')
-        socket.off('connect')
-        socket.off('disconnect')
-        socket.off('message:new')
-        socket.off('message:error')
-        socket.off('roomUsers')
-        socket.off('errorMessage')
+        socket.emit(ROOM_SOCKET_EVENTS.LEAVE_ROOM)
+        socket.off(ROOM_SOCKET_EVENTS.CONNECT)
+        socket.off(ROOM_SOCKET_EVENTS.DISCONNECT)
+        socket.off(ROOM_SOCKET_EVENTS.MESSAGE_NEW)
+        socket.off(ROOM_SOCKET_EVENTS.MESSAGE_ERROR)
+        socket.off(ROOM_SOCKET_EVENTS.ROOM_USERS)
+        socket.off(ROOM_SOCKET_EVENTS.ERROR_MESSAGE)
+        socket.off(ROOM_SOCKET_EVENTS.ROOM_DELETED)
       }
       disconnectSocket()
     }
-  }, [roomId, getIdToken, firebaseUser?.uid])
+  }, [roomId, getIdToken, firebaseUser?.uid, navigate])
 
   // ── Cargar más historial (paginación) ─────────────────────────────
   const loadMoreHistory = useCallback(async () => {
@@ -291,7 +325,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         return
       }
 
-      socket.emit('message:send', { text: trimmed })
+      socket.emit(ROOM_SOCKET_EVENTS.MESSAGE_SEND, { text: trimmed })
     },
     [],
   )
@@ -299,7 +333,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   const leaveRoom = useCallback(() => {
     const socket = getSocket()
     if (socket?.connected) {
-      socket.emit('leaveRoom')
+      socket.emit(ROOM_SOCKET_EVENTS.LEAVE_ROOM)
     }
     disconnectSocket()
     navigate('/dashboard')
