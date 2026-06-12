@@ -129,3 +129,29 @@ input:focus-visible:not(.auth-input) {
 body {
   font-size: 10px;
 }
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--auth-btn-bg) 72%, transparent)
+    var(--auth-input-bg);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--auth-input-bg);
+}
+
+*::-webkit-scrollbar-thumb {
+  min-height: 40px;
+  border: 2px solid var(--auth-input-bg);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--auth-btn-bg) 72%, var(--auth-label));
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--auth-btn-bg);
+}

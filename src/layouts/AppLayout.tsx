@@ -3,7 +3,7 @@ import ThemeToggle from "@/shared/theme/components/ThemeToggle";
 import { UserAvatar } from "@/shared/components/user/UserAvatar";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { Home, LogOut, Palette, User, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
-import { NavLink, Outlet, useNavigate } from "react-router";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useRooms } from "@/modules/rooms/hooks/useRooms";
 
 const appLinks = [
@@ -16,6 +16,7 @@ const appLinks = [
 
 export default function AppLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const profile = useAuthStore((state) => state.profile);
   const firebaseUser = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
@@ -58,6 +59,7 @@ export default function AppLayout() {
   };
 
   const sidebarWidthClass = isExpanded ? "w-[280px]" : "w-[80px]";
+  const isActiveRoomPage = /^\/room\/[^/]+$/.test(location.pathname);
 
   return (
     <div className="h-screen w-screen bg-auth-bg font-sans text-auth-title transition-colors duration-500 overflow-hidden">
@@ -185,7 +187,7 @@ export default function AppLayout() {
                               rooms.map((room) => (
                                 <li key={room.id}>
                                   <NavLink
-                                    to={`/room/${room.id}`}
+                                    to={`/room/${room.id}/lobby`}
                                     title={room.name}
                                     className={({ isActive }) =>
                                       `flex items-center gap-2 rounded-md py-1.5 px-2 text-xs font-medium transition-colors duration-200 cursor-pointer ${isActive
@@ -219,7 +221,7 @@ export default function AppLayout() {
                             {rooms.map((room) => (
                               <li key={room.id} className="relative group/tooltip">
                                 <NavLink
-                                  to={`/room/${room.id}`}
+                                  to={`/room/${room.id}/lobby`}
                                   aria-label={`Ir a la sala ${room.name}`}
                                   className={({ isActive }) =>
                                     `flex h-9 w-9 items-center justify-center rounded-3xl transition-all duration-300 cursor-pointer overflow-hidden border border-auth-input-border/40 ${
@@ -333,6 +335,7 @@ export default function AppLayout() {
                 className={`
                   flex items-center transition-colors duration-200 cursor-pointer
                   font-medium text-sm
+                  bg-red-600 text-white hover:bg-red-500 active:bg-red-700
                   ${isExpanded
                     ? "px-4 py-2.5 justify-start w-full border border-auth-error/30 bg-auth-error/5 hover:bg-auth-error/15 text-auth-error active:bg-auth-error/25 shadow-sm rounded-lg gap-3"
                     : "h-10 w-10 mx-auto justify-center text-auth-error hover:bg-auth-error/10 rounded-lg"
@@ -348,8 +351,12 @@ export default function AppLayout() {
         </aside>
 
         {/* Main Content Area */}
-        <main id="main-content" className="h-screen bg-auth-bg p-4 sm:p-8 overflow-y-auto" tabIndex={-1}>
-          <div className="mx-auto max-w-6xl">
+        <main
+          id="main-content"
+          className={`h-screen bg-auth-bg overflow-y-auto ${isActiveRoomPage ? "p-0" : "p-4 sm:p-8"}`}
+          tabIndex={-1}
+        >
+          <div className={isActiveRoomPage ? "h-full" : "mx-auto max-w-6xl"}>
             <Outlet />
           </div>
         </main>

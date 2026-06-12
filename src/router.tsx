@@ -3,6 +3,7 @@ import AppLayout from "./layouts/AppLayout";
 import LandingPage from "./modules/landing/pages/LandingPage";
 import LoginPage from "./modules/auth/pages/LoginPage";
 import RegisterPage from "./modules/auth/pages/RegisterPage";
+import RoomLobbyPage from "./modules/rooms/pages/RoomLobbyPage";
 import RoomPage from "./modules/rooms/pages/RoomPage";
 import ProfilePage from "./modules/users/pages/ProfilePage";
 import LandingLayout from "./layouts/LandingLayout";
@@ -80,6 +81,10 @@ export const Router = createBrowserRouter([
           {
             path: "profile",
             element: <ProfilePage />,
+          },
+          {
+            path: "room/:id/lobby",
+            element: <RoomLobbyPage />,
           },
           {
             path: "room/:id",
