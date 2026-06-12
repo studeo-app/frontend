@@ -3,7 +3,9 @@ import { useNavigate } from "react-router";
 import {
   AlertCircle,
   ArrowRight,
+  Check,
   Compass,
+  Copy,
   Eye,
   LayoutGrid,
   Loader2,
@@ -44,13 +46,17 @@ export default function DashboardPage() {
   const [joinErrorTitle, setJoinErrorTitle] = useState("No pudimos unirte a la sala");
   const [isJoining, setIsJoining] = useState(false);
   const [removingRoomId, setRemovingRoomId] = useState<string | null>(null);
+  const [roomToLeave, setRoomToLeave] = useState<Room | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [membersRoom, setMembersRoom] = useState<Room | null>(null);
+  const [copiedRoomId, setCopiedRoomId] = useState<string | null>(null);
+  const [srAnnouncement, setSrAnnouncement] = useState("");
+
   const membersByRoomId = useRoomsStore((state) => state.membersByRoomId);
   const membersLoading = useRoomsStore((state) => state.membersLoading);
-  const updateRoomLocally = useRoomsStore((state) => state.updateRoomLocally)
+  const updateRoomLocally = useRoomsStore((state) => state.updateRoomLocally);
   const membersError = useRoomsStore((state) => state.membersError);
-  const [connectionMessage, setConnectionMessage] = useState<string | null>(null)
+  const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
   const subscribeRoomsMembers = useRoomsStore((state) => state.subscribeRoomsMembers);
   const removeRoomMembersLocally = useRoomsStore((state) => state.removeRoomMembersLocally);
 
@@ -124,6 +130,26 @@ export default function DashboardPage() {
       setRemovingRoomId(null);
     }
   };
+  
+  const handleConfirmLeaveRoom = async () => {
+      if (!roomToLeave) return;
+      
+      const targetRoomId = roomToLeave.id;
+      setRoomToLeave(null); 
+      await handleRemoveMembership(targetRoomId);
+    };
+  const handleCopyCode = (e: React.MouseEvent, room: Room) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(room.roomCode);
+    setCopiedRoomId(room.id);
+
+    setSrAnnouncement(`Código de sala ${room.name} copiado con éxito.`);
+
+    setTimeout(() => {
+      setCopiedRoomId(null);
+      setSrAnnouncement("");
+    }, 2000);
+  };
 
   const handleOpenMembers = (room: Room) => {
     setMembersRoom(room);
@@ -190,17 +216,17 @@ export default function DashboardPage() {
         <div className="absolute right-3 top-3 z-10">
           {isOwner ? (
             <RoomActionsMenu
-             room={room} 
-             isOwner={isOwner} 
-             variant="card"
-             onUpdated={(updatedRoom) => {updateRoomLocally(updatedRoom)}}
-             onDeleted={handleRoomDeleted} />
+              room={room} 
+              isOwner={isOwner} 
+              variant="card"
+              onUpdated={(updatedRoom) => {updateRoomLocally(updatedRoom)}}
+              onDeleted={handleRoomDeleted} />
           ) : (
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                handleRemoveMembership(room.id);
+                setRoomToLeave(room);
               }}
               disabled={removingRoomId === room.id}
               aria-label={`Quitar ${room.name} de mi dashboard`}
@@ -219,12 +245,43 @@ export default function DashboardPage() {
 
       <div className="flex flex-1 flex-col justify-between space-y-4 p-5">
         <div className="space-y-2">
-          <h3 className="line-clamp-1 text-base font-bold tracking-tight text-auth-title transition-colors group-hover:text-auth-btn">
-            {room.name}
-          </h3>
-          <p className="text-xs text-auth-label">
-            Creado el {formatDate(room.createdAt)}
-          </p>
+
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <h3 className="line-clamp-1 text-base font-bold tracking-tight text-auth-title transition-colors group-hover:text-auth-btn">
+                {room.name}
+              </h3>
+              <p className="text-xs text-auth-label">
+                Creado el {formatDate(room.createdAt)}
+              </p>
+            </div>
+
+            <div className="relative">
+              {copiedRoomId === room.id && (
+                <span 
+                  className="absolute -top-7 right-0 z-20 whitespace-nowrap rounded-md bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm animate-scale-up"
+                  aria-live="polite"
+                  role="status"
+                >
+                  ¡Copiado con éxito!
+                </span>
+              )}
+            <button
+              type="button"
+              onClick={(e) => handleCopyCode(e, room)}
+              className="shrink-0 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-auth-input-border/60 bg-auth-input-bg/30 px-2.5 py-1.5 text-xs font-mono font-bold text-auth-btn transition hover:border-auth-btn/40 hover:bg-auth-input-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
+              aria-label={copiedRoomId === room.roomCode ? "Código copiado" : `copiar código de la sala ${room.name}`}
+              title="Copiar código de la sala"
+            >
+              <span>{room.roomCode}</span> 
+              {copiedRoomId === room.id ? (
+                <Check className="h-3.5 w-3.5 text-emerald-500 transition-scale animate-scale-up" aria-hidden="true" />
+              ) : (
+                <Copy className="h-3.5 w-3.5 opacity-70 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
+              )}
+            </button>
+          </div>
+          </div>
 
           <div className="flex flex-wrap items-center gap-2 pt-1.5">
             <button
@@ -400,8 +457,7 @@ export default function DashboardPage() {
               role="status">
                 {connectionMessage}
               </p>
-          )
-          }
+          )}
         </div>
       </section>
 
@@ -686,12 +742,52 @@ export default function DashboardPage() {
         </div>
       </BaseModal>
 
+      <BaseModal
+        isOpen={!!roomToLeave}
+        onClose={() => setRoomToLeave(null)}
+        title="Confirmar acción"
+      >
+        <div className="space-y-6 py-2">
+          <div className="flex items-center gap-3 rounded-xl border border-auth-error/20 bg-auth-error/5 p-4 text-sm text-auth-title">
+            <AlertCircle className="h-5 w-5 shrink-0 text-auth-error" aria-hidden="true" />
+            <p>
+              ¿Estás seguro que quieres dejar de ser miembro de la sala{" "}
+              <span className="font-bold text-auth-btn">"{roomToLeave?.name}"</span>?
+            </p>
+          </div>
+
+          <p className="text-xs leading-relaxed text-auth-label">
+            Al salir, esta sala se quitará de tu panel. Si deseas volver a ingresar en el futuro, necesitarás que te compartan el código de acceso de nuevo.
+          </p>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setRoomToLeave(null)}
+              className="h-10 cursor-pointer rounded-xl border border-auth-input-border bg-transparent px-4 text-sm font-semibold text-auth-title transition hover:bg-auth-input-bg/50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmLeaveRoom}
+              className="h-10 cursor-pointer rounded-xl bg-auth-error px-5 text-sm font-semibold text-white shadow-md shadow-auth-error/10 transition hover:brightness-110 active:scale-[0.98]"
+            >
+              Confirmar y Salir
+            </button>
+          </div>
+        </div>
+      </BaseModal>
+
       <ErrorModal
         isOpen={!!joinError}
         onClose={() => setJoinError(null)}
         title={joinErrorTitle}
         message={joinError ?? ""}
       />
+      <div className="sr-only" aria-live="polite" role="status">
+        {srAnnouncement}
+      </div>
     </div>
   );
 }

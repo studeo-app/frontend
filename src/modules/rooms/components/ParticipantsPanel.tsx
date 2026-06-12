@@ -1,3 +1,4 @@
+import { useMemo } from 'react' // 1. Importamos useMemo para optimizar el ordenamiento
 import { Circle, Mic, MicOff, Video, VideoOff } from 'lucide-react'
 import { UserAvatar } from '@/shared/components/user/UserAvatar'
 import type { RoomMember } from '@/types/room'
@@ -15,6 +16,17 @@ export function ParticipantsPanel({
   loadingMembers = false,
 }: ParticipantsPanelProps) {
   const onlineByUid = new Map(onlineParticipants.map((p) => [p.id, p]))
+
+  // 2. Ordenamos los miembros: Online primero, Offline después
+  const sortedMembers = useMemo(() => {
+    return [...members].sort((a, b) => {
+      const aOnline = onlineByUid.has(a.uid) ? 1 : 0
+      const bOnline = onlineByUid.has(b.uid) ? 1 : 0
+      
+      // Orden descendente (1 - 0) pone los '1' (Online) arriba
+      return bOnline - aOnline
+    })
+  }, [members, onlineByUid])
 
   return (
     <aside
@@ -40,7 +52,8 @@ export function ParticipantsPanel({
         </div>
       ) : (
         <ul className="flex-1 space-y-1 overflow-y-auto p-3">
-          {members.map((member) => {
+          {/* 3. Mapeamos sobre la lista ya ordenada en lugar de la original */}
+          {sortedMembers.map((member) => {
             const online = onlineByUid.get(member.uid)
             const isOnline = Boolean(online)
 

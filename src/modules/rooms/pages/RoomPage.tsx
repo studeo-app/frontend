@@ -161,6 +161,7 @@ export default function RoomPage() {
                 type="button"
                 onClick={() => setActivePanel('chat')}
                 className="
+                  absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 z-40
                   h-40 w-8 shrink-0 cursor-pointer
                   flex items-center justify-center 
                   rounded-l-2xl border border-r-0 
