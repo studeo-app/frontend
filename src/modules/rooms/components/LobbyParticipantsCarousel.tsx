@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { LobbyWaitingParticipant } from '../types/lobby'
 
 const VISIBLE_PARTICIPANT_SLOTS = 4
@@ -50,6 +50,10 @@ export function LobbyParticipantsCarousel({
   const maxOffset = Math.max(0, participants.length - VISIBLE_PARTICIPANT_SLOTS)
   const canGoLeft = offset > 0
   const canGoRight = offset < maxOffset
+
+  useEffect(() => {
+    setOffset((currentOffset) => Math.min(currentOffset, maxOffset))
+  }, [maxOffset])
 
   const items = useMemo(
     () => buildCarouselItems(participants, offset),

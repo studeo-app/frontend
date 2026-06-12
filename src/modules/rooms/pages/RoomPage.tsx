@@ -54,20 +54,10 @@ export default function RoomPage() {
     let cancelled = false
 
     async function loadMembers() {
-      console.log('[RoomMembers] load:start', { roomId })
       setLoadingMembers(true)
       try {
         const token = await getIdToken()
-        console.log('[RoomMembers] token:ok', { roomId })
         const data = await getRoomMembers(token, roomId)
-        console.log('[RoomMembers] load:success', {
-          roomId,
-          count: data.length,
-          members: data.map((member) => ({
-            uid: member.uid,
-            displayName: member.displayName,
-          })),
-        })
         if (!cancelled) {
           setMembers(data)
         }
@@ -78,7 +68,6 @@ export default function RoomPage() {
         }
       } finally {
         if (!cancelled) {
-          console.log('[RoomMembers] load:finally', { roomId })
           setLoadingMembers(false)
         }
       }

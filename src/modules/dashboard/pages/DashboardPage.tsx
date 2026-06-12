@@ -36,6 +36,32 @@ import { joinRoomByCode, removeRoomMembership } from "@/modules/rooms/api/roomsA
 import { isValidRoomCode, parseRoomCodeFromInput } from "@/modules/rooms/utils/roomCode";
 import type { Room } from "@/types/room";
 
+interface EmptySectionProps {
+  icon: LucideIcon;
+  title: string;
+  message: string;
+  action?: ReactNode;
+}
+
+function EmptySection({ icon: Icon, title, message, action }: EmptySectionProps) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-auth-input-border bg-auth-surface px-6 py-10 text-center shadow-sm">
+      <div
+        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-auth-btn/6 via-transparent to-auth-link/5"
+        aria-hidden="true"
+      />
+      <div className="relative mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-auth-btn/20 bg-auth-btn/10 text-auth-btn">
+        <Icon className="h-7 w-7" aria-hidden="true" />
+      </div>
+      <h3 className="relative text-base font-bold text-auth-title">{title}</h3>
+      <p className="relative mx-auto mt-1 max-w-md text-sm leading-relaxed text-auth-label">
+        {message}
+      </p>
+      {action ? <div className="relative mt-5">{action}</div> : null}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   useDocumentTitle("Dashboard - Mis Salas");
   const navigate = useNavigate();
@@ -76,9 +102,18 @@ export default function DashboardPage() {
   const username = profile?.username;
   const avatarUrl = profile?.avatarUrl ?? firebaseUser?.photoURL ?? undefined;
 
-  const emitLeaveRoomSocketEvent = (token: string, roomId: string) => {
+  const emitRoomSocketEvent = (
+    token: string,
+    event: "deleteRoom" | "leaveRoom",
+    roomId: string,
+  ) => {
     const socket = connectSocket(token);
     const emit = () => {
+      if (event === "deleteRoom") {
+        socket.emit("deleteRoom", { roomId });
+        return;
+      }
+
       socket.emit("leaveRoom", roomId);
     };
 
@@ -133,7 +168,7 @@ export default function DashboardPage() {
     try {
       const token = await getIdToken();
       await removeRoomMembership(token, roomId);
-      emitLeaveRoomSocketEvent(token, roomId);
+      emitRoomSocketEvent(token, "leaveRoom", roomId);
       removeRoomMembersLocally(roomId);
     } catch (err: any) {
       setJoinError(err?.message ?? "No pudimos quitar la sala del dashboard.");
@@ -169,6 +204,11 @@ export default function DashboardPage() {
   const handleCreateSuccess = (roomId: string) => {
     setIsCreateModalOpen(false);
     navigate(`/room/${roomId}/lobby`);
+  };
+
+  const handleRoomDeleted = async (roomId: string) => {
+    const token = await getIdToken();
+    emitRoomSocketEvent(token, "deleteRoom", roomId);
   };
 
   useEffect(() => {
@@ -226,7 +266,7 @@ export default function DashboardPage() {
               isOwner={isOwner} 
               variant="card"
               onUpdated={(updatedRoom) => {updateRoomLocally(updatedRoom)}}
-              onDeleted={refreshRooms} />
+              onDeleted={() => handleRoomDeleted(room.id)} />
           ) : (
             <button
               type="button"
@@ -350,33 +390,6 @@ export default function DashboardPage() {
       {sectionRooms.map((room) => (
         <RoomCard key={room.id} room={room} isOwner={isOwnerSection} />
       ))}
-    </div>
-  );
-
-  const EmptySection = ({
-    icon: Icon,
-    title,
-    message,
-    action,
-  }: {
-    icon: LucideIcon;
-    title: string;
-    message: string;
-    action?: ReactNode;
-  }) => (
-    <div className="relative overflow-hidden rounded-2xl border border-auth-input-border bg-auth-surface px-6 py-10 text-center shadow-sm">
-      <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-auth-btn/6 via-transparent to-auth-link/5"
-        aria-hidden="true"
-      />
-      <div className="relative mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-auth-btn/20 bg-auth-btn/10 text-auth-btn">
-        <Icon className="h-7 w-7" aria-hidden="true" />
-      </div>
-      <h3 className="relative text-base font-bold text-auth-title">{title}</h3>
-      <p className="relative mx-auto mt-1 max-w-md text-sm leading-relaxed text-auth-label">
-        {message}
-      </p>
-      {action ? <div className="relative mt-5">{action}</div> : null}
     </div>
   );
 

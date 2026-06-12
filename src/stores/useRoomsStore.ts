@@ -12,7 +12,7 @@ import {
 import { db } from "@/config/firebase.config";
 import type { Room, RoomMember } from "@/types/room";
 
-const MEMBERS_COLLECTION = "miembros";
+const MEMBERS_COLLECTION = "members";
 
 interface UserProfileSnapshot {
   firstName?: string;
@@ -294,11 +294,11 @@ export const useRoomsStore = create<RoomsState>((set) => ({
 
           snapshot.docs.forEach((memberDoc) => {
             const data = memberDoc.data();
-            const uid = String(data.uid ?? memberDoc.id);
+            const uid = memberDoc.id;
             ensureUserListener(uid);
             memberMap.set(uid, {
               id: memberDoc.id,
-              roomId: String(data.roomId ?? room.id),
+              roomId: room.id,
               uid,
               joinedAt: String(data.joinedAt ?? ""),
               displayName: uid,

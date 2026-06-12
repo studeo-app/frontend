@@ -15,7 +15,10 @@ export function ParticipantsPanel({
   onlineParticipants,
   loadingMembers = false,
 }: ParticipantsPanelProps) {
-  const onlineByUid = new Map(onlineParticipants.map((p) => [p.id, p]))
+  const onlineByUid = useMemo(
+    () => new Map(onlineParticipants.map((participant) => [participant.id, participant])),
+    [onlineParticipants],
+  )
 
   // 2. Ordenamos los miembros: Online primero, Offline después
   const sortedMembers = useMemo(() => {
@@ -56,6 +59,10 @@ export function ParticipantsPanel({
           {sortedMembers.map((member) => {
             const online = onlineByUid.get(member.uid)
             const isOnline = Boolean(online)
+            const primaryLabel = member.username ?? member.displayName
+            const secondaryLabel = member.username
+              ? member.displayName || member.email
+              : member.email
 
             return (
               <li
@@ -64,14 +71,17 @@ export function ParticipantsPanel({
               >
                 <UserAvatar
                   src={member.avatarUrl}
-                  alt={member.displayName}
+                  alt={primaryLabel}
                   size="sm"
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-auth-title">
-                    {member.displayName}
+                    {primaryLabel}
                   </p>
-                  <p className="flex items-center gap-1.5 text-xs text-auth-label">
+                  <p className="truncate text-xs text-auth-label">
+                    {secondaryLabel}
+                  </p>
+                  <p className="mt-0.5 flex items-center gap-1.5 text-xs text-auth-label">
                     <Circle
                       className={`h-2 w-2 fill-current ${
                         isOnline ? 'text-auth-link' : 'text-auth-input-border'

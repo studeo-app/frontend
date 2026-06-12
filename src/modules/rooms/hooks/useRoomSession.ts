@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { connectSocket, disconnectSocket, getSocket } from '@/config/socket.config'
 import { getRoomMessages } from '../api/chatApi'
+import { getRoomMembers } from '../api/roomsApi'
 import {
   ROOM_DELETED_REASON,
   createRoomDeletedDashboardState,
@@ -13,6 +14,7 @@ import type {
   RoomSessionActions,
   RoomSessionState,
 } from '../types/roomSession'
+import type { RoomMember } from '@/types/room'
 
 interface UseRoomSessionResult {
   session: RoomSessionState
@@ -23,6 +25,34 @@ interface RoomDeletedPayload {
   roomId: string
   deletedBy: string
   reason: string
+}
+
+interface RoomUserPresencePayload {
+  socketId: string
+  uid: string | null
+  username?: string | null
+  name?: string | null
+  avatarUrl?: string | null
+  isMuted?: boolean
+  isVideoOff?: boolean
+}
+
+function resolveParticipantProfile(
+  user: RoomUserPresencePayload,
+  memberByUid: Map<string, RoomMember>,
+) {
+  const member = user.uid ? memberByUid.get(user.uid) : undefined
+  const username = member?.username?.trim() || user.username?.trim()
+
+  return {
+    displayName:
+      username ||
+      member?.displayName?.trim() ||
+      user.name?.trim() ||
+      user.uid?.slice(0, 8) ||
+      user.socketId.slice(0, 8),
+    avatarUrl: member?.avatarUrl ?? user.avatarUrl ?? undefined,
+  }
 }
 
 /**
@@ -38,9 +68,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   const localUser = useMemo(
     () => ({
       id: firebaseUser?.uid ?? 'local-user',
-      displayName: profile
-        ? `${profile.firstName} ${profile.lastName}`.trim()
-        : (firebaseUser?.displayName ?? 'Usuario'),
+      displayName: profile?.username ?? firebaseUser?.displayName ?? 'Usuario',
       avatarUrl: profile?.avatarUrl ?? firebaseUser?.photoURL ?? undefined,
     }),
     [profile, firebaseUser],
@@ -89,6 +117,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       try {
         const token = await getIdToken()
         if (cancelled) return
+        const roomMembersPromise = getRoomMembers(token, roomId).catch(() => [])
 
         // 1) Conectar socket
         const socket = connectSocket(token)
@@ -128,29 +157,21 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           console.error('[Chat] message:error', err)
         })
 
-        socket.on(ROOM_SOCKET_EVENTS.ROOM_USERS, (users: Array<{
-          socketId: string
-          uid: string | null
-          username?: string | null
-          name?: string | null
-          avatarUrl?: string | null
-          isMuted?: boolean
-          isVideoOff?: boolean
-        }>) => {
+        socket.on(ROOM_SOCKET_EVENTS.ROOM_USERS, async (users: RoomUserPresencePayload[]) => {
           if (cancelled) return
+          const roomMembers = await roomMembersPromise
+          if (cancelled) return
+          const memberByUid = new Map(roomMembers.map((member) => [member.uid, member]))
+
           setSession((prev) => ({
             ...prev,
             participants: users.map((user) => {
-              const displayName =
-                user.name?.trim() ||
-                user.username?.trim() ||
-                user.uid?.slice(0, 8) ||
-                user.socketId.slice(0, 8)
+              const profile = resolveParticipantProfile(user, memberByUid)
 
               return {
                 id: user.uid ?? user.socketId,
-                displayName,
-                avatarUrl: user.avatarUrl ?? undefined,
+                displayName: profile.displayName,
+                avatarUrl: profile.avatarUrl,
                 isLocal: user.uid === firebaseUser?.uid,
                 isCameraOn: !user.isVideoOff,
                 isMicOn: !user.isMuted,
