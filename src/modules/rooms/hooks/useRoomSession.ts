@@ -11,6 +11,7 @@ import {
 import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
 import type {
   RoomChatMessage,
+  RoomParticipant,
   RoomSessionActions,
   RoomSessionState,
 } from '../types/roomSession'
@@ -33,6 +34,7 @@ interface RoomUserPresencePayload {
   username?: string | null
   name?: string | null
   avatarUrl?: string | null
+  roomId?: string | null
   isMuted?: boolean
   isVideoOff?: boolean
 }
@@ -55,10 +57,28 @@ function resolveParticipantProfile(
   }
 }
 
-/**
- * Hook de sesión de sala con conexión real a Socket.IO (backend-realtime)
- * y carga de historial desde el backend NestJS REST.
- */
+function toRoomParticipants(
+  users: RoomUserPresencePayload[],
+  roomId: string,
+  memberByUid: Map<string, RoomMember>,
+  localUserUid?: string,
+): RoomParticipant[] {
+  return users
+    .filter((user) => user.socketId.trim() && (!user.roomId || user.roomId === roomId))
+    .map((user) => {
+      const profile = resolveParticipantProfile(user, memberByUid)
+
+      return {
+        id: user.uid ?? user.socketId,
+        displayName: profile.displayName,
+        avatarUrl: profile.avatarUrl,
+        isLocal: user.uid === localUserUid,
+        isCameraOn: !user.isVideoOff,
+        isMicOn: !user.isMuted,
+      }
+    })
+}
+
 export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessionResult {
   const navigate = useNavigate()
   const profile = useAuthStore((s) => s.profile)
@@ -162,21 +182,16 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           const roomMembers = await roomMembersPromise
           if (cancelled) return
           const memberByUid = new Map(roomMembers.map((member) => [member.uid, member]))
+          const participants = toRoomParticipants(
+            users,
+            roomId,
+            memberByUid,
+            firebaseUser?.uid,
+          )
 
           setSession((prev) => ({
             ...prev,
-            participants: users.map((user) => {
-              const profile = resolveParticipantProfile(user, memberByUid)
-
-              return {
-                id: user.uid ?? user.socketId,
-                displayName: profile.displayName,
-                avatarUrl: profile.avatarUrl,
-                isLocal: user.uid === firebaseUser?.uid,
-                isCameraOn: !user.isVideoOff,
-                isMicOn: !user.isMuted,
-              }
-            }),
+            participants,
           }))
         })
 

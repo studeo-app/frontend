@@ -6,6 +6,7 @@ import {
   MOCK_CAMERA_DEVICES,
   MOCK_MIC_DEVICES,
 } from '../constants/mockLobbyParticipants'
+import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
 import { getRoomMembers } from '../api/roomsApi'
 import type { LobbyWaitingParticipant } from '../types/lobby'
 import type { LocalMediaState } from '../types/roomSession'
@@ -140,10 +141,10 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
         const socket = connectSocket(token)
 
         const requestPreview = () => {
-          socket.emit('roomUsersPrevisualization', { roomId, socketId: socket.id ?? '' })
+          socket.emit(ROOM_SOCKET_EVENTS.ROOM_USERS_PREVIEW, { roomId, socketId: socket.id ?? '' })
         }
 
-        socket.on('roomUsers', async (users: RealtimeUserPresence[]) => {
+        socket.on(ROOM_SOCKET_EVENTS.ROOM_USERS, async (users: RealtimeUserPresence[]) => {
           if (cancelled) return
           if (timeoutId) window.clearTimeout(timeoutId)
           const roomMembers = await roomMembersPromise
@@ -153,7 +154,7 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
           setLoadingParticipants(false)
         })
 
-        socket.on('errorMessage', (err: { message?: string }) => {
+        socket.on(ROOM_SOCKET_EVENTS.ERROR_MESSAGE, (err: { message?: string }) => {
           if (cancelled) return
           if (timeoutId) window.clearTimeout(timeoutId)
           setPreviewError(err.message ?? 'No pudimos cargar los usuarios conectados.')
@@ -163,7 +164,7 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
         if (socket.connected) {
           requestPreview()
         } else {
-          socket.on('connect', requestPreview)
+          socket.on(ROOM_SOCKET_EVENTS.CONNECT, requestPreview)
         }
       } catch {
         if (!cancelled) {
@@ -181,9 +182,9 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
       if (timeoutId) window.clearTimeout(timeoutId)
       const socket = getSocket()
       if (socket) {
-        socket.off('roomUsers')
-        socket.off('errorMessage')
-        socket.off('connect')
+        socket.off(ROOM_SOCKET_EVENTS.ROOM_USERS)
+        socket.off(ROOM_SOCKET_EVENTS.ERROR_MESSAGE)
+        socket.off(ROOM_SOCKET_EVENTS.CONNECT)
       }
       disconnectSocket()
     }

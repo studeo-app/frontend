@@ -32,7 +32,6 @@ export default function RoomPage() {
   const prevMsgCountRef = useRef(session.messages.length)
 
   useEffect(() => {
-    // Si llegan mensajes nuevos y el panel de chat no está activo → marcar como no leído
     if (
       session.messages.length > prevMsgCountRef.current &&
       activePanel !== 'chat'
@@ -42,7 +41,6 @@ export default function RoomPage() {
     prevMsgCountRef.current = session.messages.length
   }, [session.messages.length, activePanel])
 
-  // Limpiar badge al abrir el panel de chat
   useEffect(() => {
     if (activePanel === 'chat') {
       setChatHasUnread(false)
@@ -85,36 +83,6 @@ export default function RoomPage() {
 
   useDocumentTitle(`${roomName} - Studeo`)
 
-  const renderSidePanel = () => {
-    switch (activePanel) {
-      case 'participants':
-        return (
-          <ParticipantsPanel
-            members={members}
-            onlineParticipants={session.participants}
-            loadingMembers={loadingMembers}
-          />
-        )
-      case 'settings':
-        return <RoomSettingsPanel />
-      case 'chat':
-      default:
-        return (
-          <ChatPanel
-            messages={session.messages}
-            currentUserId={firebaseUser?.uid}
-            onSendMessage={actions.sendMessage}
-            loadingHistory={session.loadingHistory}
-            hasMoreHistory={session.hasMoreHistory}
-            onLoadMore={actions.loadMoreHistory}
-            connectionStatus={session.connectionStatus}
-            isOpen={activePanel === 'chat'}
-            onClose={() => setActivePanel(null)}
-          />
-        )
-    }
-  }
-
   return (
     <div className="flex h-full w-full">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -142,8 +110,29 @@ export default function RoomPage() {
               onLeave={actions.leaveRoom}
             />
           </div>
+
           <div className="relative flex h-full shrink-0">
-            {renderSidePanel()}
+            {/* Los 3 paneles siempre montados, la animación la maneja isOpen */}
+            <ChatPanel
+              messages={session.messages}
+              currentUserId={firebaseUser?.uid}
+              onSendMessage={actions.sendMessage}
+              loadingHistory={session.loadingHistory}
+              hasMoreHistory={session.hasMoreHistory}
+              onLoadMore={actions.loadMoreHistory}
+              connectionStatus={session.connectionStatus}
+              isOpen={activePanel === 'chat'}
+              onClose={() => setActivePanel(null)}
+            />
+
+            <ParticipantsPanel
+              members={members}
+              onlineParticipants={session.participants}
+              loadingMembers={loadingMembers}
+              isOpen={activePanel === 'participants'}
+            />
+
+            <RoomSettingsPanel isOpen={activePanel === 'settings'} />
 
             {activePanel !== 'chat' && (
               <button
@@ -154,14 +143,12 @@ export default function RoomPage() {
                   h-40 w-8 shrink-0 cursor-pointer
                   flex items-center justify-center 
                   rounded-l-2xl border border-r-0 
-                  /* COLORES DINÁMICOS: Súper visibles y contrastados en ambos modos */
                   border-auth-input-border bg-auth-btn text-auth-btn-text
-                  /* TRANSICIONES: Efecto sutil de hover para indicar que es clickeable */
                   transition-all duration-200 hover:brightness-110 hover:w-9
                   shadow-2xl self-center my-auto
                 "
               >
-                <span 
+                <span
                   className="text-xs font-bold tracking-widest uppercase whitespace-nowrap"
                   style={{ writingMode: 'vertical-lr', transform: 'rotate(180deg)' }}
                 >
