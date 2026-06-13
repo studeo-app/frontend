@@ -1,5 +1,6 @@
-import { Check, Copy, MessageSquare, Settings, Users, UserPlus, X } from 'lucide-react'
+import { ArrowLeft, Check, Copy, MessageSquare, Settings, Users, UserPlus, X } from 'lucide-react'
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import type { Room } from '@/types/room'
 import { RoomActionsMenu } from './RoomActionsMenu'
 import type { RoomSidebarPanel } from '../types/roomSession'
@@ -12,9 +13,9 @@ interface RoomHeaderProps {
   isOwner?: boolean
   onRoomUpdated?: (room: Room) => void
   onRoomDeleted?: () => void
-  activePanel?: RoomSidebarPanel
+  activePanel?: RoomSidebarPanel | null
   chatHasUnread?: boolean
-  onPanelChange?: (panel: RoomSidebarPanel) => void
+  onPanelChange?: (panel: RoomSidebarPanel | null) => void
 }
 
 const panelButtons = [
@@ -35,6 +36,7 @@ export function RoomHeader({
   chatHasUnread = false,
   onPanelChange,
 }: RoomHeaderProps) {
+  const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
@@ -49,20 +51,28 @@ export function RoomHeader({
   }
 
   return (
-    <header className="flex shrink-0 items-center justify-between gap-4 border-b border-auth-input-border px-5 py-3.5">
-      <div className="flex min-w-0 items-center gap-4">
+    <header className="flex min-h-[62px] shrink-0 items-center justify-between gap-2 border-b border-auth-input-border px-3 py-2.5 sm:gap-4 sm:px-5 sm:py-3.5">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-auth-input-border bg-auth-input-bg/50 text-auth-label hover:border-auth-btn/40 hover:text-auth-title transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
+          aria-label="Volver al panel"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
         <h1 className="truncate text-sm font-medium text-auth-title sm:text-base">
           {roomName}
         </h1>
         <span className="
-          px-2.5 py-1 text-xs font-semibold rounded-full
+          hidden px-2.5 py-1 text-xs font-semibold rounded-full sm:inline-flex
           bg-auth-input-bg text-auth-title border border-auth-input-border
         ">
           {participantCount} online
         </span>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         <div className="flex items-center gap-1 rounded-xl border border-auth-input-border bg-auth-input-bg/40 p-1">
           {panelButtons.map(({ id, icon: Icon, label }) => {
             const isActive = activePanel === id
@@ -109,14 +119,14 @@ export function RoomHeader({
           title="Invitar miembro a la sala"
           aria-label="Abrir opciones de invitación"
           className="
-            flex items-center gap-2 rounded-xl border border-auth-input-border
-            bg-auth-input-bg/50 px-3 py-1.5 font-auth text-xs text-auth-label
+            flex h-9 w-9 items-center justify-center gap-2 rounded-xl border border-auth-input-border
+            bg-auth-input-bg/50 font-auth text-xs text-auth-label sm:w-auto sm:px-3 sm:py-1.5
             transition-colors hover:border-auth-btn/40 hover:text-auth-title
             cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn
           "
         >
           <UserPlus className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
-          <span>Invitar miembro</span>
+          <span className="hidden sm:inline">Invitar miembro</span>
         </button>
       </div>
 

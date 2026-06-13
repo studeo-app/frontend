@@ -12,6 +12,7 @@ export const ROOM_SOCKET_EVENTS = {
   MESSAGE_SEND: 'message:send',
   MESSAGE_NEW: 'message:new',
   MESSAGE_ERROR: 'message:error',
+  MEDIA_STATUS: 'media:status',
   ERROR_MESSAGE: 'errorMessage',
 } as const
 

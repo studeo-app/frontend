@@ -85,13 +85,15 @@ export function ChatPanel({
     <aside
       aria-label="Chat de sala"
       className={`
-        flex h-full shrink-0 flex-col border-l border-auth-input-border bg-auth-surface
+        pointer-events-auto fixed inset-x-3 bottom-[92px] top-[74px] z-40 flex h-auto shrink-0 flex-col
+        rounded-2xl border border-auth-input-border bg-auth-surface shadow-2xl
         transition-all duration-300 ease-in-out overflow-hidden
-        ${isOpen ? 'w-full sm:w-[320px] opacity-100' : 'w-0 opacity-0 border-l-0'}
+        md:static md:h-full md:rounded-none md:border-y-0 md:border-r-0 md:shadow-none
+        ${isOpen ? 'translate-y-0 opacity-100 md:w-[320px]' : 'pointer-events-none translate-y-4 opacity-0 md:w-0 md:translate-y-0 md:border-l-0'}
       `}
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-auth-input-border px-4 py-3.5">
+      <div className="flex items-center justify-between border-b border-auth-input-border px-4 py-3">
         <h2 className="text-sm font-semibold text-auth-title">Chat</h2>
         <button
           type="button"
@@ -114,7 +116,7 @@ export function ChatPanel({
       )}
 
       {/* Lista de mensajes */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4">
         {/* Botón cargar historial */}
         {hasMoreHistory && (
           <div className="mb-4 flex justify-center">
@@ -253,7 +255,7 @@ export function ChatPanel({
       {/* Input */}
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-1.5 border-t border-auth-input-border p-3"
+        className="flex flex-col gap-1.5 border-t border-auth-input-border p-2.5 sm:p-3"
       >
         <div className="flex gap-2">
           <input
@@ -267,7 +269,7 @@ export function ChatPanel({
             }
             className="
               min-w-0 flex-1 rounded-xl border border-auth-input-border bg-auth-input-bg
-              px-3 py-2 text-sm text-auth-input-text placeholder:text-auth-label/70
+              px-3 py-2.5 text-sm text-auth-input-text placeholder:text-auth-label/70 sm:py-2
               focus:border-auth-btn focus:outline-none focus:ring-1 focus:ring-auth-btn
             "
           />
@@ -275,7 +277,7 @@ export function ChatPanel({
             type="submit"
             disabled={!draft.trim() || connectionStatus !== 'connected'}
             className="
-              shrink-0 rounded-xl bg-auth-btn px-4 py-2 text-sm font-semibold text-auth-btn-text
+              shrink-0 rounded-xl bg-auth-btn px-3 py-2.5 text-sm font-semibold text-auth-btn-text sm:px-4 sm:py-2
               transition-all hover:brightness-110 active:scale-[0.98]
               disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer
             "

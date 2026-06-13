@@ -23,8 +23,8 @@ export function VideoTile({ participant }: VideoTileProps) {
   return (
     <div
       className={`
-      relative flex aspect-video items-center justify-center overflow-hidden
-      rounded-2xl 
+      relative flex w-full max-h-full aspect-video items-center justify-center overflow-hidden
+      rounded-xl sm:rounded-2xl
       bg-auth-input-bg/90 border border-gray-300 dark:border-transparent shadow-md
       ${isSpeaking ? 'ring-2 ring-auth-link ring-offset-2 ring-offset-auth-bg' : ''}
     `}
@@ -38,7 +38,9 @@ export function VideoTile({ participant }: VideoTileProps) {
           playsInline
           muted={isLocal}
           className="absolute inset-0 h-full w-full object-cover"
-        />
+        >
+          <track kind="captions" />
+        </video>
       ) : isCameraOn && isLocal ? (
         <div className="absolute inset-0 bg-gradient-to-br from-auth-input-bg to-auth-surface">
           <img
@@ -50,7 +52,7 @@ export function VideoTile({ participant }: VideoTileProps) {
       ) : avatarUrl ? (
         <UserAvatar src={avatarUrl} alt={displayName} size="xl" />
       ) : (
-        <div className="flex h-24 w-24 items-center justify-center rounded-full bg-auth-btn/30 text-2xl font-bold text-auth-btn">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-auth-btn/30 text-xl font-bold text-auth-btn sm:h-24 sm:w-24 sm:text-2xl">
           {initials ?? displayName.charAt(0).toUpperCase()}
         </div>
       )}
@@ -61,8 +63,8 @@ export function VideoTile({ participant }: VideoTileProps) {
         </div>
       )}
 
-      <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-lg bg-auth-bg/75 px-2.5 py-1 backdrop-blur-sm">
-        <span className="text-xs font-medium text-auth-title">{nameLabel}</span>
+      <div className="absolute bottom-2 left-2 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-lg bg-auth-bg/75 px-2.5 py-1 backdrop-blur-sm sm:bottom-3 sm:left-3">
+        <span className="truncate text-xs font-medium text-auth-title">{nameLabel}</span>
         {isMicOn ? (
           <Mic className="h-3 w-3 text-auth-link" aria-label="Micrófono activo" />
         ) : (
