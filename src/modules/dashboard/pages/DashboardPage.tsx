@@ -289,7 +289,7 @@ export default function DashboardPage() {
               type="button"
               onClick={(e) => handleCopyCode(e, room)}
               className="shrink-0 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-auth-input-border/50 bg-auth-bg/80 backdrop-blur-sm px-2.5 py-1.5 text-xs font-mono font-bold text-auth-btn transition hover:border-auth-btn/40 hover:bg-auth-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
-              aria-label={copiedRoomId === room.roomCode ? "Código copiado" : `copiar código de la sala ${room.name}`}
+              aria-label={copiedRoomId === room.id ? "Código copiado" : `Copiar código de la sala ${room.name}`}
               title="Copiar código de la sala"
             >
               <span>{room.roomCode}</span> 
@@ -336,10 +336,16 @@ export default function DashboardPage() {
 
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <h3 className="line-clamp-1 text-base font-bold tracking-tight text-auth-title transition-colors group-hover:text-auth-btn">
+              <h3 
+                className="line-clamp-1 text-base font-bold tracking-tight text-auth-title transition-colors group-hover:text-auth-btn"
+                aria-label={`Nombre de la sala: ${room.name}`}
+              >
                 {room.name}
               </h3>
-              <p className="text-xs text-auth-label">
+              <p 
+                className="text-xs text-auth-label"
+                aria-label={`Fecha de creación: Creado el ${formatDate(room.createdAt)}`}
+              >
                 Creado el {formatDate(room.createdAt)}
               </p>
             </div>
@@ -370,6 +376,7 @@ export default function DashboardPage() {
                 ? "border-auth-btn/25 bg-auth-btn/10 text-auth-btn"
                 : "border-auth-input-border bg-auth-input-bg text-auth-label"
                 }`}
+              aria-label={isOwner ? "Rol: Anfitrión" : "Rol: Miembro"}
             >
               {isOwner ? "Anfitrión" : "Miembro"}
             </span>
