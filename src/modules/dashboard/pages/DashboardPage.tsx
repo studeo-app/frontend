@@ -274,6 +274,33 @@ export default function DashboardPage() {
           className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"
           aria-hidden="true"
         />
+        <div className="absolute left-3 top-3 z-10">
+          <div className="relative">
+            {copiedRoomId === room.id && (
+              <span 
+                className="absolute top-9 left-0 z-20 whitespace-nowrap rounded-md bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm animate-scale-up"
+                aria-live="polite"
+                role="status"
+              >
+                ¡Copiado con éxito!
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={(e) => handleCopyCode(e, room)}
+              className="shrink-0 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-auth-input-border/50 bg-auth-bg/80 backdrop-blur-sm px-2.5 py-1.5 text-xs font-mono font-bold text-auth-btn transition hover:border-auth-btn/40 hover:bg-auth-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
+              aria-label={copiedRoomId === room.roomCode ? "Código copiado" : `copiar código de la sala ${room.name}`}
+              title="Copiar código de la sala"
+            >
+              <span>{room.roomCode}</span> 
+              {copiedRoomId === room.id ? (
+                <Check className="h-3.5 w-3.5 text-emerald-500 transition-scale animate-scale-up" aria-hidden="true" />
+              ) : (
+                <Copy className="h-3.5 w-3.5 opacity-70 transition-opacity" aria-hidden="true" />
+              )}
+            </button>
+          </div>
+        </div>
         <div className="absolute right-3 top-3 z-10">
           {isOwner ? (
             <RoomActionsMenu
@@ -316,35 +343,9 @@ export default function DashboardPage() {
                 Creado el {formatDate(room.createdAt)}
               </p>
             </div>
-
-            <div className="relative">
-              {copiedRoomId === room.id && (
-                <span 
-                  className="absolute -top-7 right-0 z-20 whitespace-nowrap rounded-md bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm animate-scale-up"
-                  aria-live="polite"
-                  role="status"
-                >
-                  ¡Copiado con éxito!
-                </span>
-              )}
-            <button
-              type="button"
-              onClick={(e) => handleCopyCode(e, room)}
-              className="shrink-0 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-auth-input-border/60 bg-auth-input-bg/30 px-2.5 py-1.5 text-xs font-mono font-bold text-auth-btn transition hover:border-auth-btn/40 hover:bg-auth-input-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
-              aria-label={copiedRoomId === room.roomCode ? "Código copiado" : `copiar código de la sala ${room.name}`}
-              title="Copiar código de la sala"
-            >
-              <span>{room.roomCode}</span> 
-              {copiedRoomId === room.id ? (
-                <Check className="h-3.5 w-3.5 text-emerald-500 transition-scale animate-scale-up" aria-hidden="true" />
-              ) : (
-                <Copy className="h-3.5 w-3.5 opacity-70 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
-              )}
-            </button>
-          </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 pt-1.5">
+          <div className="flex flex-nowrap items-center gap-2 pt-1.5">
             <button
               type="button"
               onClick={() => handleOpenMembers(room)}
@@ -370,7 +371,7 @@ export default function DashboardPage() {
                 : "border-auth-input-border bg-auth-input-bg text-auth-label"
                 }`}
             >
-              {isOwner ? "Creado por ti" : "Miembro"}
+              {isOwner ? "Anfitrión" : "Miembro"}
             </span>
           </div>
         </div>
