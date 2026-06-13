@@ -160,7 +160,16 @@ export default function DashboardPage() {
       setInviteCode("");
       navigate(`/room/${room.id}/lobby`);
     } catch (err: any) {
-      setJoinError(err?.message ?? "No pudimos unirnos a esa sala.");
+      const errorMessage = err?.message || "";
+          
+          setJoinErrorTitle("No pudimos unirte a la sala"); // Mantenemos el título por defecto
+          
+          // Evaluamos el texto del error
+          if (errorMessage.includes("was not found")) {
+            setJoinError("La sala con ese código no existe. Verifica e intenta de nuevo.");
+          } else {
+            setJoinError(errorMessage || "No pudimos unirnos a esa sala.");
+          }
     } finally {
       setIsJoining(false);
       setConnectionMessage(null);
@@ -190,7 +199,6 @@ export default function DashboardPage() {
       setRoomToLeave(null); 
       await handleRemoveMembership(targetRoomId);
     };
-
   const handleCopyCode = (e: React.MouseEvent, room: Room) => {
     e.stopPropagation();
     navigator.clipboard.writeText(room.roomCode);
@@ -256,7 +264,6 @@ export default function DashboardPage() {
       aria-label={`Sala ${room.name}`}
       className="group flex h-full flex-col overflow-hidden rounded-2xl border border-auth-input-border bg-auth-surface shadow-sm transition-all duration-300 hover:border-auth-btn/20 hover:shadow-md"
     >
-      {/* — imagen de portada — sin cambios desktop, aspect-video en móvil también */}
       <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-auth-input-bg">
         <img
           src={getRoomCover(room.imageUrl)}
@@ -270,12 +277,11 @@ export default function DashboardPage() {
         <div className="absolute right-3 top-3 z-10">
           {isOwner ? (
             <RoomActionsMenu
-              room={room}
-              isOwner={isOwner}
+              room={room} 
+              isOwner={isOwner} 
               variant="card"
-              onUpdated={(updatedRoom) => { updateRoomLocally(updatedRoom) }}
-              onDeleted={() => handleRoomDeleted(room.id)}
-            />
+              onUpdated={(updatedRoom) => {updateRoomLocally(updatedRoom)}}
+              onDeleted={() => handleRoomDeleted(room.id)} />
           ) : (
             <button
               type="button"
@@ -286,8 +292,7 @@ export default function DashboardPage() {
               disabled={removingRoomId === room.id}
               aria-label={`Quitar ${room.name} de mi dashboard`}
               title="Quitar de mi dashboard"
-              /* +h-9 w-9 en móvil para área táctil cómoda */
-              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-auth-input-border/50 bg-auth-bg/80 text-auth-title backdrop-blur-sm transition hover:bg-auth-error/15 hover:text-auth-error disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn sm:h-8 sm:w-8"
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-auth-input-border/50 bg-auth-bg/80 text-auth-title backdrop-blur-sm transition hover:bg-auth-error/15 hover:text-auth-error disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
             >
               {removingRoomId === room.id ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -299,8 +304,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col justify-between space-y-4 p-4 sm:p-5">
+      <div className="flex flex-1 flex-col justify-between space-y-4 p-5">
         <div className="space-y-2">
+
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <h3 className="line-clamp-1 text-base font-bold tracking-tight text-auth-title transition-colors group-hover:text-auth-btn">
@@ -313,7 +319,7 @@ export default function DashboardPage() {
 
             <div className="relative">
               {copiedRoomId === room.id && (
-                <span
+                <span 
                   className="absolute -top-7 right-0 z-20 whitespace-nowrap rounded-md bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm animate-scale-up"
                   aria-live="polite"
                   role="status"
@@ -321,30 +327,28 @@ export default function DashboardPage() {
                   ¡Copiado con éxito!
                 </span>
               )}
-              <button
-                type="button"
-                onClick={(e) => handleCopyCode(e, room)}
-                /* min-h-[44px] garantiza área táctil mínima recomendada en móvil */
-                className="shrink-0 inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-lg border border-auth-input-border/60 bg-auth-input-bg/30 px-2.5 py-1.5 text-xs font-mono font-bold text-auth-btn transition hover:border-auth-btn/40 hover:bg-auth-input-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn sm:min-h-0"
-                aria-label={copiedRoomId === room.roomCode ? "Código copiado" : `copiar código de la sala ${room.name}`}
-                title="Copiar código de la sala"
-              >
-                <span>{room.roomCode}</span>
-                {copiedRoomId === room.id ? (
-                  <Check className="h-3.5 w-3.5 text-emerald-500 transition-scale animate-scale-up" aria-hidden="true" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5 opacity-70 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
-                )}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={(e) => handleCopyCode(e, room)}
+              className="shrink-0 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-auth-input-border/60 bg-auth-input-bg/30 px-2.5 py-1.5 text-xs font-mono font-bold text-auth-btn transition hover:border-auth-btn/40 hover:bg-auth-input-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
+              aria-label={copiedRoomId === room.roomCode ? "Código copiado" : `copiar código de la sala ${room.name}`}
+              title="Copiar código de la sala"
+            >
+              <span>{room.roomCode}</span> 
+              {copiedRoomId === room.id ? (
+                <Check className="h-3.5 w-3.5 text-emerald-500 transition-scale animate-scale-up" aria-hidden="true" />
+              ) : (
+                <Copy className="h-3.5 w-3.5 opacity-70 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
+              )}
+            </button>
+          </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 pt-1.5">
             <button
               type="button"
               onClick={() => handleOpenMembers(room)}
-              /* min-h-[36px] para área táctil decente en móvil */
-              className="inline-flex min-h-[36px] cursor-pointer items-center gap-1.5 rounded-full border border-auth-input-border/50 bg-auth-input-bg/70 px-2.5 py-1 text-xs font-medium text-auth-label transition hover:border-auth-btn/40 hover:text-auth-title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn sm:min-h-0"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-auth-input-border/50 bg-auth-input-bg/70 px-2.5 py-1 text-xs font-medium text-auth-label transition hover:border-auth-btn/40 hover:text-auth-title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
               aria-label={`Ver miembros de ${room.name}`}
               title="Ver miembros"
             >
@@ -371,11 +375,10 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* botón Entrar — h-11 en móvil para target táctil cómodo */}
         <button
           onClick={() => navigate(`/room/${room.id}/lobby`)}
           aria-label={`Entrar a la sala ${room.name}`}
-          className="h-11 w-full cursor-pointer rounded-xl bg-auth-btn text-sm font-semibold text-auth-btn-text shadow-sm transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 sm:h-10"
+          className="h-10 w-full cursor-pointer rounded-xl bg-auth-btn text-sm font-semibold text-auth-btn-text shadow-sm transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2"
         >
           Entrar
         </button>
@@ -384,14 +387,12 @@ export default function DashboardPage() {
   );
 
   const renderRoomsGrid = (sectionRooms: Room[], isOwnerSection: boolean) => (
-    /* en móvil 1 columna, sm: 2, lg: 3, xl: 4 — igual que antes */
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {isOwnerSection && !hasSearch && (
         <button
           type="button"
           onClick={() => setIsCreateModalOpen(true)}
-          /* en móvil reducimos el aspect-ratio para que no ocupe demasiado */
-          className="flex aspect-[3/2] w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-auth-input-border text-left shadow-sm transition duration-300 hover:border-auth-btn/50 hover:bg-auth-input-bg/10 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 sm:aspect-[4/5]"
+          className="flex aspect-[4/5] w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-auth-input-border text-left shadow-sm transition duration-300 hover:border-auth-btn/50 hover:bg-auth-input-bg/10 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-auth-input-bg text-auth-label shadow-inner transition duration-300 group-hover:scale-110 group-hover:text-auth-btn">
             <Plus className="h-5 w-5" />
@@ -408,12 +409,11 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="space-y-6 pb-16 animate-fade-in sm:space-y-8">
-      {/* ── HEADER ── */}
-      <header className="relative overflow-hidden rounded-2xl border border-auth-input-border bg-auth-surface p-5 shadow-md sm:p-6">
+    <div className="space-y-8 pb-16 animate-fade-in">
+      <header className="relative overflow-hidden rounded-2xl border border-auth-input-border bg-auth-surface p-6 shadow-md">
         <div className="pointer-events-none absolute right-0 top-0 -mr-16 -mt-10 h-32 w-80 rounded-full bg-auth-btn/5 blur-3xl" />
 
-        <div className="relative flex flex-col items-center gap-4 text-center sm:flex-row sm:gap-5 sm:text-left">
+        <div className="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
           <UserAvatar
             src={avatarUrl}
             alt={displayName}
@@ -424,8 +424,7 @@ export default function DashboardPage() {
             <p className="text-xs font-bold uppercase tracking-widest text-auth-label">
               Panel de Control
             </p>
-            {/* texto más pequeño en móvil para que no desborde */}
-            <h1 className="mt-1 text-xl font-extrabold tracking-tight text-auth-title sm:text-2xl md:text-3xl">
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-auth-title sm:text-3xl">
               ¡Hola de nuevo, {displayName.split(" ")[0]}!
             </h1>
             <div className="mt-1.5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
@@ -441,12 +440,11 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* ── SECCIÓN UNIRSE A SALA ── */}
       <section
-        className="relative overflow-hidden rounded-2xl border border-auth-input-border bg-auth-surface p-5 shadow-sm sm:p-6"
+        className="relative overflow-hidden rounded-2xl border border-auth-input-border bg-auth-surface p-6 shadow-sm"
         aria-labelledby="join-room-title"
       >
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-5">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <h2
               id="join-room-title"
@@ -458,11 +456,9 @@ export default function DashboardPage() {
               Escribe el código de la sala para guardarla como miembro y entrar.
             </p>
           </div>
-
-          {/* formulario: en móvil apila input + botón en columna */}
           <form
             onSubmit={handleJoinRoom}
-            className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center md:max-w-md"
+            className="flex w-full max-w-md items-center gap-2.5"
           >
             <label htmlFor="invite-code" className="sr-only">
               Código de la sala
@@ -474,14 +470,12 @@ export default function DashboardPage() {
               value={inviteCode}
               disabled={isJoining}
               onChange={(e) => setInviteCode(e.target.value)}
-              /* h-12 en móvil para target táctil cómodo */
-              className="h-12 flex-1 rounded-xl border border-auth-input-border bg-auth-input-bg/40 px-4 text-sm text-auth-title transition placeholder:text-auth-label focus:border-transparent focus:outline-none focus:ring-2 focus:ring-auth-btn sm:h-11"
+              className="h-14 flex-1 rounded-xl border border-auth-input-border bg-auth-input-bg/40 px-4 text-sm text-auth-title transition placeholder:text-auth-label focus:border-transparent focus:outline-none focus:ring-2 focus:ring-auth-btn"
             />
             <button
               type="submit"
               disabled={!inviteCode.trim() || isJoining}
-              /* w-full en móvil, auto en sm+ */
-              className="flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-auth-btn px-5 text-sm font-semibold text-auth-btn-text shadow-md transition hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 sm:h-11 sm:w-auto"
+              className="flex h-14 cursor-pointer items-center gap-2 rounded-xl bg-auth-btn px-5 text-sm font-semibold text-auth-btn-text shadow-md transition hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2"
             >
               <span>{isJoining ? "Uniendo" : "Unirse"}</span>
               {isJoining ? (
@@ -491,19 +485,16 @@ export default function DashboardPage() {
               )}
             </button>
           </form>
-
           {connectionMessage && (
             <p
               className="text-sm font-medium text-auth-btn"
-              role="status"
-            >
-              {connectionMessage}
-            </p>
+              role="status">
+                {connectionMessage}
+              </p>
           )}
         </div>
       </section>
 
-      {/* ── BUSCADOR ── */}
       {!isTrulyEmpty && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:w-72">
@@ -516,7 +507,7 @@ export default function DashboardPage() {
               placeholder="Buscar salas..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-11 w-full rounded-xl border border-auth-input-border bg-auth-surface py-2 pl-9 pr-4 text-sm text-auth-title shadow-sm transition placeholder:text-auth-label focus:border-transparent focus:outline-none focus:ring-2 focus:ring-auth-btn sm:h-10"
+              className="h-10 w-full rounded-xl border border-auth-input-border bg-auth-surface py-2 pl-9 pr-4 text-sm text-auth-title shadow-sm transition placeholder:text-auth-label focus:border-transparent focus:outline-none focus:ring-2 focus:ring-auth-btn"
             />
             <span
               className="absolute left-3 top-1/2 -translate-y-1/2 text-auth-label"
@@ -528,10 +519,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── ESTADOS: loading / error / vacío / sin resultados / grids ── */}
       {loading ? (
         <div
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4"
+          className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           aria-busy="true"
           aria-live="polite"
           role="status"
@@ -586,8 +576,8 @@ export default function DashboardPage() {
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 bg-gradient-to-b from-auth-btn/8 via-transparent to-auth-link/5"
           />
-          <div className="relative mb-4 flex h-20 w-20 items-center justify-center rounded-full border border-auth-btn/20 bg-auth-btn/10 text-auth-btn shadow-lg shadow-auth-btn/10 sm:h-24 sm:w-24">
-            <LayoutGrid className="h-9 w-9 sm:h-11 sm:w-11" strokeWidth={1.75} />
+          <div className="relative mb-4 flex h-24 w-24 items-center justify-center rounded-full border border-auth-btn/20 bg-auth-btn/10 text-auth-btn shadow-lg shadow-auth-btn/10">
+            <LayoutGrid className="h-11 w-11" strokeWidth={1.75} />
           </div>
 
           <div className="relative max-w-md space-y-2">
@@ -596,11 +586,11 @@ export default function DashboardPage() {
             </p>
             <h3
               id="empty-rooms-title"
-              className="text-2xl font-extrabold tracking-tight text-auth-title sm:text-3xl md:text-4xl"
+              className="text-3xl font-extrabold tracking-tight text-auth-title sm:text-4xl"
             >
               Aún no tienes salas
             </h3>
-            <p className="mx-auto max-w-md text-sm leading-relaxed text-auth-label sm:text-base sm:text-lg">
+            <p className="mx-auto max-w-md text-base leading-relaxed text-auth-label sm:text-lg">
               Crea tu primer espacio de trabajo o únete a una sala existente con su código.
             </p>
           </div>
@@ -636,14 +626,13 @@ export default function DashboardPage() {
           </button>
         </div>
       ) : (
-        <div className="space-y-8 sm:space-y-10">
-          {/* ── Mis salas ── */}
-          <section aria-labelledby="owned-rooms-title" className="space-y-4 sm:space-y-5">
+        <div className="space-y-10">
+          <section aria-labelledby="owned-rooms-title" className="space-y-5">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2
                   id="owned-rooms-title"
-                  className="text-xl font-bold tracking-tight text-auth-title sm:text-2xl"
+                  className="text-2xl font-bold tracking-tight text-auth-title"
                 >
                   Mis salas
                 </h2>
@@ -663,7 +652,7 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={() => setIsCreateModalOpen(true)}
-                    className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-auth-btn px-5 text-sm font-semibold text-auth-btn-text transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 sm:h-10"
+                    className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-auth-btn px-5 text-sm font-semibold text-auth-btn-text transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2"
                   >
                     <Plus className="h-4 w-4" aria-hidden="true" />
                     Crear sala
@@ -679,12 +668,11 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* ── Salas donde soy miembro ── */}
-          <section aria-labelledby="member-rooms-title" className="space-y-4 sm:space-y-5">
+          <section aria-labelledby="member-rooms-title" className="space-y-5">
             <div>
               <h2
                 id="member-rooms-title"
-                className="text-xl font-bold tracking-tight text-auth-title sm:text-2xl"
+                className="text-2xl font-bold tracking-tight text-auth-title"
               >
                 Salas en las que soy miembro
               </h2>
@@ -703,7 +691,7 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={() => document.getElementById("invite-code")?.focus()}
-                    className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-auth-input-border bg-auth-input-bg px-5 text-sm font-semibold text-auth-title transition hover:border-auth-btn/40 hover:bg-auth-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn sm:h-10"
+                    className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-auth-input-border bg-auth-input-bg px-5 text-sm font-semibold text-auth-title transition hover:border-auth-btn/40 hover:bg-auth-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
                   >
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                     Unirme con código
@@ -721,7 +709,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── MODALES (sin cambios) ── */}
       <CreateRoomModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
@@ -730,7 +717,9 @@ export default function DashboardPage() {
 
       <BaseModal
         isOpen={!!membersRoom}
-        onClose={() => { setMembersRoom(null); }}
+        onClose={() => {
+          setMembersRoom(null);
+        }}
         title={membersRoom ? `Miembros de ${membersRoom.name}` : "Miembros"}
       >
         <div className="space-y-4">
@@ -809,14 +798,14 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setRoomToLeave(null)}
-              className="h-11 cursor-pointer rounded-xl border border-auth-input-border bg-transparent px-4 text-sm font-semibold text-auth-title transition hover:bg-auth-input-bg/50 sm:h-10"
+              className="h-10 cursor-pointer rounded-xl border border-auth-input-border bg-transparent px-4 text-sm font-semibold text-auth-title transition hover:bg-auth-input-bg/50"
             >
               Cancelar
             </button>
             <button
               type="button"
               onClick={handleConfirmLeaveRoom}
-              className="h-11 cursor-pointer rounded-xl bg-auth-error px-5 text-sm font-semibold text-white shadow-md shadow-auth-error/10 transition hover:brightness-110 active:scale-[0.98] sm:h-10"
+              className="h-10 cursor-pointer rounded-xl bg-auth-error px-5 text-sm font-semibold text-white shadow-md shadow-auth-error/10 transition hover:brightness-110 active:scale-[0.98]"
             >
               Confirmar y Salir
             </button>
