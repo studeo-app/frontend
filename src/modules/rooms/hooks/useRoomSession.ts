@@ -9,6 +9,7 @@ import {
   createRoomDeletedDashboardState,
 } from '../constants/roomDeletionNotice'
 import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
+import { readLobbyMediaState, writeLobbyMediaState } from '../utils/lobbyMediaState'
 import type {
   RoomChatMessage,
   RoomParticipant,
@@ -37,6 +38,7 @@ interface RoomUserPresencePayload {
   roomId?: string | null
   isMuted?: boolean
   isVideoOff?: boolean
+  isScreenSharing?: boolean
 }
 
 function resolveParticipantProfile(
@@ -95,34 +97,72 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   )
 
   // ── Estado de sesión ──────────────────────────────────────────────
-  const [session, setSession] = useState<RoomSessionState>(() => ({
-    roomId,
-    roomName: '',
-    roomCode: roomCode ?? '',
-    connectionStatus: 'disconnected',
-    localMedia: {
-      isMicOn: false,
-      isCameraOn: true,
-      isScreenSharing: false,
-    },
-    participants: [
-      {
-        id: localUser.id,
-        displayName: localUser.displayName,
-        avatarUrl: localUser.avatarUrl,
-        isLocal: true,
-        isCameraOn: true,
-        isMicOn: false,
-      },
-    ],
-    messages: [],
-    loadingHistory: false,
-    hasMoreHistory: false,
-  }))
+  const [session, setSession] = useState<RoomSessionState>(() => {
+    const initialMedia = readLobbyMediaState(roomId)
+
+    return {
+      roomId,
+      roomName: '',
+      roomCode: roomCode ?? '',
+      connectionStatus: 'disconnected',
+      localMedia: initialMedia,
+      participants: [
+        {
+          id: localUser.id,
+          displayName: localUser.displayName,
+          avatarUrl: localUser.avatarUrl,
+          isLocal: true,
+          isCameraOn: initialMedia.isCameraOn,
+          isMicOn: initialMedia.isMicOn,
+        },
+      ],
+      messages: [],
+      loadingHistory: false,
+      hasMoreHistory: false,
+    }
+  })
 
   // ── Refs para paginación del historial ────────────────────────────
   const nextCursorRef = useRef<string | null>(null)
   const loadingHistoryRef = useRef(false)
+
+  const emitMediaStatus = useCallback((
+    media: RoomSessionState['localMedia'],
+    options?: { includeRoomId?: boolean },
+  ) => {
+    const socket = getSocket()
+    if (!socket?.connected) return
+
+    socket.emit(ROOM_SOCKET_EVENTS.MEDIA_STATUS, {
+      ...(options?.includeRoomId ? { roomId } : {}),
+      isMuted: !media.isMicOn,
+      isVideoOff: !media.isCameraOn,
+      isScreenSharing: media.isScreenSharing,
+    })
+  }, [roomId])
+
+  const emitJoinRoom = useCallback(() => {
+    const socket = getSocket()
+    if (!socket?.connected) return
+
+    const lobbyMedia = readLobbyMediaState(roomId)
+    socket.emit(ROOM_SOCKET_EVENTS.NEW_USER)
+    emitMediaStatus(lobbyMedia)
+    socket.emit(ROOM_SOCKET_EVENTS.JOIN_ROOM, { roomId })
+    setSession((prev) => ({
+      ...prev,
+      localMedia: lobbyMedia,
+      participants: prev.participants.map((participant) =>
+        participant.isLocal
+          ? {
+              ...participant,
+              isMicOn: lobbyMedia.isMicOn,
+              isCameraOn: lobbyMedia.isCameraOn,
+            }
+          : participant,
+      ),
+    }))
+  }, [emitMediaStatus, roomId])
 
   useEffect(() => {
     if (!roomCode) return
@@ -147,9 +187,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         socket.on(ROOM_SOCKET_EVENTS.CONNECT, () => {
           if (cancelled) return
           setSession((prev) => ({ ...prev, connectionStatus: 'connected' }))
-          // Registrar presencia global antes de unirse a la sala
-          socket.emit(ROOM_SOCKET_EVENTS.NEW_USER)
-          socket.emit(ROOM_SOCKET_EVENTS.JOIN_ROOM, { roomId })
+          emitJoinRoom()
         })
 
         socket.on(ROOM_SOCKET_EVENTS.DISCONNECT, () => {
@@ -182,6 +220,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           const roomMembers = await roomMembersPromise
           if (cancelled) return
           const memberByUid = new Map(roomMembers.map((member) => [member.uid, member]))
+          const localPresence = users.find((user) => user.uid === firebaseUser?.uid)
           const participants = toRoomParticipants(
             users,
             roomId,
@@ -191,8 +230,54 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
 
           setSession((prev) => ({
             ...prev,
+            localMedia: localPresence
+              ? {
+                  ...prev.localMedia,
+                  isMicOn: !localPresence.isMuted,
+                  isCameraOn: !localPresence.isVideoOff,
+                  isScreenSharing: Boolean(localPresence.isScreenSharing),
+                }
+              : prev.localMedia,
             participants,
           }))
+          if (localPresence) {
+            writeLobbyMediaState(roomId, {
+              isMicOn: !localPresence.isMuted,
+              isCameraOn: !localPresence.isVideoOff,
+              isScreenSharing: Boolean(localPresence.isScreenSharing),
+            })
+          }
+        })
+
+        socket.on(ROOM_SOCKET_EVENTS.MEDIA_STATUS, (user: RoomUserPresencePayload) => {
+          if (cancelled || user.roomId !== roomId) return
+
+          setSession((prev) => {
+            const nextLocalMedia = user.uid === firebaseUser?.uid
+              ? {
+                  ...prev.localMedia,
+                  isMicOn: !user.isMuted,
+                  isCameraOn: !user.isVideoOff,
+                  isScreenSharing: Boolean(user.isScreenSharing),
+                }
+              : prev.localMedia
+
+            return {
+              ...prev,
+              localMedia: nextLocalMedia,
+              participants: prev.participants.map((participant) => {
+                const isSameUser =
+                  participant.id === user.uid || participant.id === user.socketId
+                if (!isSameUser) return participant
+
+                return {
+                  ...participant,
+                  isMicOn: !user.isMuted,
+                  isCameraOn: !user.isVideoOff,
+                }
+              }),
+            }
+          })
         })
 
         // ── Eventos de sala ──────────────────────────────────────────
@@ -225,8 +310,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         // Si el socket ya estaba conectado (reconexión), unirse directamente
         if (socket.connected) {
           setSession((prev) => ({ ...prev, connectionStatus: 'connected' }))
-          socket.emit(ROOM_SOCKET_EVENTS.NEW_USER)
-          socket.emit(ROOM_SOCKET_EVENTS.JOIN_ROOM, { roomId })
+          emitJoinRoom()
         }
 
         // 2) Cargar historial de mensajes desde el backend REST
@@ -275,12 +359,13 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         socket.off(ROOM_SOCKET_EVENTS.MESSAGE_NEW)
         socket.off(ROOM_SOCKET_EVENTS.MESSAGE_ERROR)
         socket.off(ROOM_SOCKET_EVENTS.ROOM_USERS)
+        socket.off(ROOM_SOCKET_EVENTS.MEDIA_STATUS)
         socket.off(ROOM_SOCKET_EVENTS.ERROR_MESSAGE)
         socket.off(ROOM_SOCKET_EVENTS.ROOM_DELETED)
       }
       disconnectSocket()
     }
-  }, [roomId, getIdToken, firebaseUser?.uid, navigate])
+  }, [roomId, getIdToken, firebaseUser?.uid, navigate, emitJoinRoom])
 
   // ── Cargar más historial (paginación) ─────────────────────────────
   const loadMoreHistory = useCallback(async () => {
@@ -317,38 +402,49 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   const toggleMic = useCallback(() => {
     setSession((prev) => {
       const nextMic = !prev.localMedia.isMicOn
+      const nextMedia = { ...prev.localMedia, isMicOn: nextMic }
+      writeLobbyMediaState(roomId, nextMedia)
+      emitMediaStatus(nextMedia, { includeRoomId: true })
       return {
         ...prev,
-        localMedia: { ...prev.localMedia, isMicOn: nextMic },
+        localMedia: nextMedia,
         participants: prev.participants.map((p) =>
           p.isLocal ? { ...p, isMicOn: nextMic } : p,
         ),
       }
     })
-  }, [])
+  }, [emitMediaStatus, roomId])
 
   const toggleCamera = useCallback(() => {
     setSession((prev) => {
       const nextCam = !prev.localMedia.isCameraOn
+      const nextMedia = { ...prev.localMedia, isCameraOn: nextCam }
+      writeLobbyMediaState(roomId, nextMedia)
+      emitMediaStatus(nextMedia, { includeRoomId: true })
       return {
         ...prev,
-        localMedia: { ...prev.localMedia, isCameraOn: nextCam },
+        localMedia: nextMedia,
         participants: prev.participants.map((p) =>
           p.isLocal ? { ...p, isCameraOn: nextCam } : p,
         ),
       }
     })
-  }, [])
+  }, [emitMediaStatus, roomId])
 
   const toggleScreenShare = useCallback(() => {
-    setSession((prev) => ({
-      ...prev,
-      localMedia: {
+    setSession((prev) => {
+      const nextMedia = {
         ...prev.localMedia,
         isScreenSharing: !prev.localMedia.isScreenSharing,
-      },
-    }))
-  }, [])
+      }
+      writeLobbyMediaState(roomId, nextMedia)
+      emitMediaStatus(nextMedia, { includeRoomId: true })
+      return {
+        ...prev,
+        localMedia: nextMedia,
+      }
+    })
+  }, [emitMediaStatus, roomId])
 
   const sendMessage = useCallback(
     (text: string) => {

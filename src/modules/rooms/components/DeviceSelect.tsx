@@ -20,7 +20,7 @@ export function DeviceSelect({ label, value, options, onChange }: DeviceSelectPr
           onChange={(e) => onChange(e.target.value)}
           className="
             w-full appearance-none rounded-xl border border-auth-input-border
-            bg-auth-input-bg px-4 py-3 pr-10 text-sm text-auth-title
+            bg-auth-input-bg px-4 py-3.5 pr-10 text-sm text-auth-title sm:py-3
             transition-colors hover:border-auth-btn/30
             focus:border-auth-btn focus:outline-none focus:ring-1 focus:ring-auth-btn
             cursor-pointer

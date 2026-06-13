@@ -43,13 +43,15 @@ export function ParticipantsPanel({
   return (
     <div
       className={`
-        h-full shrink-0 flex transition-all duration-300 ease-in-out overflow-hidden
-        ${isOpen ? 'w-[320px] opacity-100' : 'w-0 opacity-0'}
+        pointer-events-auto fixed inset-x-3 bottom-[92px] top-[74px] z-40 flex h-auto shrink-0 overflow-hidden
+        rounded-2xl shadow-2xl transition-all duration-300 ease-in-out
+        md:static md:h-full md:rounded-none md:shadow-none
+        ${isOpen ? 'translate-y-0 opacity-100 md:w-[320px]' : 'pointer-events-none translate-y-4 opacity-0 md:w-0 md:translate-y-0'}
       `}
     >
       <aside
         aria-label="Lista de miembros"
-        className="flex h-full w-[320px] shrink-0 flex-col border-l border-auth-input-border bg-auth-surface"
+        className="flex h-full w-full shrink-0 flex-col border border-auth-input-border bg-auth-surface md:w-[320px] md:border-y-0 md:border-r-0"
       >
         <div className="border-b border-auth-input-border px-4 py-3.5">
           <h2 className="text-sm font-semibold text-auth-title">

@@ -5,6 +5,7 @@ import LoginPage from "./modules/auth/pages/LoginPage";
 import RegisterPage from "./modules/auth/pages/RegisterPage";
 import RoomLobbyPage from "./modules/rooms/pages/RoomLobbyPage";
 import RoomPage from "./modules/rooms/pages/RoomPage";
+import RoomLayout from "./modules/rooms/layouts/RoomLayout";
 import ProfilePage from "./modules/users/pages/ProfilePage";
 import LandingLayout from "./layouts/LandingLayout";
 import PublicLayout from "./layouts/PublicLayout";
@@ -82,6 +83,11 @@ export const Router = createBrowserRouter([
             path: "profile",
             element: <ProfilePage />,
           },
+        ],
+      },
+      {
+        element: <RoomLayout />,
+        children: [
           {
             path: "room/:id/lobby",
             element: <RoomLobbyPage />,

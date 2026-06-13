@@ -24,7 +24,10 @@ export default function RoomPage() {
 
   const { room, setRoom } = useRoom(roomId)
   const { session, actions } = useRoomSession(roomId, room?.roomCode)
-  const [activePanel, setActivePanel] = useState<RoomSidebarPanel | null>('chat')
+  const [activePanel, setActivePanel] = useState<RoomSidebarPanel | null>(() => {
+    if (typeof window === 'undefined') return 'chat'
+    return window.innerWidth >= 768 ? 'chat' : null
+  })
   const getIdToken = useAuthStore((s) => s.getIdToken)
   const [members, setMembers] = useState<RoomMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(false)
@@ -81,7 +84,7 @@ export default function RoomPage() {
         if (!cancelled) {
           setLoadingMembers(false)
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) {
           setLoadingMembers(false)
         }
@@ -139,7 +142,7 @@ export default function RoomPage() {
   useDocumentTitle(`${roomName} - Studeo`)
 
   return (
-    <div className="flex h-full w-full">
+    <div className="flex h-full w-full overflow-hidden">
       <div className="flex min-w-0 flex-1 flex-col">
         <RoomHeader
           roomName={roomName}
@@ -154,7 +157,7 @@ export default function RoomPage() {
           onPanelChange={setActivePanel}
         />
 
-        <div className="flex min-h-0 flex-1">
+        <div className="relative flex min-h-0 flex-1">
           <div className="relative flex min-w-0 flex-1 flex-col">
             <VideoGrid participants={session.participants} />
             <ControlBar
@@ -166,7 +169,16 @@ export default function RoomPage() {
             />
           </div>
 
-          <div className="relative flex h-full shrink-0">
+          {activePanel && (
+            <button
+              type="button"
+              aria-label="Cerrar panel"
+              onClick={() => setActivePanel(null)}
+              className="fixed inset-0 z-30 bg-black/45 md:hidden"
+            />
+          )}
+
+          <div className="pointer-events-none absolute inset-0 z-40 flex justify-end md:pointer-events-auto md:relative md:z-auto md:h-full md:shrink-0">
             {/* Los 3 paneles siempre montados, la animación la maneja isOpen */}
             <ChatPanel
               messages={session.messages}
@@ -194,9 +206,9 @@ export default function RoomPage() {
                 type="button"
                 onClick={() => setActivePanel('chat')}
                 className="
-                  absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 z-40
+                  pointer-events-auto absolute left-0 top-1/2 z-40 hidden -translate-x-full -translate-y-1/2
                   h-40 w-8 shrink-0 cursor-pointer
-                  flex items-center justify-center 
+                  md:flex items-center justify-center 
                   rounded-l-2xl border border-r-0 
                   border-auth-input-border bg-auth-btn text-auth-btn-text
                   transition-all duration-200 hover:brightness-110 hover:w-9

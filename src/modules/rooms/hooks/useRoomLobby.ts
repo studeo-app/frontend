@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { connectSocket, disconnectSocket, getSocket } from '@/config/socket.config'
 import { useAuthStore } from '@/stores/useAuthStore'
@@ -8,6 +8,10 @@ import {
 } from '../constants/mockLobbyParticipants'
 import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
 import { getRoomMembers } from '../api/roomsApi'
+import {
+  readLobbyMediaState,
+  writeLobbyMediaState,
+} from '../utils/lobbyMediaState'
 import type { LobbyWaitingParticipant } from '../types/lobby'
 import type { LocalMediaState } from '../types/roomSession'
 import type { RoomMember } from '@/types/room'
@@ -19,6 +23,9 @@ interface RealtimeUserPresence {
   name?: string | null
   avatarUrl?: string | null
   roomId: string | null
+  isMuted?: boolean
+  isVideoOff?: boolean
+  isScreenSharing?: boolean
 }
 
 interface UseRoomLobbyResult {
@@ -103,18 +110,32 @@ function getOnlineRoomUsers(
 export function useRoomLobby(roomId: string): UseRoomLobbyResult {
   const navigate = useNavigate()
   const getIdToken = useAuthStore((s) => s.getIdToken)
+  const isJoiningRoomRef = useRef(false)
   const [roomUsers, setRoomUsers] = useState<RealtimeUserPresence[]>([])
   const [loadingParticipants, setLoadingParticipants] = useState(true)
   const [previewError, setPreviewError] = useState<string | null>(null)
 
-  const [localMedia, setLocalMedia] = useState<LocalMediaState>({
-    isMicOn: true,
-    isCameraOn: true,
-    isScreenSharing: false,
-  })
+  const [localMedia, setLocalMedia] = useState<LocalMediaState>(() => readLobbyMediaState(roomId))
+  const localMediaRef = useRef(localMedia)
 
   const [selectedMicId, setSelectedMicId] = useState(MOCK_MIC_DEVICES[0].deviceId)
   const [selectedCameraId, setSelectedCameraId] = useState(MOCK_CAMERA_DEVICES[0].deviceId)
+
+  const publishLobbyMediaStatus = useCallback((media: LocalMediaState) => {
+    const socket = getSocket()
+    if (!socket?.connected) return
+
+    socket.emit(ROOM_SOCKET_EVENTS.MEDIA_STATUS, {
+      isMuted: !media.isMicOn,
+      isVideoOff: !media.isCameraOn,
+      isScreenSharing: media.isScreenSharing,
+    })
+  }, [])
+
+  useEffect(() => {
+    localMediaRef.current = localMedia
+    writeLobbyMediaState(roomId, localMedia)
+  }, [localMedia, roomId])
 
   useEffect(() => {
     if (!roomId) return
@@ -141,6 +162,8 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
         const socket = connectSocket(token)
 
         const requestPreview = () => {
+          socket.emit(ROOM_SOCKET_EVENTS.NEW_USER)
+          publishLobbyMediaStatus(localMediaRef.current)
           socket.emit(ROOM_SOCKET_EVENTS.ROOM_USERS_PREVIEW, { roomId, socketId: socket.id ?? '' })
         }
 
@@ -186,9 +209,15 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
         socket.off(ROOM_SOCKET_EVENTS.ERROR_MESSAGE)
         socket.off(ROOM_SOCKET_EVENTS.CONNECT)
       }
-      disconnectSocket()
+      if (!isJoiningRoomRef.current) {
+        disconnectSocket()
+      }
     }
-  }, [roomId, getIdToken])
+  }, [roomId, getIdToken, publishLobbyMediaStatus])
+
+  useEffect(() => {
+    publishLobbyMediaStatus(localMedia)
+  }, [localMedia, publishLobbyMediaStatus])
 
   const waitingParticipants = useMemo(
     () => roomUsers.map((user, index) => toLobbyParticipant(user, index)),
@@ -204,8 +233,11 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
   }, [])
 
   const joinRoom = useCallback(() => {
+    isJoiningRoomRef.current = true
+    writeLobbyMediaState(roomId, localMedia)
+    publishLobbyMediaStatus(localMedia)
     navigate(`/room/${roomId}`)
-  }, [navigate, roomId])
+  }, [localMedia, navigate, publishLobbyMediaStatus, roomId])
 
   return {
     localMedia,
