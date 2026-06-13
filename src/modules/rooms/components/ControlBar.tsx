@@ -11,13 +11,11 @@ interface ControlBarProps {
 
 function MediaButton({
   active,
-  danger,
   label,
   onClick,
   children,
 }: {
   active?: boolean
-  danger?: boolean
   label: string
   onClick: () => void
   children: React.ReactNode

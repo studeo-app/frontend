@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useAuthStore } from '@/stores/useAuthStore'
+import { getSocket } from '@/config/socket.config'
 import useDocumentTitle from '@/shared/hooks/useDocumentTitle'
 import { getRoomMembers } from '../api/roomsApi'
 import { ChatPanel } from '../components/ChatPanel'
@@ -11,6 +12,7 @@ import { RoomSettingsPanel } from '../components/RoomSettingsPanel'
 import { VideoGrid } from '../components/VideoGrid'
 import { useRoom } from '../hooks/useRoom'
 import { useRoomSession } from '../hooks/useRoomSession'
+import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
 import type { RoomSidebarPanel } from '../types/roomSession'
 import type { RoomMember } from '@/types/room'
 
@@ -26,13 +28,33 @@ export default function RoomPage() {
   const getIdToken = useAuthStore((s) => s.getIdToken)
   const [members, setMembers] = useState<RoomMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(false)
+  const [removedMemberUids, setRemovedMemberUids] = useState<Set<string>>(() => new Set())
+
+  const loadMembers = useCallback(async (options?: { showLoading?: boolean }) => {
+    if (!roomId) return
+    if (options?.showLoading ?? true) {
+      setLoadingMembers(true)
+    }
+
+    try {
+      const token = await getIdToken()
+      const data = await getRoomMembers(token, roomId)
+      setMembers(data)
+    } catch (err) {
+      console.error('[RoomMembers] load:error', { roomId, err })
+      setMembers([])
+    } finally {
+      if (options?.showLoading ?? true) {
+        setLoadingMembers(false)
+      }
+    }
+  }, [getIdToken, roomId])
 
   // ── Indicador de mensajes no leídos ───────────────────────────────
   const [chatHasUnread, setChatHasUnread] = useState(false)
   const prevMsgCountRef = useRef(session.messages.length)
 
   useEffect(() => {
-    // Si llegan mensajes nuevos y el panel de chat no está activo → marcar como no leído
     if (
       session.messages.length > prevMsgCountRef.current &&
       activePanel !== 'chat'
@@ -42,7 +64,6 @@ export default function RoomPage() {
     prevMsgCountRef.current = session.messages.length
   }, [session.messages.length, activePanel])
 
-  // Limpiar badge al abrir el panel de chat
   useEffect(() => {
     if (activePanel === 'chat') {
       setChatHasUnread(false)
@@ -53,78 +74,69 @@ export default function RoomPage() {
     if (!roomId) return
     let cancelled = false
 
-    async function loadMembers() {
-      console.log('[RoomMembers] load:start', { roomId })
-      setLoadingMembers(true)
+    async function loadInitialMembers() {
       try {
-        const token = await getIdToken()
-        console.log('[RoomMembers] token:ok', { roomId })
-        const data = await getRoomMembers(token, roomId)
-        console.log('[RoomMembers] load:success', {
-          roomId,
-          count: data.length,
-          members: data.map((member) => ({
-            uid: member.uid,
-            displayName: member.displayName,
-          })),
-        })
+        setLoadingMembers(true)
+        await loadMembers({ showLoading: false })
         if (!cancelled) {
-          setMembers(data)
+          setLoadingMembers(false)
         }
       } catch (err) {
-        console.error('[RoomMembers] load:error', { roomId, err })
         if (!cancelled) {
-          setMembers([])
-        }
-      } finally {
-        if (!cancelled) {
-          console.log('[RoomMembers] load:finally', { roomId })
           setLoadingMembers(false)
         }
       }
     }
 
-    loadMembers()
+    loadInitialMembers()
 
     return () => {
       cancelled = true
     }
-  }, [roomId, getIdToken])
+  }, [roomId, loadMembers])
+
+  useEffect(() => {
+    if (session.participants.length === 0) return
+    loadMembers({ showLoading: false })
+  }, [loadMembers, session.participants.length])
+
+  useEffect(() => {
+    if (session.connectionStatus !== 'connected') return
+
+    const socket = getSocket()
+    if (!socket) return
+
+    const handleRoomMemberRemoved = (payload: { roomId: string; uid: string }) => {
+      if (payload.roomId !== roomId) return
+      setRemovedMemberUids((prev) => new Set(prev).add(payload.uid))
+      setMembers((prev) => prev.filter((member) => member.uid !== payload.uid))
+    }
+
+    socket.on(ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED, handleRoomMemberRemoved)
+
+    return () => {
+      socket.off(ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED, handleRoomMemberRemoved)
+    }
+  }, [roomId, session.connectionStatus])
+
+  useEffect(() => {
+    setRemovedMemberUids(new Set())
+  }, [roomId])
+
+  const visibleMembers = useMemo(
+    () => members.filter((member) => !removedMemberUids.has(member.uid)),
+    [members, removedMemberUids],
+  )
+
+  const visibleOnlineParticipants = useMemo(
+    () => session.participants.filter((participant) => !removedMemberUids.has(participant.id)),
+    [removedMemberUids, session.participants],
+  )
 
   const roomName = room?.name ?? session.roomName
   const isOwner = room?.ownerUid === firebaseUser?.uid
 
   useDocumentTitle(`${roomName} - Studeo`)
-
-  const renderSidePanel = () => {
-    switch (activePanel) {
-      case 'participants':
-        return (
-          <ParticipantsPanel
-            members={members}
-            onlineParticipants={session.participants}
-            loadingMembers={loadingMembers}
-          />
-        )
-      case 'settings':
-        return <RoomSettingsPanel />
-      case 'chat':
-      default:
-        return (
-          <ChatPanel
-            messages={session.messages}
-            currentUserId={firebaseUser?.uid}
-            onSendMessage={actions.sendMessage}
-            loadingHistory={session.loadingHistory}
-            hasMoreHistory={session.hasMoreHistory}
-            onLoadMore={actions.loadMoreHistory}
-            connectionStatus={session.connectionStatus}
-            isOpen={activePanel === 'chat'}
-            onClose={() => setActivePanel(null)}
-          />
-        )
-    }
-  }
 
   return (
     <div className="flex h-full w-full">
@@ -153,25 +165,45 @@ export default function RoomPage() {
               onLeave={actions.leaveRoom}
             />
           </div>
+
           <div className="relative flex h-full shrink-0">
-            {renderSidePanel()}
+            {/* Los 3 paneles siempre montados, la animación la maneja isOpen */}
+            <ChatPanel
+              messages={session.messages}
+              currentUserId={firebaseUser?.uid}
+              onSendMessage={actions.sendMessage}
+              loadingHistory={session.loadingHistory}
+              hasMoreHistory={session.hasMoreHistory}
+              onLoadMore={actions.loadMoreHistory}
+              connectionStatus={session.connectionStatus}
+              isOpen={activePanel === 'chat'}
+              onClose={() => setActivePanel(null)}
+            />
+
+            <ParticipantsPanel
+              members={visibleMembers}
+              onlineParticipants={visibleOnlineParticipants}
+              loadingMembers={loadingMembers}
+              isOpen={activePanel === 'participants'}
+            />
+
+            <RoomSettingsPanel isOpen={activePanel === 'settings'} />
 
             {activePanel !== 'chat' && (
               <button
                 type="button"
                 onClick={() => setActivePanel('chat')}
                 className="
+                  absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 z-40
                   h-40 w-8 shrink-0 cursor-pointer
                   flex items-center justify-center 
                   rounded-l-2xl border border-r-0 
-                  /* COLORES DINÁMICOS: Súper visibles y contrastados en ambos modos */
                   border-auth-input-border bg-auth-btn text-auth-btn-text
-                  /* TRANSICIONES: Efecto sutil de hover para indicar que es clickeable */
                   transition-all duration-200 hover:brightness-110 hover:w-9
                   shadow-2xl self-center my-auto
                 "
               >
-                <span 
+                <span
                   className="text-xs font-bold tracking-widest uppercase whitespace-nowrap"
                   style={{ writingMode: 'vertical-lr', transform: 'rotate(180deg)' }}
                 >

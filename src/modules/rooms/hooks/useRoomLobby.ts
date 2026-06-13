@@ -6,8 +6,11 @@ import {
   MOCK_CAMERA_DEVICES,
   MOCK_MIC_DEVICES,
 } from '../constants/mockLobbyParticipants'
+import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
+import { getRoomMembers } from '../api/roomsApi'
 import type { LobbyWaitingParticipant } from '../types/lobby'
 import type { LocalMediaState } from '../types/roomSession'
+import type { RoomMember } from '@/types/room'
 
 interface RealtimeUserPresence {
   socketId: string
@@ -69,6 +72,34 @@ function toLobbyParticipant(
   }
 }
 
+function mergeUsersWithMemberProfiles(
+  users: RealtimeUserPresence[],
+  members: RoomMember[],
+): RealtimeUserPresence[] {
+  const memberByUid = new Map(members.map((member) => [member.uid, member]))
+
+  return users.map((user) => {
+    if (!user.uid) return user
+
+    const member = memberByUid.get(user.uid)
+    if (!member) return user
+
+    return {
+      ...user,
+      name: member.username || member.displayName || user.name,
+      username: member.username ?? user.username,
+      avatarUrl: member.avatarUrl ?? user.avatarUrl,
+    }
+  })
+}
+
+function getOnlineRoomUsers(
+  users: RealtimeUserPresence[],
+  roomId: string,
+): RealtimeUserPresence[] {
+  return users.filter((user) => user.socketId.trim() && user.roomId === roomId)
+}
+
 export function useRoomLobby(roomId: string): UseRoomLobbyResult {
   const navigate = useNavigate()
   const getIdToken = useAuthStore((s) => s.getIdToken)
@@ -105,20 +136,25 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
         const token = await getIdToken()
         if (cancelled) return
 
+        const roomMembersPromise = getRoomMembers(token, roomId).catch(() => [])
+
         const socket = connectSocket(token)
 
         const requestPreview = () => {
-          socket.emit('roomUsersPrevisualization', { roomId, socketId: socket.id ?? '' })
+          socket.emit(ROOM_SOCKET_EVENTS.ROOM_USERS_PREVIEW, { roomId, socketId: socket.id ?? '' })
         }
 
-        socket.on('roomUsers', (users: RealtimeUserPresence[]) => {
+        socket.on(ROOM_SOCKET_EVENTS.ROOM_USERS, async (users: RealtimeUserPresence[]) => {
           if (cancelled) return
           if (timeoutId) window.clearTimeout(timeoutId)
-          setRoomUsers(users)
+          const roomMembers = await roomMembersPromise
+          if (cancelled) return
+          const onlineRoomUsers = getOnlineRoomUsers(users, roomId)
+          setRoomUsers(mergeUsersWithMemberProfiles(onlineRoomUsers, roomMembers))
           setLoadingParticipants(false)
         })
 
-        socket.on('errorMessage', (err: { message?: string }) => {
+        socket.on(ROOM_SOCKET_EVENTS.ERROR_MESSAGE, (err: { message?: string }) => {
           if (cancelled) return
           if (timeoutId) window.clearTimeout(timeoutId)
           setPreviewError(err.message ?? 'No pudimos cargar los usuarios conectados.')
@@ -128,7 +164,7 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
         if (socket.connected) {
           requestPreview()
         } else {
-          socket.on('connect', requestPreview)
+          socket.on(ROOM_SOCKET_EVENTS.CONNECT, requestPreview)
         }
       } catch {
         if (!cancelled) {
@@ -146,9 +182,9 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
       if (timeoutId) window.clearTimeout(timeoutId)
       const socket = getSocket()
       if (socket) {
-        socket.off('roomUsers')
-        socket.off('errorMessage')
-        socket.off('connect')
+        socket.off(ROOM_SOCKET_EVENTS.ROOM_USERS)
+        socket.off(ROOM_SOCKET_EVENTS.ERROR_MESSAGE)
+        socket.off(ROOM_SOCKET_EVENTS.CONNECT)
       }
       disconnectSocket()
     }

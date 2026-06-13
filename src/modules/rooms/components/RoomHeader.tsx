@@ -1,4 +1,4 @@
-import { Check, Copy, MessageSquare, Settings, Users } from 'lucide-react'
+import { Check, Copy, MessageSquare, Settings, Users, UserPlus, X } from 'lucide-react'
 import { useState } from 'react'
 import type { Room } from '@/types/room'
 import { RoomActionsMenu } from './RoomActionsMenu'
@@ -36,6 +36,7 @@ export function RoomHeader({
   onPanelChange,
 }: RoomHeaderProps) {
   const [copied, setCopied] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const handleCopy = async () => {
     try {
@@ -101,10 +102,12 @@ export function RoomHeader({
           />
         )}
 
+        {/* BOTÓN REEMPLAZADO: Ahora abre el Modal */}
         <button
           type="button"
-          onClick={handleCopy}
-          title="Copiar código de sala"
+          onClick={() => setIsModalOpen(true)}
+          title="Invitar miembro a la sala"
+          aria-label="Abrir opciones de invitación"
           className="
             flex items-center gap-2 rounded-xl border border-auth-input-border
             bg-auth-input-bg/50 px-3 py-1.5 font-auth text-xs text-auth-label
@@ -112,14 +115,65 @@ export function RoomHeader({
             cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn
           "
         >
-          <span>Código: {roomCode}</span>
-          {copied ? (
-            <Check className="h-3.5 w-3.5 text-auth-link" aria-hidden="true" />
-          ) : (
-            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-          )}
+          <UserPlus className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
+          <span>Invitar miembro</span>
         </button>
       </div>
+
+      {/* MODAL DE INVITACIÓN */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          {/* Capa invisible trasera para cerrar al hacer clic fuera */}
+          <div className="absolute inset-0 cursor-default" onClick={() => setIsModalOpen(false)} />
+          
+          {/* Contenedor del Modal */}
+          <div className="relative w-full max-w-sm rounded-2xl border border-auth-input-border bg-auth-input-bg p-5 shadow-2xl animate-scale-up z-10">
+            {/* Botón cerrar (X) */}
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="absolute right-4 top-4 text-auth-label hover:text-auth-title transition cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <h3 className="text-sm font-semibold text-auth-title mb-1">
+              Invitar miembro a la sala
+            </h3>
+            <p className="text-xs text-auth-label mb-4">
+              Comparte este código con tu equipo para que puedan unirse a la sesión de Studeo.
+            </p>
+
+            {/* Selector e indicador del código */}
+            <div className="flex items-center gap-2 rounded-xl border border-auth-input-border bg-auth-surface p-2">
+              <span className="flex-1 text-center font-mono text-base font-bold tracking-wider text-auth-title select-all">
+                {roomCode}
+              </span>
+              
+              <button
+                type="button"
+                onClick={handleCopy}
+                className={`
+                  flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition cursor-pointer
+                  ${copied ? 'bg-emerald-500 text-white' : 'bg-auth-btn text-auth-btn-text hover:brightness-110'}
+                `}
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 animate-scale-up" />
+                    <span>Copiado</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5" />
+                    <span>Copiar</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   )
 }

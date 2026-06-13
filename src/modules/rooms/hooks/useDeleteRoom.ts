@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { getApiErrorMessage } from '@/shared/api/apiError'
+import { getSocket } from '@/config/socket.config'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { useRoomsStore } from '@/stores/useRoomsStore'
 import { deleteRoom } from '../api/roomsApi'
+import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
 
 export function useDeleteRoom() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [deleteSuccess, setDeleteSuccess] = useState(false)
-  const removeRoomLocally = useRoomsStore((s) => s.removeRoomLocally)
   const getIdToken = useAuthStore((s) => s.getIdToken)
 
   const startDeleteRoom = async (roomId: string) => {
@@ -19,7 +19,10 @@ export function useDeleteRoom() {
     try {
       const token = await getIdToken()
       await deleteRoom(token, roomId)
-      //removeRoomLocally(roomId)
+      const socket = getSocket()
+      if (socket?.connected) {
+        socket.emit(ROOM_SOCKET_EVENTS.DELETE_ROOM, { roomId })
+      }
       setDeleteSuccess(true)
     } catch (err: unknown) {
       const message = getApiErrorMessage(
