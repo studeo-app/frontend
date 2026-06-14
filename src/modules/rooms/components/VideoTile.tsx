@@ -7,12 +7,16 @@ interface VideoTileProps {
   participant: RoomParticipant
   mirrorLocalVideo?: boolean
   outputVolume?: number
+  mode?: 'camera' | 'screen'
+  suppressScreenShareVideo?: boolean
 }
 
 export function VideoTile({
   participant,
   mirrorLocalVideo = true,
   outputVolume = 80,
+  mode = 'camera',
+  suppressScreenShareVideo = false,
 }: VideoTileProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const {
@@ -27,9 +31,16 @@ export function VideoTile({
     videoStream,
   } = participant
 
-  const nameLabel = isLocal ? `${displayName} (Tu)` : displayName
+  const nameLabel = mode === 'screen'
+    ? `Pantalla de ${isLocal ? 'ti' : displayName}`
+    : isLocal ? `${displayName} (Tu)` : displayName
   const shouldRenderVideo = Boolean(videoStream)
-  const shouldShowVideo = Boolean(videoStream && (isCameraOn || isScreenSharing))
+  const shouldShowVideo = Boolean(
+    videoStream &&
+    (mode === 'screen'
+      ? isScreenSharing
+      : isCameraOn && (!isScreenSharing || !suppressScreenShareVideo)),
+  )
   const normalizedVolume = Math.min(1, Math.max(0, outputVolume / 100))
 
   useEffect(() => {
@@ -49,7 +60,7 @@ export function VideoTile({
       relative flex w-full max-h-full aspect-video items-center justify-center overflow-hidden
       rounded-xl sm:rounded-2xl
       bg-auth-input-bg/90 border border-gray-300 dark:border-transparent shadow-md
-      ${isSpeaking ? 'ring-2 ring-auth-link ring-offset-2 ring-offset-auth-bg' : ''}
+      ${isSpeaking ? 'ring-[3px] ring-violet-500 ring-offset-2 ring-offset-auth-bg shadow-violet-500/30' : ''}
     `}
     >
       {shouldRenderVideo && (
@@ -61,7 +72,7 @@ export function VideoTile({
           className={`
             absolute inset-0 h-full w-full object-cover transition-opacity duration-150
             ${shouldShowVideo ? 'opacity-100' : 'opacity-0'}
-            ${isLocal && mirrorLocalVideo && !isScreenSharing ? '-scale-x-100' : ''}
+            ${isLocal && mirrorLocalVideo && mode === 'camera' && !isScreenSharing ? '-scale-x-100' : ''}
           `}
         >
           <track kind="captions" />
@@ -86,7 +97,7 @@ export function VideoTile({
         )
       ) : null}
 
-      {!isCameraOn && !isScreenSharing && (
+      {mode === 'camera' && !isCameraOn && !isScreenSharing && (
         <div className="absolute right-3 top-3 rounded-lg bg-auth-bg/80 p-1.5">
           <VideoOff className="h-4 w-4 text-auth-label" aria-hidden="true" />
         </div>

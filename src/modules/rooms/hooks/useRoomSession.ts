@@ -23,6 +23,8 @@ import type { RoomMember } from '@/types/room'
 interface UseRoomSessionResult {
   session: RoomSessionState
   actions: RoomSessionActions
+  joinWarningMessage: string | null
+  clearJoinWarning: () => void
 }
 
 interface RoomDeletedPayload {
@@ -59,6 +61,15 @@ interface WebRtcIceCandidatePayload {
   fromSocketId: string
   roomId: string
   candidate: RTCIceCandidateInit
+}
+
+interface SpeakingDetector {
+  stream: MediaStream
+  source: MediaStreamAudioSourceNode
+  analyser: AnalyserNode
+  data: Uint8Array
+  intervalId: number
+  isSpeaking: boolean
 }
 
 function resolveParticipantProfile(
@@ -200,6 +211,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     loadingHistory: false,
     hasMoreHistory: false,
   }))
+  const [joinWarningMessage, setJoinWarningMessage] = useState<string | null>(null)
 
   const nextCursorRef = useRef<string | null>(null)
   const loadingHistoryRef = useRef(false)
@@ -215,6 +227,106 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   const remoteStreamsRef = useRef(new Map<string, MediaStream>())
   const pendingIceCandidatesRef = useRef(new Map<string, RTCIceCandidateInit[]>())
   const offeredPeersRef = useRef(new Set<string>())
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const speakingDetectorsRef = useRef(new Map<string, SpeakingDetector>())
+
+  const closeSpeakingDetector = useCallback((socketId: string) => {
+    const detector = speakingDetectorsRef.current.get(socketId)
+    if (!detector) return
+
+    window.clearInterval(detector.intervalId)
+    detector.source.disconnect()
+    speakingDetectorsRef.current.delete(socketId)
+  }, [])
+
+  const syncSpeakingDetectors = useCallback((participants: RoomParticipant[]) => {
+    const liveSocketIds = new Set(participants.map((participant) => participant.socketId))
+
+    speakingDetectorsRef.current.forEach((_, socketId) => {
+      if (!liveSocketIds.has(socketId)) {
+        closeSpeakingDetector(socketId)
+      }
+    })
+
+    participants.forEach((participant) => {
+      const stream = participant.videoStream
+      const hasLiveAudio = stream?.getAudioTracks().some(
+        (track) => track.readyState === 'live',
+      )
+
+      if (!stream || !hasLiveAudio) {
+        closeSpeakingDetector(participant.socketId)
+        return
+      }
+
+      const existing = speakingDetectorsRef.current.get(participant.socketId)
+      if (existing?.stream === stream) return
+
+      closeSpeakingDetector(participant.socketId)
+
+      const AudioContextConstructor = window.AudioContext
+      if (!AudioContextConstructor) return
+
+      const audioContext = audioContextRef.current ?? new AudioContextConstructor()
+      audioContextRef.current = audioContext
+      audioContext.resume().catch(() => undefined)
+
+      const analyser = audioContext.createAnalyser()
+      analyser.fftSize = 512
+      analyser.smoothingTimeConstant = 0.72
+
+      const source = audioContext.createMediaStreamSource(stream)
+      source.connect(analyser)
+
+      const data = new Uint8Array(analyser.frequencyBinCount)
+      const detector: SpeakingDetector = {
+        stream,
+        source,
+        analyser,
+        data,
+        intervalId: 0,
+        isSpeaking: false,
+      }
+
+      detector.intervalId = window.setInterval(() => {
+        const audioEnabled = stream.getAudioTracks().some(
+          (track) => track.enabled && track.readyState === 'live',
+        )
+
+        if (!audioEnabled) {
+          if (detector.isSpeaking) {
+            detector.isSpeaking = false
+            setSession((prev) => ({
+              ...prev,
+              participants: prev.participants.map((item) =>
+                item.socketId === participant.socketId ? { ...item, isSpeaking: false } : item,
+              ),
+            }))
+          }
+          return
+        }
+
+        analyser.getByteTimeDomainData(data)
+        const averageVolume =
+          data.reduce((sum, value) => sum + Math.abs(value - 128), 0) / data.length
+        const nextSpeaking = averageVolume > 8
+
+        if (nextSpeaking === detector.isSpeaking) return
+
+        detector.isSpeaking = nextSpeaking
+        setSession((prev) => ({
+          ...prev,
+          participants: prev.participants.map((item) =>
+            item.socketId === participant.socketId
+              ? { ...item, isSpeaking: nextSpeaking }
+              : item,
+          ),
+        }))
+      }, 180)
+
+      speakingDetectorsRef.current.set(participant.socketId, detector)
+    })
+  }, [closeSpeakingDetector])
 
   useEffect(() => {
     if (!roomCode) return
@@ -225,6 +337,10 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     localMediaRef.current = session.localMedia
     writeLobbyMediaState(roomId, session.localMedia)
   }, [roomId, session.localMedia])
+
+  useEffect(() => {
+    syncSpeakingDetectors(session.participants)
+  }, [session.participants, syncSpeakingDetectors])
 
   const setParticipantsFromPresence = useCallback(() => {
     setSession((prev) => ({
@@ -403,6 +519,11 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   }, [replaceOutgoingVideoTrack, setLocalPreviewVideoTrack, setParticipantsFromPresence])
 
   const cleanupWebRtc = useCallback(() => {
+    speakingDetectorsRef.current.forEach((_, socketId) => {
+      closeSpeakingDetector(socketId)
+    })
+    audioContextRef.current?.close().catch(() => undefined)
+    audioContextRef.current = null
     peerConnectionsRef.current.forEach((pc) => pc.close())
     peerConnectionsRef.current.clear()
     remoteStreamsRef.current.clear()
@@ -413,7 +534,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     cameraTrackRef.current = null
     screenTrackRef.current?.stop()
     screenTrackRef.current = null
-  }, [])
+  }, [closeSpeakingDetector])
 
   useEffect(() => {
     let cancelled = false
@@ -623,7 +744,17 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           await pc.addIceCandidate(new RTCIceCandidate(payload.candidate))
         })
 
-        socket.on(ROOM_SOCKET_EVENTS.ERROR_MESSAGE, (err) => {
+        socket.on(ROOM_SOCKET_EVENTS.ERROR_MESSAGE, (err: { code?: string; message?: string }) => {
+          if (err.code === 'ALREADY_IN_ROOM') {
+            setJoinWarningMessage(
+              err.message ??
+                'Ya te encuentras conectado a esta sala desde otra pestaña o dispositivo.',
+            )
+            setSession((prev) => ({ ...prev, connectionStatus: 'disconnected' }))
+            cleanupWebRtc()
+            disconnectSocket()
+            return
+          }
           console.error('[Room] errorMessage', err)
         })
 
@@ -1015,5 +1146,9 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     loadMoreHistory,
   }
 
-  return { session, actions }
+  const clearJoinWarning = useCallback(() => {
+    setJoinWarningMessage(null)
+  }, [])
+
+  return { session, actions, joinWarningMessage, clearJoinWarning }
 }

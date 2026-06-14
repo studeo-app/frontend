@@ -14,17 +14,55 @@ function gridClass(count: number): string {
   return 'grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
 }
 
+function screenGridClass(count: number): string {
+  if (count <= 1) return 'grid-cols-1'
+  if (count <= 2) return 'grid-cols-1 lg:grid-cols-2'
+  return 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
+}
+
 export function VideoGrid({
   participants,
   mirrorLocalVideo = true,
   outputVolume = 80,
 }: VideoGridProps) {
+  const screenShareParticipants = participants.filter(
+    (participant) => participant.isScreenSharing && participant.videoStream,
+  )
+  const hasScreenShares = screenShareParticipants.length > 0
+
   return (
     <div
-      className={`grid flex-1 min-h-0 auto-rows-fr gap-2 overflow-y-auto p-2 pb-2 sm:gap-3 sm:p-4 sm:pb-4 ${gridClass(participants.length)}`}
+      className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2 pb-2 sm:gap-3 sm:p-4 sm:pb-4"
       role="list"
       aria-label="Participantes en la sala"
     >
+      {hasScreenShares && (
+        <section
+          className={`grid min-h-[220px] shrink-0 gap-2 sm:gap-3 ${screenGridClass(screenShareParticipants.length)}`}
+          aria-label="Pantallas compartidas"
+        >
+          {screenShareParticipants.map((participant) => (
+            <div
+              key={`${participant.socketId}-screen`}
+              role="listitem"
+              className="flex min-h-[220px] w-full items-center justify-center"
+            >
+              <VideoTile
+                participant={participant}
+                mirrorLocalVideo={false}
+                outputVolume={outputVolume}
+                mode="screen"
+              />
+            </div>
+          ))}
+        </section>
+      )}
+
+      <div
+        className={`grid min-h-0 flex-1 auto-rows-fr gap-2 sm:gap-3 ${gridClass(participants.length)} ${
+          hasScreenShares ? 'max-h-[42%]' : ''
+        }`}
+      >
       {participants.map((participant) => (
         <div
           key={participant.socketId}
@@ -35,9 +73,11 @@ export function VideoGrid({
             participant={participant}
             mirrorLocalVideo={mirrorLocalVideo}
             outputVolume={outputVolume}
+            suppressScreenShareVideo={hasScreenShares}
           />
         </div>
       ))}
+      </div>
     </div>
   )
 }
