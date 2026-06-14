@@ -34,6 +34,9 @@ export interface RoomSessionState {
   participants: RoomParticipant[]
   messages: RoomChatMessage[]
   localMedia: LocalMediaState
+  mirrorLocalVideo: boolean
+  outputVolume: number
+  cameraFacingMode: 'user' | 'environment'
   connectionStatus: RoomConnectionStatus
   loadingHistory: boolean
   hasMoreHistory: boolean
@@ -45,6 +48,9 @@ export interface RoomSessionActions {
   toggleMic: () => void
   toggleCamera: () => void
   toggleScreenShare: () => void
+  toggleMirrorLocalVideo: () => void
+  setOutputVolume: (volume: number) => void
+  switchCamera: () => void
   sendMessage: (text: string) => void
   leaveRoom: () => void
   loadMoreHistory: () => void

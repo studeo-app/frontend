@@ -108,18 +108,26 @@ function toRoomParticipants(
 
 const defaultIceServers: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
 
+function cleanIceServerValue(value: string): string {
+  return value.trim().replace(/^["']+|["']+$/g, '')
+}
+
 function getPeerConnectionConfig(): RTCConfiguration {
   const turnUrls = (import.meta.env.VITE_TURN_URL as string | undefined)
     ?.split(',')
-    .map((url) => url.trim())
+    .map(cleanIceServerValue)
     .filter(Boolean)
 
   if (!turnUrls?.length) {
     return { iceServers: defaultIceServers }
   }
 
-  const username = (import.meta.env.VITE_TURN_USERNAME as string | undefined)?.trim()
-  const credential = (import.meta.env.VITE_TURN_CREDENTIAL as string | undefined)?.trim()
+  const username = cleanIceServerValue(
+    (import.meta.env.VITE_TURN_USERNAME as string | undefined) ?? '',
+  )
+  const credential = cleanIceServerValue(
+    (import.meta.env.VITE_TURN_CREDENTIAL as string | undefined) ?? '',
+  )
 
   return {
     iceServers: [
@@ -136,10 +144,11 @@ function getPeerConnectionConfig(): RTCConfiguration {
 function createMediaConstraints(
   selectedMicId?: string,
   selectedCameraId?: string,
+  facingMode: 'user' | 'environment' = 'user',
 ): MediaStreamConstraints {
   return {
     audio: selectedMicId ? { deviceId: { exact: selectedMicId } } : true,
-    video: selectedCameraId ? { deviceId: { exact: selectedCameraId } } : true,
+    video: selectedCameraId ? { deviceId: { exact: selectedCameraId } } : { facingMode },
   }
 }
 
@@ -172,6 +181,9 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     roomCode: roomCode ?? '',
     connectionStatus: 'disconnected',
     localMedia: initialMedia,
+    mirrorLocalVideo: true,
+    outputVolume: 80,
+    cameraFacingMode: 'user',
     participants: [
       {
         id: localUser.id,
@@ -193,6 +205,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   const memberByUidRef = useRef(new Map<string, RoomMember>())
   const roomUsersRef = useRef<RoomUserPresencePayload[]>([])
   const localMediaRef = useRef<LocalMediaState>(initialMedia)
+  const cameraFacingModeRef = useRef<'user' | 'environment'>('user')
   const localStreamRef = useRef<MediaStream | null>(null)
   const cameraTrackRef = useRef<MediaStreamTrack | null>(null)
   const screenTrackRef = useRef<MediaStreamTrack | null>(null)
@@ -355,6 +368,25 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     )
   }, [])
 
+  const replaceLocalCameraTrack = useCallback(async (
+    nextTrack: MediaStreamTrack,
+    shouldEnable: boolean,
+  ) => {
+    const previousTrack = cameraTrackRef.current
+    nextTrack.enabled = shouldEnable
+
+    if (localStreamRef.current) {
+      previousTrack && localStreamRef.current.removeTrack(previousTrack)
+      localStreamRef.current.addTrack(nextTrack)
+    }
+
+    cameraTrackRef.current = nextTrack
+    await replaceOutgoingVideoTrack(nextTrack)
+    previousTrack?.stop()
+
+    setParticipantsFromPresence()
+  }, [replaceOutgoingVideoTrack, setParticipantsFromPresence])
+
   const cleanupWebRtc = useCallback(() => {
     peerConnectionsRef.current.forEach((pc) => pc.close())
     peerConnectionsRef.current.clear()
@@ -385,6 +417,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
               createMediaConstraints(
                 lobbyMediaPrefs?.selectedMicId,
                 lobbyMediaPrefs?.selectedCameraId,
+                cameraFacingModeRef.current,
               ),
             )
           } catch {
@@ -733,7 +766,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     if (!nextCam && screenTrackRef.current) {
       screenTrackRef.current.stop()
       screenTrackRef.current = null
-      replaceOutgoingVideoTrack(null).catch((err) => {
+      replaceOutgoingVideoTrack(videoTrack ?? null).catch((err) => {
         console.error('[WebRTC] stop video track failed:', err)
       })
     }
@@ -807,6 +840,56 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     }
   }, [emitMediaStatus, replaceOutgoingVideoTrack, roomId, session.localMedia])
 
+  const toggleMirrorLocalVideo = useCallback(() => {
+    setSession((prev) => ({
+      ...prev,
+      mirrorLocalVideo: !prev.mirrorLocalVideo,
+    }))
+  }, [])
+
+  const setOutputVolume = useCallback((volume: number) => {
+    const nextVolume = Math.min(100, Math.max(0, Math.round(volume)))
+    setSession((prev) => ({
+      ...prev,
+      outputVolume: nextVolume,
+    }))
+  }, [])
+
+  const switchCamera = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) return
+
+    const nextFacingMode = cameraFacingModeRef.current === 'user' ? 'environment' : 'user'
+
+    try {
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: nextFacingMode } },
+        })
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: nextFacingMode },
+        })
+      }
+      const [nextTrack] = stream.getVideoTracks()
+      if (!nextTrack) return
+
+      cameraFacingModeRef.current = nextFacingMode
+      await replaceLocalCameraTrack(nextTrack, session.localMedia.isCameraOn)
+      setSession((prev) => ({
+        ...prev,
+        cameraFacingMode: nextFacingMode,
+        participants: prev.participants.map((participant) =>
+          participant.isLocal
+            ? { ...participant, videoStream: localStreamRef.current }
+            : participant,
+        ),
+      }))
+    } catch (err) {
+      console.error('[WebRTC] switch camera failed:', err)
+    }
+  }, [replaceLocalCameraTrack, session.localMedia.isCameraOn])
+
   const sendMessage = useCallback(
     (text: string) => {
       const trimmed = text.trim()
@@ -836,6 +919,9 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     toggleMic,
     toggleCamera,
     toggleScreenShare,
+    toggleMirrorLocalVideo,
+    setOutputVolume,
+    switchCamera,
     sendMessage,
     leaveRoom,
     loadMoreHistory,

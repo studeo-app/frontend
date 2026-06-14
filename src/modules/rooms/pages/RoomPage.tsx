@@ -159,7 +159,11 @@ export default function RoomPage() {
 
         <div className="relative flex min-h-0 flex-1">
           <div className="relative flex min-w-0 flex-1 flex-col">
-            <VideoGrid participants={session.participants} />
+            <VideoGrid
+              participants={session.participants}
+              mirrorLocalVideo={session.mirrorLocalVideo}
+              outputVolume={session.outputVolume}
+            />
             <ControlBar
               media={session.localMedia}
               onToggleMic={actions.toggleMic}
@@ -199,7 +203,15 @@ export default function RoomPage() {
               isOpen={activePanel === 'participants'}
             />
 
-            <RoomSettingsPanel isOpen={activePanel === 'settings'} />
+            <RoomSettingsPanel
+              isOpen={activePanel === 'settings'}
+              outputVolume={session.outputVolume}
+              mirrorLocalVideo={session.mirrorLocalVideo}
+              cameraFacingMode={session.cameraFacingMode}
+              onOutputVolumeChange={actions.setOutputVolume}
+              onToggleMirrorLocalVideo={actions.toggleMirrorLocalVideo}
+              onSwitchCamera={actions.switchCamera}
+            />
 
             {activePanel !== 'chat' && (
               <button

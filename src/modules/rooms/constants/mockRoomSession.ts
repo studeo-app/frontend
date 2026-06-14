@@ -15,6 +15,9 @@ export function createMockRoomSession(
       isCameraOn: true,
       isScreenSharing: false,
     },
+    mirrorLocalVideo: true,
+    outputVolume: 80,
+    cameraFacingMode: 'user',
     participants: [
       {
         id: localUser.id,
