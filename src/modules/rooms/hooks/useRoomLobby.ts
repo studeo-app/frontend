@@ -6,6 +6,7 @@ import {
   MOCK_CAMERA_DEVICES,
   MOCK_MIC_DEVICES,
 } from '../constants/mockLobbyParticipants'
+import { getRoomLobbyMediaPrefsKey } from '../constants/roomMediaPrefs'
 import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
 import { getRoomMembers } from '../api/roomsApi'
 import {
@@ -30,6 +31,7 @@ interface RealtimeUserPresence {
 
 interface UseRoomLobbyResult {
   localMedia: LocalMediaState
+  localStream: MediaStream | null
   selectedMicId: string
   selectedCameraId: string
   micDevices: typeof MOCK_MIC_DEVICES
@@ -37,6 +39,7 @@ interface UseRoomLobbyResult {
   waitingParticipants: LobbyWaitingParticipant[]
   loadingParticipants: boolean
   previewError: string | null
+  mediaError: string | null
   toggleMic: () => void
   toggleCamera: () => void
   setSelectedMicId: (id: string) => void
@@ -114,22 +117,119 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
   const [roomUsers, setRoomUsers] = useState<RealtimeUserPresence[]>([])
   const [loadingParticipants, setLoadingParticipants] = useState(true)
   const [previewError, setPreviewError] = useState<string | null>(null)
+  const [mediaError, setMediaError] = useState<string | null>(null)
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null)
+  const localStreamRef = useRef<MediaStream | null>(null)
 
   const [localMedia, setLocalMedia] = useState<LocalMediaState>(() => readLobbyMediaState(roomId))
   const localMediaRef = useRef(localMedia)
 
   const [selectedMicId, setSelectedMicId] = useState(MOCK_MIC_DEVICES[0].deviceId)
   const [selectedCameraId, setSelectedCameraId] = useState(MOCK_CAMERA_DEVICES[0].deviceId)
+  const [micDevices, setMicDevices] = useState(MOCK_MIC_DEVICES)
+  const [cameraDevices, setCameraDevices] = useState(MOCK_CAMERA_DEVICES)
 
-  const publishLobbyMediaStatus = useCallback((media: LocalMediaState) => {
-    const socket = getSocket()
-    if (!socket?.connected) return
+  useEffect(() => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMediaError('Tu navegador no permite usar cámara o micrófono.')
+      setLocalMedia((prev) => ({ ...prev, isMicOn: false, isCameraOn: false }))
+      return
+    }
 
-    socket.emit(ROOM_SOCKET_EVENTS.MEDIA_STATUS, {
-      isMuted: !media.isMicOn,
-      isVideoOff: !media.isCameraOn,
-      isScreenSharing: media.isScreenSharing,
-    })
+    let cancelled = false
+
+    async function loadDevices() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop())
+          return
+        }
+
+        localStreamRef.current = stream
+        setLocalStream(stream)
+        setMediaError(null)
+
+        const audioTrack = stream.getAudioTracks()[0]
+        const videoTrack = stream.getVideoTracks()[0]
+        setLocalMedia((prev) => ({
+          ...prev,
+          isMicOn: Boolean(audioTrack),
+          isCameraOn: Boolean(videoTrack),
+        }))
+
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        if (cancelled) return
+
+        const audioInputs = devices
+          .filter((device) => device.kind === 'audioinput')
+          .map((device, index) => ({
+            deviceId: device.deviceId,
+            label: device.label || `Micrófono ${index + 1}`,
+          }))
+        const videoInputs = devices
+          .filter((device) => device.kind === 'videoinput')
+          .map((device, index) => ({
+            deviceId: device.deviceId,
+            label: device.label || `Cámara ${index + 1}`,
+          }))
+
+        if (audioInputs.length > 0) {
+          setMicDevices(audioInputs)
+          setSelectedMicId(audioTrack?.getSettings().deviceId ?? audioInputs[0].deviceId)
+        }
+        if (videoInputs.length > 0) {
+          setCameraDevices(videoInputs)
+          setSelectedCameraId(videoTrack?.getSettings().deviceId ?? videoInputs[0].deviceId)
+        }
+      } catch {
+        if (!cancelled) {
+          setLocalMedia((prev) => ({ ...prev, isMicOn: false, isCameraOn: false }))
+          setMediaError('No pudimos acceder a la cámara o al micrófono.')
+        }
+      }
+    }
+
+    loadDevices()
+
+    return () => {
+      cancelled = true
+      localStreamRef.current?.getTracks().forEach((track) => track.stop())
+      localStreamRef.current = null
+    }
+  }, [])
+
+  const restartLocalStream = useCallback(async (nextMicId: string, nextCameraId: string) => {
+    if (!navigator.mediaDevices?.getUserMedia) return
+
+    try {
+      const previousStream = localStreamRef.current
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: nextMicId ? { deviceId: { exact: nextMicId } } : true,
+        video: nextCameraId ? { deviceId: { exact: nextCameraId } } : true,
+      })
+
+      previousStream?.getTracks().forEach((track) => track.stop())
+      localStreamRef.current = stream
+      setLocalStream(stream)
+      setMediaError(null)
+      setLocalMedia((prev) => {
+        const nextMedia = {
+          ...prev,
+          isMicOn: stream.getAudioTracks().length > 0 && prev.isMicOn,
+          isCameraOn: stream.getVideoTracks().length > 0 && prev.isCameraOn,
+        }
+        stream.getAudioTracks().forEach((track) => {
+          track.enabled = nextMedia.isMicOn
+        })
+        stream.getVideoTracks().forEach((track) => {
+          track.enabled = nextMedia.isCameraOn
+        })
+        return nextMedia
+      })
+    } catch {
+      setMediaError('No pudimos cambiar el dispositivo seleccionado.')
+    }
   }, [])
 
   useEffect(() => {
@@ -163,7 +263,6 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
 
         const requestPreview = () => {
           socket.emit(ROOM_SOCKET_EVENTS.NEW_USER)
-          publishLobbyMediaStatus(localMediaRef.current)
           socket.emit(ROOM_SOCKET_EVENTS.ROOM_USERS_PREVIEW, { roomId, socketId: socket.id ?? '' })
         }
 
@@ -213,11 +312,7 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
         disconnectSocket()
       }
     }
-  }, [roomId, getIdToken, publishLobbyMediaStatus])
-
-  useEffect(() => {
-    publishLobbyMediaStatus(localMedia)
-  }, [localMedia, publishLobbyMediaStatus])
+  }, [roomId, getIdToken])
 
   const waitingParticipants = useMemo(
     () => roomUsers.map((user, index) => toLobbyParticipant(user, index)),
@@ -225,33 +320,78 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
   )
 
   const toggleMic = useCallback(() => {
-    setLocalMedia((prev) => ({ ...prev, isMicOn: !prev.isMicOn }))
+    setLocalMedia((prev) => {
+      const nextMic = !prev.isMicOn
+      localStreamRef.current?.getAudioTracks().forEach((track) => {
+        track.enabled = nextMic
+      })
+      return { ...prev, isMicOn: nextMic }
+    })
   }, [])
 
   const toggleCamera = useCallback(() => {
-    setLocalMedia((prev) => ({ ...prev, isCameraOn: !prev.isCameraOn }))
+    setLocalMedia((prev) => {
+      const nextCamera = !prev.isCameraOn
+      localStreamRef.current?.getVideoTracks().forEach((track) => {
+        track.enabled = nextCamera
+      })
+      return { ...prev, isCameraOn: nextCamera }
+    })
   }, [])
+
+  const updateSelectedMicId = useCallback((id: string) => {
+    setSelectedMicId(id)
+    restartLocalStream(id, selectedCameraId)
+  }, [restartLocalStream, selectedCameraId])
+
+  const updateSelectedCameraId = useCallback((id: string) => {
+    setSelectedCameraId(id)
+    restartLocalStream(selectedMicId, id)
+  }, [restartLocalStream, selectedMicId])
+
+  useEffect(() => {
+    if (!roomId) return
+    sessionStorage.setItem(
+      getRoomLobbyMediaPrefsKey(roomId),
+      JSON.stringify({
+        isMicOn: localMedia.isMicOn,
+        isCameraOn: localMedia.isCameraOn,
+        selectedMicId,
+        selectedCameraId,
+      }),
+    )
+  }, [localMedia.isCameraOn, localMedia.isMicOn, roomId, selectedCameraId, selectedMicId])
 
   const joinRoom = useCallback(() => {
     isJoiningRoomRef.current = true
     writeLobbyMediaState(roomId, localMedia)
-    publishLobbyMediaStatus(localMedia)
+    sessionStorage.setItem(
+      getRoomLobbyMediaPrefsKey(roomId),
+      JSON.stringify({
+        isMicOn: localMedia.isMicOn,
+        isCameraOn: localMedia.isCameraOn,
+        selectedMicId,
+        selectedCameraId,
+      }),
+    )
     navigate(`/room/${roomId}`)
-  }, [localMedia, navigate, publishLobbyMediaStatus, roomId])
+  }, [localMedia.isCameraOn, localMedia.isMicOn, navigate, roomId, selectedCameraId, selectedMicId])
 
   return {
     localMedia,
+    localStream,
     selectedMicId,
     selectedCameraId,
-    micDevices: MOCK_MIC_DEVICES,
-    cameraDevices: MOCK_CAMERA_DEVICES,
+    micDevices,
+    cameraDevices,
     waitingParticipants,
     loadingParticipants,
     previewError,
+    mediaError,
     toggleMic,
     toggleCamera,
-    setSelectedMicId,
-    setSelectedCameraId,
+    setSelectedMicId: updateSelectedMicId,
+    setSelectedCameraId: updateSelectedCameraId,
     joinRoom,
   }
 }
