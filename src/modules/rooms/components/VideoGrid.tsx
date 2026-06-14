@@ -15,12 +15,16 @@ function gridClass(count: number): string {
 export function VideoGrid({ participants }: VideoGridProps) {
   return (
     <div
-      className={`grid flex-1 gap-3 p-4 auto-rows-fr ${gridClass(participants.length)}`}
+      className={`grid flex-1 min-h-0 auto-rows-fr gap-2 overflow-y-auto p-2 pb-2 sm:gap-3 sm:p-4 sm:pb-4 ${gridClass(participants.length)}`}
       role="list"
       aria-label="Participantes en la sala"
     >
       {participants.map((participant) => (
-        <div key={participant.socketId} role="listitem">
+        <div
+          key={participant.socketId}
+          role="listitem"
+          className="w-full h-full min-h-0 flex items-center justify-center"
+        >
           <VideoTile participant={participant} />
         </div>
       ))}

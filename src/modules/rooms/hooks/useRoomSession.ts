@@ -10,9 +10,10 @@ import {
 } from '../constants/roomDeletionNotice'
 import { readRoomLobbyMediaPrefs } from '../constants/roomMediaPrefs'
 import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
+import { readLobbyMediaState, writeLobbyMediaState } from '../utils/lobbyMediaState'
 import type {
-  RoomChatMessage,
   LocalMediaState,
+  RoomChatMessage,
   RoomParticipant,
   RoomSessionActions,
   RoomSessionState,
@@ -148,6 +149,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   const firebaseUser = useAuthStore((s) => s.user)
   const getIdToken = useAuthStore((s) => s.getIdToken)
   const lobbyMediaPrefs = useMemo(() => readRoomLobbyMediaPrefs(roomId), [roomId])
+  const initialLobbyMedia = useMemo(() => readLobbyMediaState(roomId), [roomId])
 
   const localUser = useMemo(
     () => ({
@@ -158,17 +160,18 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     [profile, firebaseUser],
   )
 
-  // ── Estado de sesión ──────────────────────────────────────────────
+  const initialMedia = useMemo<LocalMediaState>(() => ({
+    isMicOn: lobbyMediaPrefs?.isMicOn ?? initialLobbyMedia.isMicOn,
+    isCameraOn: lobbyMediaPrefs?.isCameraOn ?? initialLobbyMedia.isCameraOn,
+    isScreenSharing: false,
+  }), [initialLobbyMedia, lobbyMediaPrefs])
+
   const [session, setSession] = useState<RoomSessionState>(() => ({
     roomId,
     roomName: '',
     roomCode: roomCode ?? '',
     connectionStatus: 'disconnected',
-    localMedia: {
-      isMicOn: lobbyMediaPrefs?.isMicOn ?? false,
-      isCameraOn: lobbyMediaPrefs?.isCameraOn ?? true,
-      isScreenSharing: false,
-    },
+    localMedia: initialMedia,
     participants: [
       {
         id: localUser.id,
@@ -176,8 +179,8 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         displayName: localUser.displayName,
         avatarUrl: localUser.avatarUrl,
         isLocal: true,
-        isCameraOn: lobbyMediaPrefs?.isCameraOn ?? true,
-        isMicOn: lobbyMediaPrefs?.isMicOn ?? false,
+        isCameraOn: initialMedia.isCameraOn,
+        isMicOn: initialMedia.isMicOn,
       },
     ],
     messages: [],
@@ -185,16 +188,11 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     hasMoreHistory: false,
   }))
 
-  // ── Refs para paginación del historial ────────────────────────────
   const nextCursorRef = useRef<string | null>(null)
   const loadingHistoryRef = useRef(false)
   const memberByUidRef = useRef(new Map<string, RoomMember>())
   const roomUsersRef = useRef<RoomUserPresencePayload[]>([])
-  const localMediaRef = useRef<LocalMediaState>({
-    isMicOn: lobbyMediaPrefs?.isMicOn ?? false,
-    isCameraOn: lobbyMediaPrefs?.isCameraOn ?? true,
-    isScreenSharing: false,
-  })
+  const localMediaRef = useRef<LocalMediaState>(initialMedia)
   const localStreamRef = useRef<MediaStream | null>(null)
   const cameraTrackRef = useRef<MediaStreamTrack | null>(null)
   const screenTrackRef = useRef<MediaStreamTrack | null>(null)
@@ -210,7 +208,8 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
 
   useEffect(() => {
     localMediaRef.current = session.localMedia
-  }, [session.localMedia])
+    writeLobbyMediaState(roomId, session.localMedia)
+  }, [roomId, session.localMedia])
 
   const setParticipantsFromPresence = useCallback(() => {
     setSession((prev) => ({
@@ -236,6 +235,14 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       isVideoOff: !media.isCameraOn,
       isScreenSharing: media.isScreenSharing,
     })
+  }, [roomId])
+
+  const emitJoinRoom = useCallback(() => {
+    const socket = getSocket()
+    if (!socket?.connected) return
+
+    socket.emit(ROOM_SOCKET_EVENTS.NEW_USER)
+    socket.emit(ROOM_SOCKET_EVENTS.JOIN_ROOM, { roomId })
   }, [roomId])
 
   const closePeerConnection = useCallback((remoteSocketId: string) => {
@@ -361,7 +368,6 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     screenTrackRef.current = null
   }, [])
 
-  // ── Conectar Socket.IO + cargar historial al montar ───────────────
   useEffect(() => {
     let cancelled = false
 
@@ -369,8 +375,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       try {
         const token = await getIdToken()
         if (cancelled) return
-        const roomMembersPromise = getRoomMembers(token, roomId).catch(() => [])
-        const roomMembers = await roomMembersPromise
+        const roomMembers = await getRoomMembers(token, roomId).catch(() => [])
         if (cancelled) return
         memberByUidRef.current = new Map(roomMembers.map((member) => [member.uid, member]))
 
@@ -404,27 +409,24 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           cameraTrackRef.current = localStreamRef.current.getVideoTracks()[0] ?? null
           const hasAudio = localStreamRef.current.getAudioTracks().length > 0
           const hasVideo = localStreamRef.current.getVideoTracks().length > 0
-          const nextMicOn = hasAudio && (lobbyMediaPrefs?.isMicOn ?? true)
-          const nextCameraOn = hasVideo && (lobbyMediaPrefs?.isCameraOn ?? true)
+          const nextMicOn = hasAudio && initialMedia.isMicOn
+          const nextCameraOn = hasVideo && initialMedia.isCameraOn
           localStreamRef.current.getAudioTracks().forEach((track) => {
             track.enabled = nextMicOn
           })
           localStreamRef.current.getVideoTracks().forEach((track) => {
             track.enabled = nextCameraOn
           })
-          localMediaRef.current = {
-            ...localMediaRef.current,
+          const nextMedia = {
+            ...initialMedia,
             isMicOn: nextMicOn,
             isCameraOn: nextCameraOn,
           }
+          localMediaRef.current = nextMedia
 
           setSession((prev) => ({
             ...prev,
-            localMedia: {
-              ...prev.localMedia,
-              isMicOn: nextMicOn,
-              isCameraOn: nextCameraOn,
-            },
+            localMedia: nextMedia,
             participants: prev.participants.map((participant) =>
               participant.isLocal
                 ? {
@@ -438,7 +440,6 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           }))
         }
 
-        // 1) Conectar socket
         const socket = connectSocket(token)
 
         setSession((prev) => ({ ...prev, connectionStatus: 'connecting' }))
@@ -446,9 +447,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         socket.on(ROOM_SOCKET_EVENTS.CONNECT, () => {
           if (cancelled) return
           setSession((prev) => ({ ...prev, connectionStatus: 'connected' }))
-          // Registrar presencia global antes de unirse a la sala
-          socket.emit(ROOM_SOCKET_EVENTS.NEW_USER)
-          socket.emit(ROOM_SOCKET_EVENTS.JOIN_ROOM, { roomId })
+          emitJoinRoom()
         })
 
         socket.on(ROOM_SOCKET_EVENTS.DISCONNECT, () => {
@@ -456,7 +455,6 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           setSession((prev) => ({ ...prev, connectionStatus: 'disconnected' }))
         })
 
-        // ── Eventos de mensajes ──────────────────────────────────────
         socket.on(ROOM_SOCKET_EVENTS.MESSAGE_NEW, (msg) => {
           if (cancelled) return
           const chatMsg: RoomChatMessage = {
@@ -492,11 +490,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
             ...prev,
             participants,
           }))
-          emitMediaStatus({
-            isMicOn: localStreamRef.current?.getAudioTracks().some((track) => track.enabled) ?? false,
-            isCameraOn: localStreamRef.current?.getVideoTracks().some((track) => track.enabled) ?? false,
-            isScreenSharing: localMediaRef.current.isScreenSharing,
-          })
+          emitMediaStatus(localMediaRef.current)
           syncPeerConnections(users).catch((err) => {
             console.error('[WebRTC] sync peers failed:', err)
           })
@@ -509,18 +503,36 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
             roomUser.socketId === user.socketId ? { ...roomUser, ...user } : roomUser,
           )
 
-          setSession((prev) => ({
-            ...prev,
-            participants: prev.participants.map((participant) =>
-              participant.socketId === user.socketId
-                ? {
-                    ...participant,
-                    isCameraOn: !user.isVideoOff,
-                    isMicOn: !user.isMuted,
-                  }
-                : participant,
-            ),
-          }))
+          setSession((prev) => {
+            const isLocalStatus = user.uid === firebaseUser?.uid
+            const nextLocalMedia = isLocalStatus
+              ? {
+                  ...prev.localMedia,
+                  isMicOn: !user.isMuted,
+                  isCameraOn: !user.isVideoOff,
+                  isScreenSharing: Boolean(user.isScreenSharing),
+                }
+              : prev.localMedia
+
+            if (isLocalStatus) {
+              localMediaRef.current = nextLocalMedia
+              writeLobbyMediaState(roomId, nextLocalMedia)
+            }
+
+            return {
+              ...prev,
+              localMedia: nextLocalMedia,
+              participants: prev.participants.map((participant) =>
+                participant.socketId === user.socketId || participant.id === user.uid
+                  ? {
+                      ...participant,
+                      isCameraOn: !user.isVideoOff,
+                      isMicOn: !user.isMuted,
+                    }
+                  : participant,
+              ),
+            }
+          })
         })
 
         socket.on(ROOM_SOCKET_EVENTS.WEBRTC_OFFER, async (payload: WebRtcOfferPayload) => {
@@ -562,7 +574,6 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           await pc.addIceCandidate(new RTCIceCandidate(payload.candidate))
         })
 
-        // ── Eventos de sala ──────────────────────────────────────────
         socket.on(ROOM_SOCKET_EVENTS.ERROR_MESSAGE, (err) => {
           console.error('[Room] errorMessage', err)
         })
@@ -589,14 +600,11 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           })
         })
 
-        // Si el socket ya estaba conectado (reconexión), unirse directamente
         if (socket.connected) {
           setSession((prev) => ({ ...prev, connectionStatus: 'connected' }))
-          socket.emit(ROOM_SOCKET_EVENTS.NEW_USER)
-          socket.emit(ROOM_SOCKET_EVENTS.JOIN_ROOM, { roomId })
+          emitJoinRoom()
         }
 
-        // 2) Cargar historial de mensajes desde el backend REST
         setSession((prev) => ({ ...prev, loadingHistory: true }))
         try {
           const history = await getRoomMessages(token, roomId)
@@ -612,7 +620,6 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
             setSession((prev) => ({
               ...prev,
               messages: [...historyMessages, ...prev.messages.filter(
-                // Evitar duplicados: los mensajes en tiempo real que ya estén en el historial
                 (rtMsg) => !historyMessages.some((hMsg) => hMsg.id === rtMsg.id),
               )],
               loadingHistory: false,
@@ -655,17 +662,18 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   }, [
     cleanupWebRtc,
     createPeerConnection,
+    emitJoinRoom,
     emitMediaStatus,
     firebaseUser?.uid,
     flushPendingIceCandidates,
     getIdToken,
+    initialMedia,
     lobbyMediaPrefs,
     navigate,
     roomId,
     syncPeerConnections,
   ])
 
-  // ── Cargar más historial (paginación) ─────────────────────────────
   const loadMoreHistory = useCallback(async () => {
     if (loadingHistoryRef.current || !nextCursorRef.current) return
     loadingHistoryRef.current = true
@@ -696,7 +704,6 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     }
   }, [roomId, getIdToken])
 
-  // ── Acciones ──────────────────────────────────────────────────────
   const toggleMic = useCallback(() => {
     const audioTracks = localStreamRef.current?.getAudioTracks() ?? []
     const nextMic = !session.localMedia.isMicOn
@@ -706,6 +713,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
 
     const nextMedia = { ...session.localMedia, isMicOn: nextMic }
     localMediaRef.current = nextMedia
+    writeLobbyMediaState(roomId, nextMedia)
     setSession((prev) => ({
       ...prev,
       localMedia: nextMedia,
@@ -714,7 +722,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       ),
     }))
     emitMediaStatus(nextMedia)
-  }, [emitMediaStatus, session.localMedia])
+  }, [emitMediaStatus, roomId, session.localMedia])
 
   const toggleCamera = useCallback(() => {
     const videoTrack = cameraTrackRef.current
@@ -736,6 +744,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       isScreenSharing: nextCam ? session.localMedia.isScreenSharing : false,
     }
     localMediaRef.current = nextMedia
+    writeLobbyMediaState(roomId, nextMedia)
     setSession((prev) => ({
       ...prev,
       localMedia: nextMedia,
@@ -744,7 +753,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       ),
     }))
     emitMediaStatus(nextMedia)
-  }, [emitMediaStatus, replaceOutgoingVideoTrack, session.localMedia])
+  }, [emitMediaStatus, replaceOutgoingVideoTrack, roomId, session.localMedia])
 
   const toggleScreenShare = useCallback(async () => {
     if (session.localMedia.isScreenSharing) {
@@ -754,6 +763,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
 
       const nextMedia = { ...session.localMedia, isScreenSharing: false }
       localMediaRef.current = nextMedia
+      writeLobbyMediaState(roomId, nextMedia)
       setSession((prev) => ({ ...prev, localMedia: nextMedia }))
       emitMediaStatus(nextMedia)
       return
@@ -777,6 +787,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         setSession((prev) => {
           const nextMedia = { ...prev.localMedia, isScreenSharing: false }
           localMediaRef.current = nextMedia
+          writeLobbyMediaState(roomId, nextMedia)
           emitMediaStatus(nextMedia)
           return { ...prev, localMedia: nextMedia }
         })
@@ -788,12 +799,13 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         isCameraOn: true,
       }
       localMediaRef.current = nextMedia
+      writeLobbyMediaState(roomId, nextMedia)
       setSession((prev) => ({ ...prev, localMedia: nextMedia }))
       emitMediaStatus(nextMedia)
     } catch (err) {
       console.error('[WebRTC] screen share failed:', err)
     }
-  }, [emitMediaStatus, replaceOutgoingVideoTrack, session.localMedia])
+  }, [emitMediaStatus, replaceOutgoingVideoTrack, roomId, session.localMedia])
 
   const sendMessage = useCallback(
     (text: string) => {

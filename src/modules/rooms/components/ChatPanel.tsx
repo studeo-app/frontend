@@ -1,5 +1,5 @@
 import { ChevronRight, Loader2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react'
 import type { RoomChatMessage } from '../types/roomSession'
 
 interface ChatPanelProps {
@@ -15,6 +15,8 @@ interface ChatPanelProps {
 }
 
 const MAX_MESSAGE_LENGTH = 150
+const GAP = 12 // Spacing between messages (corresponds to space-y-3 which is 12px)
+const BUFFER = 500 // Render buffer in pixels (viewport safety margin)
 
 /**
  * Formatea un timestamp ISO a una hora relativa legible.
@@ -33,6 +35,54 @@ function formatRelativeTime(isoString: string): string {
   return date.toLocaleDateString('es', { day: 'numeric', month: 'short' })
 }
 
+/**
+ * Estima la altura del mensaje en base a la longitud del texto y si está agrupado.
+ */
+function estimateMessageHeight(msg: RoomChatMessage, isGrouped: boolean): number {
+  const base = isGrouped ? 28 : 48 // Agrupado no tiene cabecera
+  const lineCount = Math.ceil(msg.text.length / 25) // Estimación de caracteres por línea a 320px de ancho
+  return base + lineCount * 20 // 20px por línea de texto
+}
+
+interface VirtualMessageItemProps {
+  id: string
+  index: number
+  isOwnMessage: boolean
+  isGrouped: boolean
+  onMeasure: (id: string, height: number, index: number, isGrouped: boolean) => void
+  children: React.ReactNode
+}
+
+function VirtualMessageItem({
+  id,
+  index,
+  isOwnMessage,
+  isGrouped,
+  onMeasure,
+  children,
+}: VirtualMessageItemProps) {
+  const elementRef = useRef<HTMLLIElement>(null)
+
+  useLayoutEffect(() => {
+    if (elementRef.current) {
+      const height = elementRef.current.getBoundingClientRect().height
+      onMeasure(id, height, index, isGrouped)
+    }
+  }) // Se ejecuta en cada commit para capturar cambios dinámicos
+
+  const gap = index === 0 ? 0 : isGrouped ? 2 : GAP
+
+  return (
+    <li
+      ref={elementRef}
+      style={{ marginTop: gap }}
+      className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+    >
+      {children}
+    </li>
+  )
+}
+
 export function ChatPanel({
   messages,
   currentUserId,
@@ -45,27 +95,264 @@ export function ChatPanel({
   onClose,
 }: ChatPanelProps) {
   const [draft, setDraft] = useState('')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const isFirstLoad = useRef(true)
-  const prevMessageCount = useRef(messages.length)
 
-  // Auto-scroll al fondo cuando llegan mensajes nuevos (no al cargar historial anterior)
+  // Alturas dinámicas indexadas por mensaje ID
+  const [heights, setHeights] = useState<Record<string, number>>({})
+  const heightsRef = useRef<Record<string, number>>(heights)
+
+  // Sincronizar el ref de alturas
   useEffect(() => {
-    if (messages.length === 0) return
+    heightsRef.current = heights
+  }, [heights])
 
-    const addedToBottom =
-      messages.length > prevMessageCount.current && !isFirstLoad.current
+  // Estado del scroll del viewport
+  const [scrollState, setScrollState] = useState({
+    scrollTop: 0,
+    clientHeight: 600, // Altura por defecto para el primer render
+  })
 
-    if (isFirstLoad.current || addedToBottom) {
-      messagesEndRef.current?.scrollIntoView({
-        behavior: isFirstLoad.current ? 'instant' : 'smooth',
+  // Ancho del contenedor para invalidar alturas medidas si cambia (redimensionado)
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  // Flag para detectar si estamos al fondo
+  const isAtBottom = useRef(true)
+
+  // Referencias para los mensajes anteriores
+  const prevMessagesRef = useRef<RoomChatMessage[]>([])
+
+  // Función para hacer scroll al fondo
+  const scrollToBottom = useCallback((behavior: 'instant' | 'smooth') => {
+    const container = scrollContainerRef.current
+    if (container) {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior,
       })
-      isFirstLoad.current = false
+    }
+  }, [])
+
+  // Actualizar el estado de scroll
+  const updateScrollState = useCallback(() => {
+    const container = scrollContainerRef.current
+    if (container) {
+      setScrollState({
+        scrollTop: container.scrollTop,
+        clientHeight: container.clientHeight,
+      })
+    }
+  }, [])
+
+  // Escuchar el evento scroll para detectar si estamos al final y actualizar viewport virtual
+  const handleScroll = () => {
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    const { scrollTop, scrollHeight, clientHeight } = container
+    // Consideramos que está al final si dista menos de 100px del límite
+    isAtBottom.current = scrollHeight - scrollTop - clientHeight < 100
+
+    setScrollState({
+      scrollTop,
+      clientHeight,
+    })
+  }
+
+  // Medir la altura real de un mensaje y ajustar el scroll (scroll anchoring) si está antes del viewport
+  const handleMeasure = useCallback((id: string, height: number, index: number, isGrouped: boolean) => {
+    const msg = messages[index]
+    if (!msg) return
+
+    const oldHeight = heightsRef.current[id]
+    if (oldHeight !== height) {
+      const est = estimateMessageHeight(msg, isGrouped)
+      const baseHeight = oldHeight !== undefined ? oldHeight : est
+      const diff = height - baseHeight
+
+      // Guardar en el ref inmediatamente para cálculos concurrentes en el mismo frame
+      heightsRef.current[id] = height
+
+      const container = scrollContainerRef.current
+      if (container) {
+        let msgTop = 0
+        for (let i = 0; i < index; i++) {
+          const m = messages[i]
+          const prevM = i > 0 ? messages[i - 1] : null
+          const isSameAuthor = prevM?.userId === m.userId
+          const timeDiff = prevM
+            ? new Date(m.timestamp).getTime() - new Date(prevM.timestamp).getTime()
+            : Infinity
+          const isGrp = isSameAuthor && timeDiff < 60000
+
+          const gap = i === 0 ? 0 : isGrp ? 2 : GAP
+          msgTop += gap + (heightsRef.current[m.id] || estimateMessageHeight(m, isGrp))
+        }
+
+        if (msgTop < container.scrollTop) {
+          container.scrollTop += diff
+        }
+      }
+
+      setHeights((prev) => ({
+        ...prev,
+        [id]: height,
+      }))
+    }
+  }, [messages])
+
+  // ResizeObserver para detectar cambios de dimensiones en el chat
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width)
+      }
+    })
+
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
+
+  // Si el ancho cambia y no es el inicial, invalidamos alturas previas
+  const prevWidth = useRef(containerWidth)
+  useEffect(() => {
+    if (prevWidth.current !== containerWidth && containerWidth > 0) {
+      setHeights({})
+      prevWidth.current = containerWidth
+      updateScrollState()
+    }
+  }, [containerWidth, updateScrollState])
+
+  // Ajuste fino del scroll en la apertura/animación del chat
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        updateScrollState()
+        if (isAtBottom.current) {
+          scrollToBottom('instant')
+        }
+      }, 350) // Esperamos a que la animación de css (duration-300) termine
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen, scrollToBottom, updateScrollState])
+
+  // Cálculos de posiciones acumuladas (virtualización)
+  const positions = []
+  let currentTop = 0
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i]
+    const prevMsg = i > 0 ? messages[i - 1] : null
+    const isSameAuthor = prevMsg?.userId === msg.userId
+    const timeDiff = prevMsg
+      ? new Date(msg.timestamp).getTime() - new Date(prevMsg.timestamp).getTime()
+      : Infinity
+    const isGrouped = isSameAuthor && timeDiff < 60000
+
+    const gap = i === 0 ? 0 : isGrouped ? 2 : GAP
+    currentTop += gap
+
+    const h = heights[msg.id] || estimateMessageHeight(msg, isGrouped)
+    positions.push({
+      msg,
+      index: i,
+      top: currentTop,
+      height: h,
+      isGrouped,
+      gap,
+    })
+    currentTop += h
+  }
+
+  const totalHeight = currentTop
+
+  // Determinar los mensajes visibles en pantalla con el buffer de seguridad
+  let startIndex = 0
+  let endIndex = messages.length - 1
+
+  const viewMin = scrollState.scrollTop - BUFFER
+  const viewMax = scrollState.scrollTop + scrollState.clientHeight + BUFFER
+
+  for (let i = 0; i < positions.length; i++) {
+    const p = positions[i]
+    if (p.top + p.height >= viewMin) {
+      startIndex = i
+      break
+    }
+  }
+
+  for (let i = startIndex; i < positions.length; i++) {
+    const p = positions[i]
+    if (p.top > viewMax) {
+      endIndex = i - 1
+      break
+    }
+  }
+
+  startIndex = Math.max(0, startIndex)
+  endIndex = Math.min(messages.length - 1, Math.max(startIndex, endIndex))
+
+  const visiblePositions = messages.length > 0 ? positions.slice(startIndex, endIndex + 1) : []
+
+  // Calcular la altura del espaciador superior e inferior
+  const topSpacerHeight = visiblePositions.length > 0 ? positions[startIndex].top - positions[startIndex].gap : 0
+  const bottomSpacerHeight =
+    visiblePositions.length > 0
+      ? Math.max(0, totalHeight - (positions[endIndex].top + positions[endIndex].height))
+      : 0
+
+  // Efecto principal para scroll anchoring al cargar historial y auto-scroll al fondo con nuevos mensajes
+  useLayoutEffect(() => {
+    const prev = prevMessagesRef.current
+    const curr = messages
+
+    if (curr.length === 0) {
+      prevMessagesRef.current = curr
+      return
     }
 
-    prevMessageCount.current = messages.length
-  }, [messages])
+    const isFirst = prev.length === 0
+
+    // 1. Verificar si se han añadido mensajes al inicio (historial cargado)
+    let prependedHeight = 0
+    if (prev.length > 0 && curr.length > prev.length) {
+      const oldFirstId = prev[0].id
+      const newIndex = curr.findIndex((m) => m.id === oldFirstId)
+      if (newIndex > 0) {
+        for (let i = 0; i < newIndex; i++) {
+          const msg = curr[i]
+          const prevMsg = i > 0 ? curr[i - 1] : null
+          const isSameAuthor = prevMsg?.userId === msg.userId
+          const timeDiff = prevMsg
+            ? new Date(msg.timestamp).getTime() - new Date(prevMsg.timestamp).getTime()
+            : Infinity
+          const isGrouped = isSameAuthor && timeDiff < 60000
+
+          const h = heightsRef.current[msg.id] || estimateMessageHeight(msg, isGrouped)
+          const gap = i === 0 ? 0 : isGrouped ? 2 : GAP
+          prependedHeight += h + gap
+        }
+      }
+    }
+
+    // 2. Ajustar el scroll de forma síncrona si hubo prepended
+    if (prependedHeight > 0 && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop += prependedHeight
+    }
+    // 3. Scroll al fondo en primer carga o cuando se añade un mensaje abajo
+    else if (isFirst) {
+      scrollToBottom('instant')
+    } else {
+      const messageAddedToBottom = prev.length > 0 && curr[curr.length - 1]?.id !== prev[prev.length - 1]?.id
+      const lastMessageIsOwn = curr[curr.length - 1]?.userId === currentUserId
+      if (messageAddedToBottom && (isAtBottom.current || lastMessageIsOwn)) {
+        scrollToBottom('smooth')
+      }
+    }
+
+    prevMessagesRef.current = curr
+  }, [messages, currentUserId, scrollToBottom])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,7 +361,7 @@ export function ChatPanel({
     onSendMessage(trimmed)
     setDraft('')
     requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      scrollToBottom('smooth')
     })
   }
 
@@ -85,13 +372,15 @@ export function ChatPanel({
     <aside
       aria-label="Chat de sala"
       className={`
-        flex h-full shrink-0 flex-col border-l border-auth-input-border bg-auth-surface
+        pointer-events-auto fixed inset-x-3 bottom-[92px] top-[74px] z-40 flex h-auto shrink-0 flex-col
+        rounded-2xl border border-auth-input-border bg-auth-surface shadow-2xl
         transition-all duration-300 ease-in-out overflow-hidden
-        ${isOpen ? 'w-full sm:w-[320px] opacity-100' : 'w-0 opacity-0 border-l-0'}
+        md:static md:h-full md:rounded-none md:border-y-0 md:border-r-0 md:shadow-none
+        ${isOpen ? 'translate-y-0 opacity-100 md:w-[320px]' : 'pointer-events-none translate-y-4 opacity-0 md:w-0 md:translate-y-0 md:border-l-0'}
       `}
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-auth-input-border px-4 py-3.5">
+      <div className="flex items-center justify-between border-b border-auth-input-border px-4 py-3">
         <h2 className="text-sm font-semibold text-auth-title">Chat</h2>
         <button
           type="button"
@@ -114,7 +403,9 @@ export function ChatPanel({
       )}
 
       {/* Lista de mensajes */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
+      <div ref={scrollContainerRef} 
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4">
         {/* Botón cargar historial */}
         {hasMoreHistory && (
           <div className="mb-4 flex justify-center">
@@ -160,16 +451,15 @@ export function ChatPanel({
                     <div
                       className={`
                         rounded-2xl bg-auth-input-bg
-                        ${
-                          item === 1
-                            ? 'h-10 w-40'
-                            : item === 2
+                        ${item === 1
+                          ? 'h-10 w-40'
+                          : item === 2
                             ? 'h-8 w-28'
                             : item === 3
-                            ? 'h-12 w-52'
-                            : item === 4
-                            ? 'h-8 w-36'
-                            : 'h-10 w-44'
+                              ? 'h-12 w-52'
+                              : item === 4
+                                ? 'h-8 w-36'
+                                : 'h-10 w-44'
                         }
                       `}
                     />
@@ -191,32 +481,30 @@ export function ChatPanel({
           </div>
         )}
 
-        {/* Mensajes */}
+        {/* Mensajes Virtualizados */}
         {messages.length > 0 && (
-          <ul className="space-y-3">
-            {messages.map((msg, index) => {
-              const isOwnMessage = currentUserId === msg.userId
-              const prevMsg = index > 0 ? messages[index - 1] : null
-              const isSameAuthor = prevMsg?.userId === msg.userId
-              const timeDiff = prevMsg
-                ? new Date(msg.timestamp).getTime() - new Date(prevMsg.timestamp).getTime()
-                : Infinity
-              const isGrouped = isSameAuthor && timeDiff < 60000
+          <ul className="relative" style={{ height: totalHeight }}>
+            {/* Espaciador superior */}
+            <div style={{ height: topSpacerHeight }} aria-hidden="true" />
 
+            {/* Renderizar solo elementos visibles en ventana */}
+            {visiblePositions.map(({ msg, index, isGrouped }) => {
+              const isOwnMessage = currentUserId === msg.userId
               return (
-                <li
+                <VirtualMessageItem
                   key={msg.id}
-                  className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} ${
-                    isGrouped ? 'mt-0.5' : ''
-                  }`}
+                  id={msg.id}
+                  index={index}
+                  isOwnMessage={isOwnMessage}
+                  isGrouped={isGrouped}
+                  onMeasure={handleMeasure}
                 >
-                  {/* FIX: max-w-[82%] + w-0 min-w-0 para que el contenedor no expanda el aside */}
+                  {/* Contenedor interno del mensaje */}
                   <div className={`max-w-[82%] min-w-0 ${isOwnMessage ? 'text-right' : 'text-left'}`}>
                     {!isGrouped && (
                       <div
-                        className={`flex items-baseline gap-2 ${
-                          isOwnMessage ? 'justify-end' : 'justify-start'
-                        }`}
+                        className={`flex items-baseline gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'
+                          }`}
                       >
                         <p className="text-xs font-semibold text-auth-btn truncate max-w-[120px]">
                           {isOwnMessage ? 'Tú' : msg.displayName}
@@ -230,30 +518,29 @@ export function ChatPanel({
                         </time>
                       </div>
                     )}
-                    {/* FIX: block + break-words + overflow-hidden evitan desbordamiento horizontal */}
                     <p
-                      className={`mt-0.5 block rounded-2xl px-3 py-2 text-sm leading-relaxed break-words overflow-hidden ${
-                        isOwnMessage
+                      className={`mt-0.5 block rounded-2xl px-3 py-2 text-sm leading-relaxed break-words overflow-hidden ${isOwnMessage
                           ? 'bg-auth-btn text-auth-btn-text'
                           : 'bg-transparent px-0 text-auth-title'
-                      }`}
+                        }`}
                     >
                       {msg.text}
                     </p>
                   </div>
-                </li>
+                </VirtualMessageItem>
               )
             })}
+
+            {/* Espaciador inferior */}
+            <div style={{ height: bottomSpacerHeight }} aria-hidden="true" />
           </ul>
         )}
-
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-1.5 border-t border-auth-input-border p-3"
+        className="flex flex-col gap-1.5 border-t border-auth-input-border p-2.5 sm:p-3"
       >
         <div className="flex gap-2">
           <input
@@ -267,7 +554,7 @@ export function ChatPanel({
             }
             className="
               min-w-0 flex-1 rounded-xl border border-auth-input-border bg-auth-input-bg
-              px-3 py-2 text-sm text-auth-input-text placeholder:text-auth-label/70
+              px-3 py-2.5 text-sm text-auth-input-text placeholder:text-auth-label/70 sm:py-2
               focus:border-auth-btn focus:outline-none focus:ring-1 focus:ring-auth-btn
             "
           />
@@ -275,7 +562,7 @@ export function ChatPanel({
             type="submit"
             disabled={!draft.trim() || connectionStatus !== 'connected'}
             className="
-              shrink-0 rounded-xl bg-auth-btn px-4 py-2 text-sm font-semibold text-auth-btn-text
+              shrink-0 rounded-xl bg-auth-btn px-3 py-2.5 text-sm font-semibold text-auth-btn-text sm:px-4 sm:py-2
               transition-all hover:brightness-110 active:scale-[0.98]
               disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer
             "
@@ -287,13 +574,12 @@ export function ChatPanel({
         {/* Contador de caracteres — solo visible cuando el usuario está escribiendo */}
         {draft.length > 0 && (
           <p
-            className={`text-right text-[10px] transition-colors ${
-              isAtLimit
+            className={`text-right text-[10px] transition-colors ${isAtLimit
                 ? 'text-auth-error font-semibold'
                 : charsLeft <= 20
-                ? 'text-yellow-400'
-                : 'text-auth-label/50'
-            }`}
+                  ? 'text-yellow-400'
+                  : 'text-auth-label/50'
+              }`}
           >
             {draft.length}/{MAX_MESSAGE_LENGTH}
           </p>

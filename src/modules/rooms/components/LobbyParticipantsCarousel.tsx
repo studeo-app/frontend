@@ -60,12 +60,6 @@ export function LobbyParticipantsCarousel({
     [participants, offset],
   )
 
-  if (participants.length === 0) {
-    return (
-      <p className="font-auth text-sm text-auth-label">Nadie en la sala todavía.</p>
-    )
-  }
-
   const centerIndex = (items.length - 1) / 2
 
   return (
@@ -78,7 +72,7 @@ export function LobbyParticipantsCarousel({
         <button
           type="button"
           aria-label="Ver participantes anteriores"
-          disabled={!canGoLeft}
+          disabled={!canGoLeft || participants.length === 0}
           onClick={() => setOffset((o) => Math.max(0, o - 1))}
           className="
             flex h-8 w-8 shrink-0 items-center justify-center rounded-xl
@@ -93,82 +87,88 @@ export function LobbyParticipantsCarousel({
         </button>
 
         <div
-          className="relative h-[72px] w-full max-w-xl overflow-visible"
+          className="relative h-[72px] w-full max-w-xl overflow-visible flex items-center justify-center"
           style={{ perspective: '900px' }}
-          role="list"
-          aria-label={`${participants.length} participantes en la sala`}
         >
-          <div
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ transformStyle: 'preserve-3d' }}
-          >
-            {items.map((item, index) => {
-              const relPos = index - centerIndex
-              const style = get3DStyle(relPos)
+          {participants.length === 0 ? (
+            <p className="font-auth text-sm text-auth-label text-center animate-fade-in">
+              Nadie en la sala todavía.
+            </p>
+          ) : (
+            <div
+              className="absolute inset-0 flex items-center justify-center"
+              style={{ transformStyle: 'preserve-3d' }}
+              role="list"
+              aria-label={`${participants.length} participantes en la sala`}
+            >
+              {items.map((item, index) => {
+                const relPos = index - centerIndex
+                const style = get3DStyle(relPos)
 
-              if (item.kind === 'others') {
+                if (item.kind === 'others') {
+                  return (
+                    <div
+                      key="others"
+                      role="listitem"
+                      className="absolute flex flex-col items-center gap-1.5 transition-all duration-500 ease-out"
+                      style={style}
+                    >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-auth-input-bg text-sm font-bold text-auth-label shadow-md ring-1 ring-auth-input-border">
+                        +{item.count}
+                      </div>
+                      <span className="text-[10px] text-auth-label">Otros</span>
+                    </div>
+                  )
+                }
+
+                const { participant } = item
+                const isCenter = relPos === 0
+
                 return (
                   <div
-                    key="others"
+                    key={participant.id}
                     role="listitem"
                     className="absolute flex flex-col items-center gap-1.5 transition-all duration-500 ease-out"
                     style={style}
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-auth-input-bg text-sm font-bold text-auth-label shadow-md ring-1 ring-auth-input-border">
-                      +{item.count}
+                    <div
+                      className={`
+                        flex items-center justify-center rounded-xl font-semibold text-white shadow-lg
+                        transition-all duration-500
+                        ${participant.avatarColor}
+                        ${isCenter ? 'h-12 w-12 text-base' : 'h-10 w-10 text-sm'}
+                      `}
+                      aria-hidden="true"
+                    >
+                      {participant.avatarUrl ? (
+                        <img
+                          src={participant.avatarUrl}
+                          alt=""
+                          className="h-full w-full rounded-xl object-cover"
+                        />
+                      ) : (
+                        participant.initials
+                      )}
                     </div>
-                    <span className="text-[10px] text-auth-label">Otros</span>
+                    <span
+                      className={`
+                        max-w-[72px] truncate text-center text-auth-title
+                        ${isCenter ? 'text-[11px] font-medium' : 'text-[10px]'}
+                      `}
+                    >
+                      {participant.displayName}
+                    </span>
                   </div>
                 )
-              }
-
-              const { participant } = item
-              const isCenter = relPos === 0
-
-              return (
-                <div
-                  key={participant.id}
-                  role="listitem"
-                  className="absolute flex flex-col items-center gap-1.5 transition-all duration-500 ease-out"
-                  style={style}
-                >
-                  <div
-                    className={`
-                      flex items-center justify-center rounded-xl font-semibold text-white shadow-lg
-                      transition-all duration-500
-                      ${participant.avatarColor}
-                      ${isCenter ? 'h-12 w-12 text-base' : 'h-10 w-10 text-sm'}
-                    `}
-                    aria-hidden="true"
-                  >
-                    {participant.avatarUrl ? (
-                      <img
-                        src={participant.avatarUrl}
-                        alt=""
-                        className="h-full w-full rounded-xl object-cover"
-                      />
-                    ) : (
-                      participant.initials
-                    )}
-                  </div>
-                  <span
-                    className={`
-                      max-w-[72px] truncate text-center text-auth-title
-                      ${isCenter ? 'text-[11px] font-medium' : 'text-[10px]'}
-                    `}
-                  >
-                    {participant.displayName}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
+              })}
+            </div>
+          )}
         </div>
 
         <button
           type="button"
           aria-label="Ver más participantes"
-          disabled={!canGoRight}
+          disabled={!canGoRight || participants.length === 0}
           onClick={() => setOffset((o) => Math.min(maxOffset, o + 1))}
           className="
             flex h-8 w-8 shrink-0 items-center justify-center rounded-xl

@@ -9,6 +9,10 @@ import {
 import { getRoomLobbyMediaPrefsKey } from '../constants/roomMediaPrefs'
 import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
 import { getRoomMembers } from '../api/roomsApi'
+import {
+  readLobbyMediaState,
+  writeLobbyMediaState,
+} from '../utils/lobbyMediaState'
 import type { LobbyWaitingParticipant } from '../types/lobby'
 import type { LocalMediaState } from '../types/roomSession'
 import type { RoomMember } from '@/types/room'
@@ -20,6 +24,9 @@ interface RealtimeUserPresence {
   name?: string | null
   avatarUrl?: string | null
   roomId: string | null
+  isMuted?: boolean
+  isVideoOff?: boolean
+  isScreenSharing?: boolean
 }
 
 interface UseRoomLobbyResult {
@@ -106,6 +113,7 @@ function getOnlineRoomUsers(
 export function useRoomLobby(roomId: string): UseRoomLobbyResult {
   const navigate = useNavigate()
   const getIdToken = useAuthStore((s) => s.getIdToken)
+  const isJoiningRoomRef = useRef(false)
   const [roomUsers, setRoomUsers] = useState<RealtimeUserPresence[]>([])
   const [loadingParticipants, setLoadingParticipants] = useState(true)
   const [previewError, setPreviewError] = useState<string | null>(null)
@@ -113,11 +121,8 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
 
-  const [localMedia, setLocalMedia] = useState<LocalMediaState>({
-    isMicOn: true,
-    isCameraOn: true,
-    isScreenSharing: false,
-  })
+  const [localMedia, setLocalMedia] = useState<LocalMediaState>(() => readLobbyMediaState(roomId))
+  const localMediaRef = useRef(localMedia)
 
   const [selectedMicId, setSelectedMicId] = useState(MOCK_MIC_DEVICES[0].deviceId)
   const [selectedCameraId, setSelectedCameraId] = useState(MOCK_CAMERA_DEVICES[0].deviceId)
@@ -228,6 +233,11 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
   }, [])
 
   useEffect(() => {
+    localMediaRef.current = localMedia
+    writeLobbyMediaState(roomId, localMedia)
+  }, [localMedia, roomId])
+
+  useEffect(() => {
     if (!roomId) return
     let cancelled = false
 
@@ -252,6 +262,7 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
         const socket = connectSocket(token)
 
         const requestPreview = () => {
+          socket.emit(ROOM_SOCKET_EVENTS.NEW_USER)
           socket.emit(ROOM_SOCKET_EVENTS.ROOM_USERS_PREVIEW, { roomId, socketId: socket.id ?? '' })
         }
 
@@ -297,7 +308,9 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
         socket.off(ROOM_SOCKET_EVENTS.ERROR_MESSAGE)
         socket.off(ROOM_SOCKET_EVENTS.CONNECT)
       }
-      disconnectSocket()
+      if (!isJoiningRoomRef.current) {
+        disconnectSocket()
+      }
     }
   }, [roomId, getIdToken])
 
@@ -350,6 +363,8 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
   }, [localMedia.isCameraOn, localMedia.isMicOn, roomId, selectedCameraId, selectedMicId])
 
   const joinRoom = useCallback(() => {
+    isJoiningRoomRef.current = true
+    writeLobbyMediaState(roomId, localMedia)
     sessionStorage.setItem(
       getRoomLobbyMediaPrefsKey(roomId),
       JSON.stringify({
