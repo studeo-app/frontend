@@ -221,9 +221,8 @@ export default function DashboardPage() {
     navigate(`/room/${roomId}/lobby`);
   };
 
-  const handleRoomDeleted = async (roomId: string) => {
-    const token = await getIdToken();
-    emitRoomSocketEvent(token, ROOM_SOCKET_EVENTS.DELETE_ROOM, roomId);
+  const handleRoomDeleted = async () => {
+    await refreshRooms();
   };
 
   useEffect(() => {
@@ -308,7 +307,7 @@ export default function DashboardPage() {
               isOwner={isOwner} 
               variant="card"
               onUpdated={(updatedRoom) => {updateRoomLocally(updatedRoom)}}
-              onDeleted={() => handleRoomDeleted(room.id)} />
+              onDeleted={handleRoomDeleted} />
           ) : (
             <button
               type="button"

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { getSocket } from '@/config/socket.config'
 import useDocumentTitle from '@/shared/hooks/useDocumentTitle'
+import { WarningModal } from '@/shared/components/ui/WarningModal'
 import { getRoomMembers } from '../api/roomsApi'
 import { ChatPanel } from '../components/ChatPanel'
 import { ControlBar } from '../components/ControlBar'
@@ -23,7 +24,10 @@ export default function RoomPage() {
   const firebaseUser = useAuthStore((s) => s.user)
 
   const { room, setRoom } = useRoom(roomId)
-  const { session, actions } = useRoomSession(roomId, room?.roomCode)
+  const { session, actions, joinWarningMessage, clearJoinWarning } = useRoomSession(
+    roomId,
+    room?.roomCode,
+  )
   const [activePanel, setActivePanel] = useState<RoomSidebarPanel | null>(() => {
     if (typeof window === 'undefined') return 'chat'
     return window.innerWidth >= 768 ? 'chat' : null
@@ -141,6 +145,11 @@ export default function RoomPage() {
 
   useDocumentTitle(`${roomName} - Studeo`)
 
+  const handleJoinWarningClose = () => {
+    clearJoinWarning()
+    navigate('/dashboard')
+  }
+
   return (
     <div className="flex h-full w-full overflow-hidden">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -238,6 +247,15 @@ export default function RoomPage() {
           </div>
         </div>
       </div>
+
+      <WarningModal
+        isOpen={Boolean(joinWarningMessage)}
+        onClose={handleJoinWarningClose}
+        message={
+          joinWarningMessage ??
+          'Ya te encuentras conectado a esta sala desde otra pestaña o dispositivo.'
+        }
+      />
     </div>
   )
 }
