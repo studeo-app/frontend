@@ -22,12 +22,14 @@ export function VideoTile({
     isLocal,
     isCameraOn,
     isMicOn,
+    isScreenSharing,
     isSpeaking,
     videoStream,
   } = participant
 
   const nameLabel = isLocal ? `${displayName} (Tu)` : displayName
   const shouldRenderVideo = Boolean(videoStream)
+  const shouldShowVideo = Boolean(videoStream && (isCameraOn || isScreenSharing))
   const normalizedVolume = Math.min(1, Math.max(0, outputVolume / 100))
 
   useEffect(() => {
@@ -58,8 +60,8 @@ export function VideoTile({
           muted={isLocal}
           className={`
             absolute inset-0 h-full w-full object-cover transition-opacity duration-150
-            ${isCameraOn ? 'opacity-100' : 'opacity-0'}
-            ${isLocal && mirrorLocalVideo ? '-scale-x-100' : ''}
+            ${shouldShowVideo ? 'opacity-100' : 'opacity-0'}
+            ${isLocal && mirrorLocalVideo && !isScreenSharing ? '-scale-x-100' : ''}
           `}
         >
           <track kind="captions" />
@@ -74,7 +76,7 @@ export function VideoTile({
             className="h-full w-full object-cover opacity-90"
           />
         </div>
-      ) : !isCameraOn || !shouldRenderVideo ? (
+      ) : !shouldShowVideo ? (
         avatarUrl ? (
           <UserAvatar src={avatarUrl} alt={displayName} size="xl" />
         ) : (
@@ -84,7 +86,7 @@ export function VideoTile({
         )
       ) : null}
 
-      {!isCameraOn && (
+      {!isCameraOn && !isScreenSharing && (
         <div className="absolute right-3 top-3 rounded-lg bg-auth-bg/80 p-1.5">
           <VideoOff className="h-4 w-4 text-auth-label" aria-hidden="true" />
         </div>

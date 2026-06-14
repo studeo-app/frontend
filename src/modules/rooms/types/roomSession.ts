@@ -9,6 +9,7 @@ export interface RoomParticipant {
   isLocal: boolean
   isCameraOn: boolean
   isMicOn: boolean
+  isScreenSharing?: boolean
   isSpeaking?: boolean
   videoStream?: MediaStream | null
 }
