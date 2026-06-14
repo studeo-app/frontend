@@ -3,6 +3,8 @@ import { VideoTile } from './VideoTile'
 
 interface VideoGridProps {
   participants: RoomParticipant[]
+  mirrorLocalVideo?: boolean
+  outputVolume?: number
 }
 
 function gridClass(count: number): string {
@@ -12,7 +14,11 @@ function gridClass(count: number): string {
   return 'grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
 }
 
-export function VideoGrid({ participants }: VideoGridProps) {
+export function VideoGrid({
+  participants,
+  mirrorLocalVideo = true,
+  outputVolume = 80,
+}: VideoGridProps) {
   return (
     <div
       className={`grid flex-1 min-h-0 auto-rows-fr gap-2 overflow-y-auto p-2 pb-2 sm:gap-3 sm:p-4 sm:pb-4 ${gridClass(participants.length)}`}
@@ -25,7 +31,11 @@ export function VideoGrid({ participants }: VideoGridProps) {
           role="listitem"
           className="w-full h-full min-h-0 flex items-center justify-center"
         >
-          <VideoTile participant={participant} />
+          <VideoTile
+            participant={participant}
+            mirrorLocalVideo={mirrorLocalVideo}
+            outputVolume={outputVolume}
+          />
         </div>
       ))}
     </div>

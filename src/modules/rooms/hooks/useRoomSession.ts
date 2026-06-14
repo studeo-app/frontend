@@ -101,6 +101,7 @@ function toRoomParticipants(
         isLocal,
         isCameraOn: !user.isVideoOff,
         isMicOn: !user.isMuted,
+        isScreenSharing: Boolean(user.isScreenSharing),
         videoStream: isLocal ? localStream ?? null : remoteStreams.get(user.socketId) ?? null,
       }
     })
@@ -108,18 +109,26 @@ function toRoomParticipants(
 
 const defaultIceServers: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
 
+function cleanIceServerValue(value: string): string {
+  return value.trim().replace(/^["']+|["']+$/g, '')
+}
+
 function getPeerConnectionConfig(): RTCConfiguration {
   const turnUrls = (import.meta.env.VITE_TURN_URL as string | undefined)
     ?.split(',')
-    .map((url) => url.trim())
+    .map(cleanIceServerValue)
     .filter(Boolean)
 
   if (!turnUrls?.length) {
     return { iceServers: defaultIceServers }
   }
 
-  const username = (import.meta.env.VITE_TURN_USERNAME as string | undefined)?.trim()
-  const credential = (import.meta.env.VITE_TURN_CREDENTIAL as string | undefined)?.trim()
+  const username = cleanIceServerValue(
+    (import.meta.env.VITE_TURN_USERNAME as string | undefined) ?? '',
+  )
+  const credential = cleanIceServerValue(
+    (import.meta.env.VITE_TURN_CREDENTIAL as string | undefined) ?? '',
+  )
 
   return {
     iceServers: [
@@ -136,10 +145,11 @@ function getPeerConnectionConfig(): RTCConfiguration {
 function createMediaConstraints(
   selectedMicId?: string,
   selectedCameraId?: string,
+  facingMode: 'user' | 'environment' = 'user',
 ): MediaStreamConstraints {
   return {
     audio: selectedMicId ? { deviceId: { exact: selectedMicId } } : true,
-    video: selectedCameraId ? { deviceId: { exact: selectedCameraId } } : true,
+    video: selectedCameraId ? { deviceId: { exact: selectedCameraId } } : { facingMode },
   }
 }
 
@@ -172,6 +182,9 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     roomCode: roomCode ?? '',
     connectionStatus: 'disconnected',
     localMedia: initialMedia,
+    mirrorLocalVideo: true,
+    outputVolume: 80,
+    cameraFacingMode: 'user',
     participants: [
       {
         id: localUser.id,
@@ -193,9 +206,11 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   const memberByUidRef = useRef(new Map<string, RoomMember>())
   const roomUsersRef = useRef<RoomUserPresencePayload[]>([])
   const localMediaRef = useRef<LocalMediaState>(initialMedia)
+  const cameraFacingModeRef = useRef<'user' | 'environment'>('user')
   const localStreamRef = useRef<MediaStream | null>(null)
   const cameraTrackRef = useRef<MediaStreamTrack | null>(null)
   const screenTrackRef = useRef<MediaStreamTrack | null>(null)
+  const cameraWasOnBeforeScreenShareRef = useRef(false)
   const peerConnectionsRef = useRef(new Map<string, RTCPeerConnection>())
   const remoteStreamsRef = useRef(new Map<string, MediaStream>())
   const pendingIceCandidatesRef = useRef(new Map<string, RTCIceCandidateInit[]>())
@@ -355,6 +370,38 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     )
   }, [])
 
+  const setLocalPreviewVideoTrack = useCallback((track: MediaStreamTrack | null) => {
+    const stream = localStreamRef.current
+    if (!stream) return
+
+    stream.getVideoTracks().forEach((existingTrack) => {
+      if (existingTrack !== track) {
+        stream.removeTrack(existingTrack)
+      }
+    })
+
+    if (track && !stream.getVideoTracks().includes(track)) {
+      stream.addTrack(track)
+    }
+
+    setParticipantsFromPresence()
+  }, [setParticipantsFromPresence])
+
+  const replaceLocalCameraTrack = useCallback(async (
+    nextTrack: MediaStreamTrack,
+    shouldEnable: boolean,
+  ) => {
+    const previousTrack = cameraTrackRef.current
+    nextTrack.enabled = shouldEnable
+
+    cameraTrackRef.current = nextTrack
+    setLocalPreviewVideoTrack(screenTrackRef.current ?? nextTrack)
+    await replaceOutgoingVideoTrack(screenTrackRef.current ?? nextTrack)
+    previousTrack?.stop()
+
+    setParticipantsFromPresence()
+  }, [replaceOutgoingVideoTrack, setLocalPreviewVideoTrack, setParticipantsFromPresence])
+
   const cleanupWebRtc = useCallback(() => {
     peerConnectionsRef.current.forEach((pc) => pc.close())
     peerConnectionsRef.current.clear()
@@ -385,6 +432,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
               createMediaConstraints(
                 lobbyMediaPrefs?.selectedMicId,
                 lobbyMediaPrefs?.selectedCameraId,
+                cameraFacingModeRef.current,
               ),
             )
           } catch {
@@ -528,6 +576,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
                       ...participant,
                       isCameraOn: !user.isVideoOff,
                       isMicOn: !user.isMuted,
+                      isScreenSharing: Boolean(user.isScreenSharing),
                     }
                   : participant,
               ),
@@ -731,10 +780,17 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       videoTrack.enabled = nextCam
     }
     if (!nextCam && screenTrackRef.current) {
-      screenTrackRef.current.stop()
+      const currentScreenTrack = screenTrackRef.current
       screenTrackRef.current = null
+      currentScreenTrack.stop()
+      setLocalPreviewVideoTrack(null)
       replaceOutgoingVideoTrack(null).catch((err) => {
         console.error('[WebRTC] stop video track failed:', err)
+      })
+    } else if (nextCam && videoTrack) {
+      setLocalPreviewVideoTrack(videoTrack)
+      replaceOutgoingVideoTrack(videoTrack).catch((err) => {
+        console.error('[WebRTC] restore video track failed:', err)
       })
     }
 
@@ -753,18 +809,44 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       ),
     }))
     emitMediaStatus(nextMedia)
-  }, [emitMediaStatus, replaceOutgoingVideoTrack, roomId, session.localMedia])
+  }, [emitMediaStatus, replaceOutgoingVideoTrack, roomId, session.localMedia, setLocalPreviewVideoTrack])
 
   const toggleScreenShare = useCallback(async () => {
     if (session.localMedia.isScreenSharing) {
-      screenTrackRef.current?.stop()
+      const currentScreenTrack = screenTrackRef.current
       screenTrackRef.current = null
-      await replaceOutgoingVideoTrack(cameraTrackRef.current)
+      currentScreenTrack?.stop()
 
-      const nextMedia = { ...session.localMedia, isScreenSharing: false }
+      const shouldRestoreCamera = cameraWasOnBeforeScreenShareRef.current
+      const cameraTrack = cameraTrackRef.current
+      if (cameraTrack) {
+        cameraTrack.enabled = shouldRestoreCamera
+      }
+
+      setLocalPreviewVideoTrack(shouldRestoreCamera ? cameraTrack : null)
+      await replaceOutgoingVideoTrack(shouldRestoreCamera ? cameraTrack : null)
+
+      const nextMedia = {
+        ...session.localMedia,
+        isCameraOn: shouldRestoreCamera,
+        isScreenSharing: false,
+      }
       localMediaRef.current = nextMedia
       writeLobbyMediaState(roomId, nextMedia)
-      setSession((prev) => ({ ...prev, localMedia: nextMedia }))
+      setSession((prev) => ({
+        ...prev,
+        localMedia: nextMedia,
+        participants: prev.participants.map((participant) =>
+          participant.isLocal
+            ? {
+                ...participant,
+                isCameraOn: shouldRestoreCamera,
+                isScreenSharing: false,
+                videoStream: localStreamRef.current,
+              }
+            : participant,
+        ),
+      }))
       emitMediaStatus(nextMedia)
       return
     }
@@ -776,20 +858,46 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       const [screenTrack] = screenStream.getVideoTracks()
       if (!screenTrack) return
 
+      cameraWasOnBeforeScreenShareRef.current = session.localMedia.isCameraOn
       screenTrackRef.current = screenTrack
+      setLocalPreviewVideoTrack(screenTrack)
       await replaceOutgoingVideoTrack(screenTrack)
 
       screenTrack.onended = () => {
+        if (screenTrackRef.current !== screenTrack) return
         screenTrackRef.current = null
-        replaceOutgoingVideoTrack(cameraTrackRef.current).catch((err) => {
+        const shouldRestoreCamera = cameraWasOnBeforeScreenShareRef.current
+        const cameraTrack = cameraTrackRef.current
+        if (cameraTrack) {
+          cameraTrack.enabled = shouldRestoreCamera
+        }
+        setLocalPreviewVideoTrack(shouldRestoreCamera ? cameraTrack : null)
+        replaceOutgoingVideoTrack(shouldRestoreCamera ? cameraTrack : null).catch((err) => {
           console.error('[WebRTC] restore camera track failed:', err)
         })
         setSession((prev) => {
-          const nextMedia = { ...prev.localMedia, isScreenSharing: false }
+          const nextMedia = {
+            ...prev.localMedia,
+            isCameraOn: shouldRestoreCamera,
+            isScreenSharing: false,
+          }
           localMediaRef.current = nextMedia
           writeLobbyMediaState(roomId, nextMedia)
           emitMediaStatus(nextMedia)
-          return { ...prev, localMedia: nextMedia }
+          return {
+            ...prev,
+            localMedia: nextMedia,
+            participants: prev.participants.map((participant) =>
+              participant.isLocal
+                ? {
+                    ...participant,
+                    isCameraOn: shouldRestoreCamera,
+                    isScreenSharing: false,
+                    videoStream: localStreamRef.current,
+                  }
+                : participant,
+            ),
+          }
         })
       }
 
@@ -800,12 +908,75 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       }
       localMediaRef.current = nextMedia
       writeLobbyMediaState(roomId, nextMedia)
-      setSession((prev) => ({ ...prev, localMedia: nextMedia }))
+      setSession((prev) => ({
+        ...prev,
+        localMedia: nextMedia,
+        participants: prev.participants.map((participant) =>
+          participant.isLocal
+            ? {
+                ...participant,
+                isCameraOn: true,
+                isScreenSharing: true,
+                videoStream: localStreamRef.current,
+              }
+            : participant,
+        ),
+      }))
       emitMediaStatus(nextMedia)
     } catch (err) {
       console.error('[WebRTC] screen share failed:', err)
     }
-  }, [emitMediaStatus, replaceOutgoingVideoTrack, roomId, session.localMedia])
+  }, [emitMediaStatus, replaceOutgoingVideoTrack, roomId, session.localMedia, setLocalPreviewVideoTrack])
+
+  const toggleMirrorLocalVideo = useCallback(() => {
+    setSession((prev) => ({
+      ...prev,
+      mirrorLocalVideo: !prev.mirrorLocalVideo,
+    }))
+  }, [])
+
+  const setOutputVolume = useCallback((volume: number) => {
+    const nextVolume = Math.min(100, Math.max(0, Math.round(volume)))
+    setSession((prev) => ({
+      ...prev,
+      outputVolume: nextVolume,
+    }))
+  }, [])
+
+  const switchCamera = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) return
+
+    const nextFacingMode = cameraFacingModeRef.current === 'user' ? 'environment' : 'user'
+
+    try {
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: nextFacingMode } },
+        })
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: nextFacingMode },
+        })
+      }
+      const [nextTrack] = stream.getVideoTracks()
+      if (!nextTrack) return
+
+      cameraFacingModeRef.current = nextFacingMode
+      await replaceLocalCameraTrack(nextTrack, session.localMedia.isCameraOn)
+      setSession((prev) => ({
+        ...prev,
+        cameraFacingMode: nextFacingMode,
+        participants: prev.participants.map((participant) =>
+          participant.isLocal
+            ? { ...participant, videoStream: localStreamRef.current }
+            : participant,
+        ),
+      }))
+    } catch (err) {
+      console.error('[WebRTC] switch camera failed:', err)
+    }
+  }, [replaceLocalCameraTrack, session.localMedia.isCameraOn])
 
   const sendMessage = useCallback(
     (text: string) => {
@@ -836,6 +1007,9 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     toggleMic,
     toggleCamera,
     toggleScreenShare,
+    toggleMirrorLocalVideo,
+    setOutputVolume,
+    switchCamera,
     sendMessage,
     leaveRoom,
     loadMoreHistory,
