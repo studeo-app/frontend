@@ -1,4 +1,5 @@
 import { Mic, MicOff, User, Video, VideoOff } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { useParams } from 'react-router'
 import useDocumentTitle from '@/shared/hooks/useDocumentTitle'
 import { DeviceSelect } from '../components/DeviceSelect'
@@ -20,6 +21,7 @@ export default function RoomLobbyPage() {
 
   const {
     localMedia,
+    localStream,
     selectedMicId,
     selectedCameraId,
     micDevices,
@@ -27,14 +29,22 @@ export default function RoomLobbyPage() {
     waitingParticipants,
     loadingParticipants,
     previewError,
+    mediaError,
     toggleMic,
     toggleCamera,
     setSelectedMicId,
     setSelectedCameraId,
     joinRoom,
   } = useRoomLobby(roomId)
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null)
 
   useDocumentTitle(`Lobby - ${roomName}`)
+
+  useEffect(() => {
+    if (previewVideoRef.current) {
+      previewVideoRef.current.srcObject = localStream
+    }
+  }, [localStream])
 
   return (
     // COMPACTADO: Bajamos el padding-bottom de pb-16 a pb-6
@@ -69,7 +79,15 @@ export default function RoomLobbyPage() {
           overflow-hidden rounded-2xl border border-auth-input-border bg-auth-input-bg/80
         "
       >
-        {localMedia.isCameraOn ? (
+        {localMedia.isCameraOn && localStream ? (
+          <video
+            ref={previewVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : localMedia.isCameraOn ? (
           <User
             className="h-16 w-16 text-auth-label/40 sm:h-20 sm:w-20"
             aria-hidden="true"
@@ -78,6 +96,12 @@ export default function RoomLobbyPage() {
           <div className="flex flex-col items-center gap-1.5 text-auth-label">
             <VideoOff className="h-12 w-12 opacity-40" aria-hidden="true" />
             <p className="text-xs">Cámara desactivada</p>
+          </div>
+        )}
+
+        {mediaError && (
+          <div className="absolute left-3 right-3 top-3 rounded-xl border border-auth-error/20 bg-auth-bg/85 px-3 py-2 text-center text-xs text-auth-error backdrop-blur-sm">
+            {mediaError}
           </div>
         )}
 

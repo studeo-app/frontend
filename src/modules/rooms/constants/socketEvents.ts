@@ -12,6 +12,10 @@ export const ROOM_SOCKET_EVENTS = {
   MESSAGE_SEND: 'message:send',
   MESSAGE_NEW: 'message:new',
   MESSAGE_ERROR: 'message:error',
+  MEDIA_STATUS: 'media:status',
+  WEBRTC_OFFER: 'webrtc:offer',
+  WEBRTC_ANSWER: 'webrtc:answer',
+  WEBRTC_ICE_CANDIDATE: 'webrtc:ice-candidate',
   ERROR_MESSAGE: 'errorMessage',
 } as const
 

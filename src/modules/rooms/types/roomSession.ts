@@ -2,6 +2,7 @@ export type RoomConnectionStatus = 'disconnected' | 'connecting' | 'connected'
 
 export interface RoomParticipant {
   id: string
+  socketId: string
   displayName: string
   avatarUrl?: string
   initials?: string
@@ -9,7 +10,6 @@ export interface RoomParticipant {
   isCameraOn: boolean
   isMicOn: boolean
   isSpeaking?: boolean
-  /** WebRTC: stream remoto o local asignado al tile */
   videoStream?: MediaStream | null
 }
 

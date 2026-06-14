@@ -18,6 +18,7 @@ export function createMockRoomSession(
     participants: [
       {
         id: localUser.id,
+        socketId: 'local-user',
         displayName: localUser.displayName,
         avatarUrl: localUser.avatarUrl,
         isLocal: true,
@@ -27,6 +28,7 @@ export function createMockRoomSession(
       },
       {
         id: 'user-david',
+        socketId: 'socket-david',
         displayName: 'David P.',
         avatarUrl:
           'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop',
@@ -36,6 +38,7 @@ export function createMockRoomSession(
       },
       {
         id: 'user-maria',
+        socketId: 'socket-maria',
         displayName: 'Maria Lopez',
         initials: 'ML',
         isLocal: false,
@@ -44,6 +47,7 @@ export function createMockRoomSession(
       },
       {
         id: 'user-sofia',
+        socketId: 'socket-sofia',
         displayName: 'Sofía R.',
         avatarUrl:
           'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop',

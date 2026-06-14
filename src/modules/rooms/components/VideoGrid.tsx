@@ -20,7 +20,7 @@ export function VideoGrid({ participants }: VideoGridProps) {
       aria-label="Participantes en la sala"
     >
       {participants.map((participant) => (
-        <div key={participant.id} role="listitem">
+        <div key={participant.socketId} role="listitem">
           <VideoTile participant={participant} />
         </div>
       ))}
