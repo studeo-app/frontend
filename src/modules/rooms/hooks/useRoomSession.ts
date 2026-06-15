@@ -580,12 +580,19 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           const hasVideo = localStreamRef.current.getVideoTracks().length > 0
           const nextMicOn = hasAudio && initialMedia.isMicOn
           const nextCameraOn = hasVideo && initialMedia.isCameraOn
+
           localStreamRef.current.getAudioTracks().forEach((track) => {
             track.enabled = nextMicOn
           })
-          localStreamRef.current.getVideoTracks().forEach((track) => {
-            track.enabled = nextCameraOn
-          })
+
+          // FIX: Si la cámara arranca apagada, detener el track inmediatamente
+          // para liberar el hardware (LED apagado) en lugar de solo deshabilitar
+          if (!nextCameraOn && cameraTrackRef.current) {
+            cameraTrackRef.current.stop()
+            localStreamRef.current.removeTrack(cameraTrackRef.current)
+            cameraTrackRef.current = null
+          }
+
           const nextMedia = {
             ...initialMedia,
             isMicOn: nextMicOn,
@@ -602,7 +609,9 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
                     ...participant,
                     isMicOn: nextMicOn,
                     isCameraOn: nextCameraOn,
-                    videoStream: localStreamRef.current,
+                    // FIX: si la cámara está apagada, videoStream null → muestra el avatar
+                    // en lugar de una pantalla negra con el track deshabilitado
+                    videoStream: nextCameraOn ? localStreamRef.current : null,
                   }
                 : participant,
             ),
@@ -904,43 +913,92 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     emitMediaStatus(nextMedia)
   }, [emitMediaStatus, roomId, session.localMedia])
 
-  const toggleCamera = useCallback(() => {
-    const videoTrack = cameraTrackRef.current
+  // FIX: toggleCamera ahora usa track.stop() para liberar el hardware (apaga el LED de la cámara)
+  // y getUserMedia para adquirir un nuevo track al encender, en lugar de solo track.enabled
+  const toggleCamera = useCallback(async () => {
     const nextCam = !session.localMedia.isCameraOn
-    if (videoTrack) {
-      videoTrack.enabled = nextCam
-    }
-    if (!nextCam && screenTrackRef.current) {
-      const currentScreenTrack = screenTrackRef.current
-      screenTrackRef.current = null
-      currentScreenTrack.stop()
-      setLocalPreviewVideoTrack(null)
-      replaceOutgoingVideoTrack(null).catch((err) => {
-        console.error('[WebRTC] stop video track failed:', err)
-      })
-    } else if (nextCam && videoTrack) {
-      setLocalPreviewVideoTrack(videoTrack)
-      replaceOutgoingVideoTrack(videoTrack).catch((err) => {
-        console.error('[WebRTC] restore video track failed:', err)
-      })
-    }
 
-    const nextMedia = {
-      ...session.localMedia,
-      isCameraOn: nextCam,
-      isScreenSharing: nextCam ? session.localMedia.isScreenSharing : false,
+    if (!nextCam) {
+      // APAGAR: detener tracks para liberar el hardware completamente
+      if (screenTrackRef.current) {
+        screenTrackRef.current.stop()
+        screenTrackRef.current = null
+      }
+
+      const videoTrack = cameraTrackRef.current
+      if (videoTrack) {
+        videoTrack.stop()
+        cameraTrackRef.current = null
+      }
+
+      // Limpiar video tracks del stream local
+      if (localStreamRef.current) {
+        localStreamRef.current.getVideoTracks().forEach((t) => {
+          localStreamRef.current!.removeTrack(t)
+        })
+      }
+
+      await replaceOutgoingVideoTrack(null)
+
+      const nextMedia = {
+        ...session.localMedia,
+        isCameraOn: false,
+        isScreenSharing: false,
+      }
+      localMediaRef.current = nextMedia
+      writeLobbyMediaState(roomId, nextMedia)
+      setSession((prev) => ({
+        ...prev,
+        localMedia: nextMedia,
+        participants: prev.participants.map((p) =>
+          // videoStream: null → el VideoGrid muestra el avatar en lugar de pantalla negra
+          p.isLocal ? { ...p, isCameraOn: false, isScreenSharing: false, videoStream: null } : p,
+        ),
+      }))
+      emitMediaStatus(nextMedia)
+
+    } else {
+      // ENCENDER: adquirir nuevo track desde getUserMedia (el anterior fue detenido)
+      if (!navigator.mediaDevices?.getUserMedia) return
+
+      let newTrack: MediaStreamTrack | null = null
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(
+          createMediaConstraints(undefined, undefined, cameraFacingModeRef.current),
+        )
+        newTrack = stream.getVideoTracks()[0] ?? null
+      } catch (err) {
+        console.error('[WebRTC] re-acquire camera failed:', err)
+        return
+      }
+
+      if (!newTrack) return
+
+      newTrack.enabled = true
+      cameraTrackRef.current = newTrack
+
+      if (localStreamRef.current) {
+        localStreamRef.current.getVideoTracks().forEach((t) => {
+          localStreamRef.current!.removeTrack(t)
+        })
+        localStreamRef.current.addTrack(newTrack)
+      }
+
+      await replaceOutgoingVideoTrack(newTrack)
+
+      const nextMedia = { ...session.localMedia, isCameraOn: true }
+      localMediaRef.current = nextMedia
+      writeLobbyMediaState(roomId, nextMedia)
+      setSession((prev) => ({
+        ...prev,
+        localMedia: nextMedia,
+        participants: prev.participants.map((p) =>
+          p.isLocal ? { ...p, isCameraOn: true, videoStream: localStreamRef.current } : p,
+        ),
+      }))
+      emitMediaStatus(nextMedia)
     }
-    localMediaRef.current = nextMedia
-    writeLobbyMediaState(roomId, nextMedia)
-    setSession((prev) => ({
-      ...prev,
-      localMedia: nextMedia,
-      participants: prev.participants.map((p) =>
-        p.isLocal ? { ...p, isCameraOn: nextCam } : p,
-      ),
-    }))
-    emitMediaStatus(nextMedia)
-  }, [emitMediaStatus, replaceOutgoingVideoTrack, roomId, session.localMedia, setLocalPreviewVideoTrack])
+  }, [emitMediaStatus, replaceOutgoingVideoTrack, roomId, session.localMedia])
 
   const toggleScreenShare = useCallback(async () => {
     if (session.localMedia.isScreenSharing) {
