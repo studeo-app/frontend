@@ -113,7 +113,10 @@ function toRoomParticipants(
         isCameraOn: !user.isVideoOff,
         isMicOn: !user.isMuted,
         isScreenSharing: Boolean(user.isScreenSharing),
-        videoStream: isLocal ? localStream ?? null : remoteStreams.get(user.socketId) ?? null,
+        // FIX: si la cámara está apagada, pasar null → VideoGrid muestra avatar en vez de pantalla negra
+        videoStream: isLocal
+          ? (user.isVideoOff ? null : localStream ?? null)
+          : remoteStreams.get(user.socketId) ?? null,
       }
     })
 }
@@ -350,7 +353,8 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         roomId,
         memberByUidRef.current,
         firebaseUser?.uid,
-        localStreamRef.current,
+        // FIX: si la cámara local está apagada, pasar null para que aparezca el avatar
+        localMediaRef.current.isCameraOn ? localStreamRef.current : null,
         remoteStreamsRef.current,
       ),
     }))
@@ -390,9 +394,16 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     const pending = pendingIceCandidatesRef.current.get(remoteSocketId)
     if (!pc || !pending?.length || !pc.remoteDescription) return
 
+    console.log(`[WebRTC] Flushing ${pending.length} pending ice candidates for: ${remoteSocketId}`)
     pendingIceCandidatesRef.current.delete(remoteSocketId)
     await Promise.all(
-      pending.map((candidate) => pc.addIceCandidate(new RTCIceCandidate(candidate))),
+      pending.map(async (candidate) => {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate))
+        } catch (err) {
+          console.error(`[WebRTC] Failed to add flushed ice candidate for ${remoteSocketId}:`, err)
+        }
+      }),
     )
   }, [])
 
@@ -421,11 +432,22 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     }
 
     pc.ontrack = (event) => {
-      const [remoteStream] = event.streams
-      if (!remoteStream) return
-
-      remoteStreamsRef.current.set(remoteSocketId, remoteStream)
-      setParticipantsFromPresence()
+      console.log(`[WebRTC] ontrack event fired for peer: ${remoteSocketId}. Track kind: ${event.track.kind}`)
+      let remoteStream = event.streams[0]
+      
+      const existingStream = remoteStreamsRef.current.get(remoteSocketId)
+      if (existingStream) {
+        console.log(`[WebRTC] Existing remote stream found for peer: ${remoteSocketId}. Adding track to it.`)
+        existingStream.addTrack(event.track)
+        setParticipantsFromPresence()
+      } else {
+        if (!remoteStream) {
+          console.log(`[WebRTC] No remote stream in event for peer: ${remoteSocketId}. Creating new MediaStream.`)
+          remoteStream = new MediaStream([event.track])
+        }
+        remoteStreamsRef.current.set(remoteSocketId, remoteStream)
+        setParticipantsFromPresence()
+      }
     }
 
     pc.onconnectionstatechange = () => {
@@ -474,17 +496,81 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   }, [closePeerConnection, createPeerConnection, roomId])
 
   const replaceOutgoingVideoTrack = useCallback(async (track: MediaStreamTrack | null) => {
+    console.log('[WebRTC] replaceOutgoingVideoTrack called with track:', track ? `${track.kind} (${track.id})` : 'null')
     await Promise.all(
-      Array.from(peerConnectionsRef.current.values()).map(async (pc) => {
-        const sender = pc.getSenders().find((item) => item.track?.kind === 'video')
+      Array.from(peerConnectionsRef.current.entries()).map(async ([remoteSocketId, pc]) => {
+        const transceiver = pc.getTransceivers().find(
+          (t) => t.receiver.track.kind === 'video' || t.sender.track?.kind === 'video'
+        )
+        const sender = transceiver?.sender
         if (sender) {
+          console.log(`[WebRTC] Found existing video sender for peer ${remoteSocketId}. Replacing track...`)
           await sender.replaceTrack(track)
+          if (track && localStreamRef.current) {
+            if (typeof sender.setStreams === 'function') {
+              try {
+                console.log(`[WebRTC] Associating local stream with video sender for peer ${remoteSocketId}`)
+                sender.setStreams(localStreamRef.current)
+              } catch (err) {
+                console.warn('[WebRTC] sender.setStreams failed:', err)
+              }
+            }
+          }
+          console.log(`[WebRTC] Track replaced. Previous direction was: ${transceiver.direction}`)
+          if (track) {
+            if (transceiver.direction === 'recvonly') {
+              console.log(`[WebRTC] Changing direction from recvonly to sendrecv for peer ${remoteSocketId}`)
+              transceiver.direction = 'sendrecv'
+            } else if (transceiver.direction === 'inactive') {
+              console.log(`[WebRTC] Changing direction from inactive to sendonly for peer ${remoteSocketId}`)
+              transceiver.direction = 'sendonly'
+            }
+          } else {
+            if (transceiver.direction === 'sendrecv') {
+              console.log(`[WebRTC] Changing direction from sendrecv to recvonly for peer ${remoteSocketId}`)
+              transceiver.direction = 'recvonly'
+            } else if (transceiver.direction === 'sendonly') {
+              console.log(`[WebRTC] Changing direction from sendonly to inactive for peer ${remoteSocketId}`)
+              transceiver.direction = 'inactive'
+            }
+          }
         } else if (track && localStreamRef.current) {
+          console.log(`[WebRTC] Video sender not found for peer ${remoteSocketId}. Adding track...`)
           pc.addTrack(track, localStreamRef.current)
         }
       }),
     )
   }, [])
+
+  const setupNegotiationHandler = useCallback((remoteSocketId: string, pc: RTCPeerConnection) => {
+    console.log(`[WebRTC] setupNegotiationHandler registered for peer: ${remoteSocketId}`)
+    pc.onnegotiationneeded = async () => {
+      console.log(`[WebRTC] onnegotiationneeded event fired for peer: ${remoteSocketId}. signalingState: ${pc.signalingState}`)
+      try {
+        if (pc.signalingState !== 'stable') {
+          console.log(`[WebRTC] signalingState is not stable (${pc.signalingState}), skipping offer creation.`)
+          return
+        }
+        const socket = getSocket()
+        if (!socket?.connected) {
+          console.error('[WebRTC] Socket disconnected, cannot emit offer.')
+          return
+        }
+
+        console.log(`[WebRTC] Creating renegotiation offer for peer: ${remoteSocketId}`)
+        const offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        console.log(`[WebRTC] Local description (offer) set, signalingState is: ${pc.signalingState}`)
+        socket.emit(ROOM_SOCKET_EVENTS.WEBRTC_OFFER, {
+          roomId,
+          toSocketId: remoteSocketId,
+          offer,
+        })
+      } catch (err) {
+        console.error(`[WebRTC] Renegotiation offer creation failed for ${remoteSocketId}:`, err)
+      }
+    }
+  }, [roomId])
 
   const setLocalPreviewVideoTrack = useCallback((track: MediaStreamTrack | null) => {
     const stream = localStreamRef.current
@@ -580,12 +666,19 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           const hasVideo = localStreamRef.current.getVideoTracks().length > 0
           const nextMicOn = hasAudio && initialMedia.isMicOn
           const nextCameraOn = hasVideo && initialMedia.isCameraOn
+
           localStreamRef.current.getAudioTracks().forEach((track) => {
             track.enabled = nextMicOn
           })
-          localStreamRef.current.getVideoTracks().forEach((track) => {
-            track.enabled = nextCameraOn
-          })
+
+          // FIX: Si la cámara arranca apagada, detener el track inmediatamente
+          // para liberar el hardware (LED apagado) en lugar de solo deshabilitar
+          if (!nextCameraOn && cameraTrackRef.current) {
+            cameraTrackRef.current.stop()
+            localStreamRef.current.removeTrack(cameraTrackRef.current)
+            cameraTrackRef.current = null
+          }
+
           const nextMedia = {
             ...initialMedia,
             isMicOn: nextMicOn,
@@ -602,7 +695,9 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
                     ...participant,
                     isMicOn: nextMicOn,
                     isCameraOn: nextCameraOn,
-                    videoStream: localStreamRef.current,
+                    // FIX: si la cámara está apagada, videoStream null → muestra el avatar
+                    // en lugar de una pantalla negra con el track deshabilitado
+                    videoStream: nextCameraOn ? localStreamRef.current : null,
                   }
                 : participant,
             ),
@@ -646,12 +741,17 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         socket.on(ROOM_SOCKET_EVENTS.ROOM_USERS, async (users: RoomUserPresencePayload[]) => {
           if (cancelled) return
           roomUsersRef.current = users
+
+          // FIX: para el usuario local, usar el estado conocido localmente (localMediaRef)
+          // en lugar de confiar en lo que el servidor devuelve, que puede estar desactualizado
+          const localCameraOn = localMediaRef.current.isCameraOn
           const participants = toRoomParticipants(
             users,
             roomId,
             memberByUidRef.current,
             firebaseUser?.uid,
-            localStreamRef.current,
+            // Si la cámara local está apagada, pasar null para mostrar avatar
+            localCameraOn ? localStreamRef.current : null,
             remoteStreamsRef.current,
           )
 
@@ -691,57 +791,98 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
             return {
               ...prev,
               localMedia: nextLocalMedia,
-              participants: prev.participants.map((participant) =>
-                participant.socketId === user.socketId || participant.id === user.uid
-                  ? {
-                      ...participant,
-                      isCameraOn: !user.isVideoOff,
-                      isMicOn: !user.isMuted,
-                      isScreenSharing: Boolean(user.isScreenSharing),
-                    }
-                  : participant,
-              ),
+              participants: prev.participants.map((participant) => {
+                if (participant.socketId !== user.socketId && participant.id !== user.uid) {
+                  return participant
+                }
+                const cameraOn = !user.isVideoOff
+                const isLocalParticipant = participant.isLocal
+                return {
+                  ...participant,
+                  isCameraOn: cameraOn,
+                  isMicOn: !user.isMuted,
+                  isScreenSharing: Boolean(user.isScreenSharing),
+                  // FIX: si la cámara está apagada, videoStream null → avatar en vez de negro
+                  videoStream: isLocalParticipant
+                    ? (cameraOn ? localStreamRef.current : null)
+                    : (cameraOn
+                       ? (remoteStreamsRef.current.get(participant.socketId) ?? participant.videoStream)
+                      : participant.videoStream),
+                }
+              }),
             }
           })
         })
 
         socket.on(ROOM_SOCKET_EVENTS.WEBRTC_OFFER, async (payload: WebRtcOfferPayload) => {
+          console.log(`[WebRTC] Socket received WEBRTC_OFFER from: ${payload.fromSocketId}`)
           if (cancelled || payload.roomId !== roomId) return
 
-          const pc = createPeerConnection(payload.fromSocketId)
-          await pc.setRemoteDescription(new RTCSessionDescription(payload.offer))
-          await flushPendingIceCandidates(payload.fromSocketId)
-          const answer = await pc.createAnswer()
-          await pc.setLocalDescription(answer)
-          socket.emit(ROOM_SOCKET_EVENTS.WEBRTC_ANSWER, {
-            roomId,
-            toSocketId: payload.fromSocketId,
-            answer,
-          })
+          try {
+            const pc = createPeerConnection(payload.fromSocketId)
+            console.log(`[WebRTC] Setting remote description (offer) for peer ${payload.fromSocketId}. signalingState: ${pc.signalingState}`)
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.offer))
+            console.log(`[WebRTC] Remote description (offer) set successfully. Flushing pending candidates...`)
+            await flushPendingIceCandidates(payload.fromSocketId)
+            const answer = await pc.createAnswer()
+            await pc.setLocalDescription(answer)
+            console.log(`[WebRTC] Local description (answer) set successfully. signalingState: ${pc.signalingState}`)
+            await flushPendingIceCandidates(payload.fromSocketId)
+            socket.emit(ROOM_SOCKET_EVENTS.WEBRTC_ANSWER, {
+              roomId,
+              toSocketId: payload.fromSocketId,
+              answer,
+            })
+            setupNegotiationHandler(payload.fromSocketId, pc)
+          } catch (err) {
+            console.error(`[WebRTC] Error handling offer from ${payload.fromSocketId}:`, err)
+          }
         })
 
         socket.on(ROOM_SOCKET_EVENTS.WEBRTC_ANSWER, async (payload: WebRtcAnswerPayload) => {
+          console.log(`[WebRTC] Socket received WEBRTC_ANSWER from: ${payload.fromSocketId}`)
           if (cancelled || payload.roomId !== roomId) return
 
-          const pc = peerConnectionsRef.current.get(payload.fromSocketId)
-          if (!pc || pc.signalingState === 'stable') return
+          try {
+            const pc = peerConnectionsRef.current.get(payload.fromSocketId)
+            if (!pc) {
+              console.warn(`[WebRTC] Answer received but no peer connection exists for socket: ${payload.fromSocketId}`)
+              return
+            }
+            if (pc.signalingState === 'stable') {
+              console.log(`[WebRTC] peer connection for ${payload.fromSocketId} is already stable, ignoring answer.`)
+              return
+            }
 
-          await pc.setRemoteDescription(new RTCSessionDescription(payload.answer))
-          await flushPendingIceCandidates(payload.fromSocketId)
+            console.log(`[WebRTC] Setting remote description (answer) for peer ${payload.fromSocketId}. signalingState: ${pc.signalingState}`)
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.answer))
+            console.log(`[WebRTC] Remote description (answer) set successfully. Flushing pending candidates...`)
+            await flushPendingIceCandidates(payload.fromSocketId)
+            setupNegotiationHandler(payload.fromSocketId, pc)
+          } catch (err) {
+            console.error(`[WebRTC] Error handling answer from ${payload.fromSocketId}:`, err)
+          }
         })
 
         socket.on(ROOM_SOCKET_EVENTS.WEBRTC_ICE_CANDIDATE, async (payload: WebRtcIceCandidatePayload) => {
           if (cancelled || payload.roomId !== roomId) return
 
-          const pc = createPeerConnection(payload.fromSocketId)
-          if (!pc.remoteDescription) {
-            const pending = pendingIceCandidatesRef.current.get(payload.fromSocketId) ?? []
-            pending.push(payload.candidate)
-            pendingIceCandidatesRef.current.set(payload.fromSocketId, pending)
-            return
-          }
+          try {
+            const pc = createPeerConnection(payload.fromSocketId)
+            // Queue candidates if remote description is not set yet, or if connection is currently negotiating (signalingState is not stable)
+            if (!pc.remoteDescription || pc.signalingState !== 'stable') {
+              console.log(`[WebRTC] Queueing candidate from ${payload.fromSocketId}. signalingState: ${pc.signalingState}`)
+              const pending = pendingIceCandidatesRef.current.get(payload.fromSocketId) ?? []
+              pending.push(payload.candidate)
+              pendingIceCandidatesRef.current.set(payload.fromSocketId, pending)
+              return
+            }
 
-          await pc.addIceCandidate(new RTCIceCandidate(payload.candidate))
+            console.log(`[WebRTC] Adding ICE candidate from ${payload.fromSocketId} directly.`)
+            await pc.addIceCandidate(new RTCIceCandidate(payload.candidate))
+          } catch (err) {
+            console.error(`[WebRTC] Failed to add ICE candidate from ${payload.fromSocketId}:`, err)
+          }
         })
 
         socket.on(ROOM_SOCKET_EVENTS.ERROR_MESSAGE, (err: { code?: string; message?: string }) => {
@@ -851,6 +992,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     lobbyMediaPrefs,
     navigate,
     roomId,
+    setupNegotiationHandler,
     syncPeerConnections,
   ])
 
@@ -904,43 +1046,92 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     emitMediaStatus(nextMedia)
   }, [emitMediaStatus, roomId, session.localMedia])
 
-  const toggleCamera = useCallback(() => {
-    const videoTrack = cameraTrackRef.current
+  // FIX: toggleCamera ahora usa track.stop() para liberar el hardware (apaga el LED de la cámara)
+  // y getUserMedia para adquirir un nuevo track al encender, en lugar de solo track.enabled
+  const toggleCamera = useCallback(async () => {
     const nextCam = !session.localMedia.isCameraOn
-    if (videoTrack) {
-      videoTrack.enabled = nextCam
-    }
-    if (!nextCam && screenTrackRef.current) {
-      const currentScreenTrack = screenTrackRef.current
-      screenTrackRef.current = null
-      currentScreenTrack.stop()
-      setLocalPreviewVideoTrack(null)
-      replaceOutgoingVideoTrack(null).catch((err) => {
-        console.error('[WebRTC] stop video track failed:', err)
-      })
-    } else if (nextCam && videoTrack) {
-      setLocalPreviewVideoTrack(videoTrack)
-      replaceOutgoingVideoTrack(videoTrack).catch((err) => {
-        console.error('[WebRTC] restore video track failed:', err)
-      })
-    }
 
-    const nextMedia = {
-      ...session.localMedia,
-      isCameraOn: nextCam,
-      isScreenSharing: nextCam ? session.localMedia.isScreenSharing : false,
+    if (!nextCam) {
+      // APAGAR: detener tracks para liberar el hardware completamente
+      if (screenTrackRef.current) {
+        screenTrackRef.current.stop()
+        screenTrackRef.current = null
+      }
+
+      const videoTrack = cameraTrackRef.current
+      if (videoTrack) {
+        videoTrack.stop()
+        cameraTrackRef.current = null
+      }
+
+      // Limpiar video tracks del stream local
+      if (localStreamRef.current) {
+        localStreamRef.current.getVideoTracks().forEach((t) => {
+          localStreamRef.current!.removeTrack(t)
+        })
+      }
+
+      await replaceOutgoingVideoTrack(null)
+
+      const nextMedia = {
+        ...session.localMedia,
+        isCameraOn: false,
+        isScreenSharing: false,
+      }
+      localMediaRef.current = nextMedia
+      writeLobbyMediaState(roomId, nextMedia)
+      setSession((prev) => ({
+        ...prev,
+        localMedia: nextMedia,
+        participants: prev.participants.map((p) =>
+          // videoStream: null → el VideoGrid muestra el avatar en lugar de pantalla negra
+          p.isLocal ? { ...p, isCameraOn: false, isScreenSharing: false, videoStream: null } : p,
+        ),
+      }))
+      emitMediaStatus(nextMedia)
+
+    } else {
+      // ENCENDER: adquirir nuevo track desde getUserMedia (el anterior fue detenido)
+      if (!navigator.mediaDevices?.getUserMedia) return
+
+      let newTrack: MediaStreamTrack | null = null
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(
+          createMediaConstraints(undefined, undefined, cameraFacingModeRef.current),
+        )
+        newTrack = stream.getVideoTracks()[0] ?? null
+      } catch (err) {
+        console.error('[WebRTC] re-acquire camera failed:', err)
+        return
+      }
+
+      if (!newTrack) return
+
+      newTrack.enabled = true
+      cameraTrackRef.current = newTrack
+
+      if (localStreamRef.current) {
+        localStreamRef.current.getVideoTracks().forEach((t) => {
+          localStreamRef.current!.removeTrack(t)
+        })
+        localStreamRef.current.addTrack(newTrack)
+      }
+
+      await replaceOutgoingVideoTrack(newTrack)
+
+      const nextMedia = { ...session.localMedia, isCameraOn: true }
+      localMediaRef.current = nextMedia
+      writeLobbyMediaState(roomId, nextMedia)
+      setSession((prev) => ({
+        ...prev,
+        localMedia: nextMedia,
+        participants: prev.participants.map((p) =>
+          p.isLocal ? { ...p, isCameraOn: true, videoStream: localStreamRef.current } : p,
+        ),
+      }))
+      emitMediaStatus(nextMedia)
     }
-    localMediaRef.current = nextMedia
-    writeLobbyMediaState(roomId, nextMedia)
-    setSession((prev) => ({
-      ...prev,
-      localMedia: nextMedia,
-      participants: prev.participants.map((p) =>
-        p.isLocal ? { ...p, isCameraOn: nextCam } : p,
-      ),
-    }))
-    emitMediaStatus(nextMedia)
-  }, [emitMediaStatus, replaceOutgoingVideoTrack, roomId, session.localMedia, setLocalPreviewVideoTrack])
+  }, [emitMediaStatus, replaceOutgoingVideoTrack, roomId, session.localMedia])
 
   const toggleScreenShare = useCallback(async () => {
     if (session.localMedia.isScreenSharing) {

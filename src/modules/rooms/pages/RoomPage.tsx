@@ -11,6 +11,7 @@ import { ParticipantsPanel } from '../components/ParticipantsPanel'
 import { RoomHeader } from '../components/RoomHeader'
 import { RoomSettingsPanel } from '../components/RoomSettingsPanel'
 import { VideoGrid } from '../components/VideoGrid'
+import { ReconnectingOverlay } from '../components/MediaStatusUI.tsx'
 import { useRoom } from '../hooks/useRoom'
 import { useRoomSession } from '../hooks/useRoomSession'
 import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
@@ -28,6 +29,7 @@ export default function RoomPage() {
     roomId,
     room?.roomCode,
   )
+
   const [activePanel, setActivePanel] = useState<RoomSidebarPanel | null>(() => {
     if (typeof window === 'undefined') return 'chat'
     return window.innerWidth >= 768 ? 'chat' : null
@@ -37,12 +39,30 @@ export default function RoomPage() {
   const [loadingMembers, setLoadingMembers] = useState(false)
   const [removedMemberUids, setRemovedMemberUids] = useState<Set<string>>(() => new Set())
 
+  // Overlay de reconexión: se activa solo cuando el socket se desconecta, DESPUÉS de haber estado conectado (no al cargar por primera vez)
+  const hasBeenConnectedRef = useRef(false)
+  const [showReconnecting, setShowReconnecting] = useState(false)
+  const [reconnectAttempts, setReconnectAttempts] = useState(0)
+
+  useEffect(() => {
+    if (session.connectionStatus === 'connected') {
+      hasBeenConnectedRef.current = true
+      setShowReconnecting(false)
+      setReconnectAttempts(0)
+    } else if (
+      session.connectionStatus === 'disconnected' &&
+      hasBeenConnectedRef.current
+    ) {
+      setShowReconnecting(true)
+      setReconnectAttempts((prev) => prev + 1)
+    }
+  }, [session.connectionStatus])
+
   const loadMembers = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!roomId) return
     if (options?.showLoading ?? true) {
       setLoadingMembers(true)
     }
-
     try {
       const token = await getIdToken()
       const data = await getRoomMembers(token, roomId)
@@ -57,15 +77,11 @@ export default function RoomPage() {
     }
   }, [getIdToken, roomId])
 
-  // ── Indicador de mensajes no leídos ───────────────────────────────
   const [chatHasUnread, setChatHasUnread] = useState(false)
   const prevMsgCountRef = useRef(session.messages.length)
 
   useEffect(() => {
-    if (
-      session.messages.length > prevMsgCountRef.current &&
-      activePanel !== 'chat'
-    ) {
+    if (session.messages.length > prevMsgCountRef.current && activePanel !== 'chat') {
       setChatHasUnread(true)
     }
     prevMsgCountRef.current = session.messages.length
@@ -80,26 +96,17 @@ export default function RoomPage() {
   useEffect(() => {
     if (!roomId) return
     let cancelled = false
-
     async function loadInitialMembers() {
       try {
         setLoadingMembers(true)
         await loadMembers({ showLoading: false })
-        if (!cancelled) {
-          setLoadingMembers(false)
-        }
+        if (!cancelled) setLoadingMembers(false)
       } catch {
-        if (!cancelled) {
-          setLoadingMembers(false)
-        }
+        if (!cancelled) setLoadingMembers(false)
       }
     }
-
     loadInitialMembers()
-
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [roomId, loadMembers])
 
   useEffect(() => {
@@ -109,21 +116,15 @@ export default function RoomPage() {
 
   useEffect(() => {
     if (session.connectionStatus !== 'connected') return
-
     const socket = getSocket()
     if (!socket) return
-
     const handleRoomMemberRemoved = (payload: { roomId: string; uid: string }) => {
       if (payload.roomId !== roomId) return
       setRemovedMemberUids((prev) => new Set(prev).add(payload.uid))
       setMembers((prev) => prev.filter((member) => member.uid !== payload.uid))
     }
-
     socket.on(ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED, handleRoomMemberRemoved)
-
-    return () => {
-      socket.off(ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED, handleRoomMemberRemoved)
-    }
+    return () => { socket.off(ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED, handleRoomMemberRemoved) }
   }, [roomId, session.connectionStatus])
 
   useEffect(() => {
@@ -173,6 +174,12 @@ export default function RoomPage() {
               mirrorLocalVideo={session.mirrorLocalVideo}
               outputVolume={session.outputVolume}
             />
+
+            {/* Overlay de reconexión: solo aparece si el socket se cae después de conectar */}
+            {showReconnecting && (
+              <ReconnectingOverlay attempts={reconnectAttempts} />
+            )}
+
             <ControlBar
               media={session.localMedia}
               onToggleMic={actions.toggleMic}
@@ -192,7 +199,6 @@ export default function RoomPage() {
           )}
 
           <div className="pointer-events-none absolute inset-0 z-40 flex justify-end md:pointer-events-auto md:relative md:z-auto md:h-full md:shrink-0">
-            {/* Los 3 paneles siempre montados, la animación la maneja isOpen */}
             <ChatPanel
               messages={session.messages}
               currentUserId={firebaseUser?.uid}

@@ -10,6 +10,10 @@ interface RoomSettingsPanelProps {
   onSwitchCamera: () => void
 }
 
+// Solo dispositivos móviles tienen cámara frontal/trasera intercambiable
+const isMobileDevice =
+  typeof navigator !== 'undefined' && /Mobi|Android/i.test(navigator.userAgent)
+
 export function RoomSettingsPanel({
   isOpen = true,
   outputVolume,
@@ -86,19 +90,22 @@ export function RoomSettingsPanel({
               </span>
             </button>
 
-            <button
-              type="button"
-              onClick={onSwitchCamera}
-              className="flex w-full items-center justify-between gap-3 rounded-xl border border-auth-input-border bg-auth-input-bg px-3 py-2.5 text-left text-sm text-auth-title transition hover:border-auth-btn/40"
-            >
-              <span className="flex items-center gap-2">
-                <Camera className="h-4 w-4 text-auth-label" aria-hidden="true" />
-                Cámara del celular
-              </span>
-              <span className="rounded-lg bg-auth-surface px-2 py-1 text-xs font-medium text-auth-label">
-                {cameraFacingMode === 'user' ? 'Frontal' : 'Trasera'}
-              </span>
-            </button>
+            {/* Solo visible en móvil: los laptops/desktop no tienen cámara frontal/trasera */}
+            {isMobileDevice && (
+              <button
+                type="button"
+                onClick={onSwitchCamera}
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-auth-input-border bg-auth-input-bg px-3 py-2.5 text-left text-sm text-auth-title transition hover:border-auth-btn/40"
+              >
+                <span className="flex items-center gap-2">
+                  <Camera className="h-4 w-4 text-auth-label" aria-hidden="true" />
+                  Cambiar cámara
+                </span>
+                <span className="rounded-lg bg-auth-surface px-2 py-1 text-xs font-medium text-auth-label">
+                  {cameraFacingMode === 'user' ? 'Frontal' : 'Trasera'}
+                </span>
+              </button>
+            )}
           </section>
         </div>
       </aside>
