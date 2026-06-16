@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Circle, Mic, MicOff, Video, VideoOff } from 'lucide-react'
+import { Circle, Mic, MicOff, Video, VideoOff, ChevronRight } from 'lucide-react'
 import { UserAvatar } from '@/shared/components/user/UserAvatar'
 import type { RoomMember } from '@/types/room'
 import type { RoomParticipant } from '../types/roomSession'
@@ -9,6 +9,7 @@ interface ParticipantsPanelProps {
   onlineParticipants: RoomParticipant[]
   loadingMembers?: boolean
   isOpen?: boolean
+  onClose?: () => void 
 }
 
 export function ParticipantsPanel({
@@ -16,6 +17,7 @@ export function ParticipantsPanel({
   onlineParticipants,
   loadingMembers = false,
   isOpen = true,
+  onClose, 
 }: ParticipantsPanelProps) {
   const memberUids = useMemo(
     () => new Set(members.map((member) => member.uid)),
@@ -53,13 +55,25 @@ export function ParticipantsPanel({
         aria-label="Lista de miembros"
         className="flex h-full w-full shrink-0 flex-col border border-auth-input-border bg-auth-surface md:w-[320px] md:border-y-0 md:border-r-0"
       >
-        <div className="border-b border-auth-input-border px-4 py-3.5">
-          <h2 className="text-sm font-semibold text-auth-title">
-            Miembros ({members.length})
-          </h2>
-          <p className="mt-1 text-xs text-auth-label">
-            {onlineParticipants.length} online ahora
-          </p>
+        {/* 👑 HEADER ACTUALIZADO: Título a la izquierda, flechita a la derecha */}
+        <div className="flex items-center justify-between border-b border-auth-input-border px-4 py-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-auth-title truncate">
+              Miembros ({members.length})
+            </h2>
+            <p className="mt-0.5 text-xs text-auth-label">
+              {onlineParticipants.length} online ahora
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose} 
+            aria-label="Esconder participantes"
+            title="Esconder participantes"
+            className="rounded-lg p-1 text-auth-label transition-colors hover:bg-auth-input-bg hover:text-auth-title cursor-pointer shrink-0 ml-2"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </button>
         </div>
 
         {loadingMembers ? (

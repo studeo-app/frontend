@@ -25,6 +25,7 @@ interface UseRoomSessionResult {
   actions: RoomSessionActions
   joinWarningMessage: string | null
   clearJoinWarning: () => void
+  mediaError: 'permissions' | 'hardware' | 'webrtc' | null
 }
 
 interface RoomDeletedPayload {
@@ -215,6 +216,8 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     hasMoreHistory: false,
   }))
   const [joinWarningMessage, setJoinWarningMessage] = useState<string | null>(null)
+  const [mediaError, setMediaError] = useState<'permissions' | 'hardware' | 'webrtc' | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
   const nextCursorRef = useRef<string | null>(null)
   const loadingHistoryRef = useRef(false)
@@ -451,7 +454,11 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     }
 
     pc.onconnectionstatechange = () => {
+      console.log(`[WebRTC] Connection state change for ${remoteSocketId}: ${pc.connectionState}`)
       if (['closed', 'disconnected', 'failed'].includes(pc.connectionState)) {
+        if (pc.connectionState === 'failed') {
+          setMediaError('webrtc')
+        }
         closePeerConnection(remoteSocketId)
       }
     }
@@ -635,6 +642,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
 
         if (!localStreamRef.current && navigator.mediaDevices?.getUserMedia) {
           try {
+            setMediaError(null)
             localStreamRef.current = await navigator.mediaDevices.getUserMedia(
               createMediaConstraints(
                 lobbyMediaPrefs?.selectedMicId,
@@ -642,13 +650,24 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
                 cameraFacingModeRef.current,
               ),
             )
-          } catch {
+          } catch (err: any) {
+            console.error('[WebRTC] getUserMedia failed with constraints:', err)
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+              setMediaError('permissions')
+            } else {
+              setMediaError('hardware')
+            }
             try {
               localStreamRef.current = await navigator.mediaDevices.getUserMedia({
                 audio: true,
                 video: true,
               })
-            } catch {
+            } catch (err2: any) {
+              if (err2.name === 'NotAllowedError' || err2.name === 'PermissionDeniedError') {
+                setMediaError('permissions')
+              } else {
+                setMediaError('hardware')
+              }
               try {
                 localStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true })
               } catch {
@@ -992,6 +1011,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     lobbyMediaPrefs,
     navigate,
     roomId,
+    retryCount,
     setupNegotiationHandler,
     syncPeerConnections,
   ])
@@ -1096,12 +1116,18 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
 
       let newTrack: MediaStreamTrack | null = null
       try {
+        setMediaError(null)
         const stream = await navigator.mediaDevices.getUserMedia(
           createMediaConstraints(undefined, undefined, cameraFacingModeRef.current),
         )
         newTrack = stream.getVideoTracks()[0] ?? null
-      } catch (err) {
+      } catch (err: any) {
         console.error('[WebRTC] re-acquire camera failed:', err)
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setMediaError('permissions')
+        } else {
+          setMediaError('hardware')
+        }
         return
       }
 
@@ -1325,6 +1351,12 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     navigate('/dashboard')
   }, [navigate])
 
+  const retry = useCallback(() => {
+    console.log('[WebRTC] Retrying connection and media initialization...')
+    setMediaError(null)
+    setRetryCount((prev) => prev + 1)
+  }, [])
+
   const actions: RoomSessionActions = {
     toggleMic,
     toggleCamera,
@@ -1335,11 +1367,12 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     sendMessage,
     leaveRoom,
     loadMoreHistory,
+    retry,
   }
 
   const clearJoinWarning = useCallback(() => {
     setJoinWarningMessage(null)
   }, [])
 
-  return { session, actions, joinWarningMessage, clearJoinWarning }
+  return { session, actions, joinWarningMessage, clearJoinWarning, mediaError }
 }

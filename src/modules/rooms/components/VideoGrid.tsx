@@ -30,6 +30,13 @@ export function VideoGrid({
   )
   const hasScreenShares = screenShareParticipants.length > 0
 
+  // 👑 ORDENAR PARTICIPANTES: El usuario local siempre va primero (arriba a la izquierda)
+  const sortedParticipants = [...participants].sort((a, b) => {
+    if (a.isLocal) return -1 // 'a' es local, va primero
+    if (b.isLocal) return 1  // 'b' es local, va primero
+    return 0                 // los demás mantienen su orden
+  })
+
   return (
     <div
       className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2 pb-2 sm:gap-3 sm:p-4 sm:pb-4"
@@ -59,24 +66,25 @@ export function VideoGrid({
       )}
 
       <div
-        className={`grid min-h-0 flex-1 auto-rows-fr gap-2 sm:gap-3 ${gridClass(participants.length)} ${
+        className={`grid min-h-0 flex-1 auto-rows-fr gap-2 sm:gap-3 ${gridClass(sortedParticipants.length)} ${
           hasScreenShares ? 'max-h-[42%]' : ''
         }`}
       >
-      {participants.map((participant) => (
-        <div
-          key={participant.socketId}
-          role="listitem"
-          className="w-full h-full min-h-0 flex items-center justify-center"
-        >
-          <VideoTile
-            participant={participant}
-            mirrorLocalVideo={mirrorLocalVideo}
-            outputVolume={outputVolume}
-            suppressScreenShareVideo={hasScreenShares}
-          />
-        </div>
-      ))}
+        {/* Usamos sortedParticipants en lugar de participants */}
+        {sortedParticipants.map((participant) => (
+          <div
+            key={participant.socketId}
+            role="listitem"
+            className="w-full h-full min-h-0 flex items-center justify-center"
+          >
+            <VideoTile
+              participant={participant}
+              mirrorLocalVideo={mirrorLocalVideo}
+              outputVolume={outputVolume}
+              suppressScreenShareVideo={hasScreenShares}
+            />
+          </div>
+        ))}
       </div>
     </div>
   )
