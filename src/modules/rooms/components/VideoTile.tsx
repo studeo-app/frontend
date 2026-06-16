@@ -34,13 +34,22 @@ export function VideoTile({
   const nameLabel = mode === 'screen'
     ? `Pantalla de ${isLocal ? 'ti' : displayName}`
     : isLocal ? `${displayName} (Tu)` : displayName
+
+  // Hay stream de video adjunto al elemento <video>
   const shouldRenderVideo = Boolean(videoStream)
+
+  // El video debe ser visible en pantalla
   const shouldShowVideo = Boolean(
     videoStream &&
     (mode === 'screen'
       ? isScreenSharing
       : isCameraOn && (!isScreenSharing || !suppressScreenShareVideo)),
   )
+
+  // FIX: mostrar avatar/placeholder siempre que el video NO sea visible,
+  // independientemente de isCameraOn — evita la pantalla negra al cargar
+  const shouldShowPlaceholder = !shouldShowVideo
+
   const normalizedVolume = Math.min(1, Math.max(0, outputVolume / 100))
 
   useEffect(() => {
@@ -63,6 +72,7 @@ export function VideoTile({
       ${isSpeaking ? 'ring-[3px] ring-violet-500 ring-offset-2 ring-offset-auth-bg shadow-violet-500/30' : ''}
     `}
     >
+      {/* Video — siempre en el DOM si hay stream, la visibilidad la controla opacity */}
       {shouldRenderVideo && (
         <video
           ref={videoRef}
@@ -79,15 +89,8 @@ export function VideoTile({
         </video>
       )}
 
-      {!shouldRenderVideo && isCameraOn && isLocal ? (
-        <div className="absolute inset-0 bg-gradient-to-br from-auth-input-bg to-auth-surface">
-          <img
-            src="https://images.unsplash.com/photo-1517694712202-14dd9538a43f?w=800&h=600&fit=crop"
-            alt=""
-            className="h-full w-full object-cover opacity-90"
-          />
-        </div>
-      ) : !shouldShowVideo ? (
+      {/* Placeholder: avatar o iniciales — se muestra siempre que el video no sea visible */}
+      {shouldShowPlaceholder && (
         avatarUrl ? (
           <UserAvatar src={avatarUrl} alt={displayName} size="xl" />
         ) : (
@@ -95,14 +98,16 @@ export function VideoTile({
             {initials ?? displayName.charAt(0).toUpperCase()}
           </div>
         )
-      ) : null}
+      )}
 
-      {mode === 'camera' && !isCameraOn && !isScreenSharing && (
+      {/* Ícono de cámara apagada — se muestra cuando no hay video visible, solo en modo camera */}
+      {mode === 'camera' && !shouldShowVideo && !isScreenSharing && (
         <div className="absolute right-3 top-3 rounded-lg bg-auth-bg/80 p-1.5">
           <VideoOff className="h-4 w-4 text-auth-label" aria-hidden="true" />
         </div>
       )}
 
+      {/* Etiqueta de nombre y micrófono */}
       <div className="absolute bottom-2 left-2 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-lg bg-auth-bg/75 px-2.5 py-1 backdrop-blur-sm sm:bottom-3 sm:left-3">
         <span className="truncate text-xs font-medium text-auth-title">{nameLabel}</span>
         {isMicOn ? (

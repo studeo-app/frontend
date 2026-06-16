@@ -113,7 +113,10 @@ function toRoomParticipants(
         isCameraOn: !user.isVideoOff,
         isMicOn: !user.isMuted,
         isScreenSharing: Boolean(user.isScreenSharing),
-        videoStream: isLocal ? localStream ?? null : remoteStreams.get(user.socketId) ?? null,
+        // FIX: si la cámara está apagada, pasar null → VideoGrid muestra avatar en vez de pantalla negra
+        videoStream: isLocal
+          ? (user.isVideoOff ? null : localStream ?? null)
+          : remoteStreams.get(user.socketId) ?? null,
       }
     })
 }
@@ -350,7 +353,8 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         roomId,
         memberByUidRef.current,
         firebaseUser?.uid,
-        localStreamRef.current,
+        // FIX: si la cámara local está apagada, pasar null para que aparezca el avatar
+        localMediaRef.current.isCameraOn ? localStreamRef.current : null,
         remoteStreamsRef.current,
       ),
     }))
@@ -655,12 +659,17 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         socket.on(ROOM_SOCKET_EVENTS.ROOM_USERS, async (users: RoomUserPresencePayload[]) => {
           if (cancelled) return
           roomUsersRef.current = users
+
+          // FIX: para el usuario local, usar el estado conocido localmente (localMediaRef)
+          // en lugar de confiar en lo que el servidor devuelve, que puede estar desactualizado
+          const localCameraOn = localMediaRef.current.isCameraOn
           const participants = toRoomParticipants(
             users,
             roomId,
             memberByUidRef.current,
             firebaseUser?.uid,
-            localStreamRef.current,
+            // Si la cámara local está apagada, pasar null para mostrar avatar
+            localCameraOn ? localStreamRef.current : null,
             remoteStreamsRef.current,
           )
 
@@ -700,16 +709,23 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
             return {
               ...prev,
               localMedia: nextLocalMedia,
-              participants: prev.participants.map((participant) =>
-                participant.socketId === user.socketId || participant.id === user.uid
-                  ? {
-                      ...participant,
-                      isCameraOn: !user.isVideoOff,
-                      isMicOn: !user.isMuted,
-                      isScreenSharing: Boolean(user.isScreenSharing),
-                    }
-                  : participant,
-              ),
+              participants: prev.participants.map((participant) => {
+                if (participant.socketId !== user.socketId && participant.id !== user.uid) {
+                  return participant
+                }
+                const cameraOn = !user.isVideoOff
+                const isLocalParticipant = participant.isLocal
+                return {
+                  ...participant,
+                  isCameraOn: cameraOn,
+                  isMicOn: !user.isMuted,
+                  isScreenSharing: Boolean(user.isScreenSharing),
+                  // FIX: si la cámara está apagada, videoStream null → avatar en vez de negro
+                  videoStream: isLocalParticipant
+                    ? (cameraOn ? localStreamRef.current : null)
+                    : participant.videoStream,
+                }
+              }),
             }
           })
         })
