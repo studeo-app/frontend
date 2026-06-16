@@ -53,10 +53,37 @@ export function VideoTile({
   const normalizedVolume = Math.min(1, Math.max(0, outputVolume / 100))
 
   useEffect(() => {
-    if (videoRef.current && videoRef.current.srcObject !== videoStream) {
-      videoRef.current.srcObject = videoStream ?? null
+    const videoEl = videoRef.current
+    if (!videoEl || !videoStream) return
+
+    videoEl.srcObject = videoStream
+
+    const handleTrackEvent = (e: Event) => {
+      console.log(`[VideoTile] Stream track event received: ${e.type}. Re-binding srcObject and playing.`)
+      videoEl.srcObject = videoStream
+      videoEl.play().catch((err) => {
+        console.warn('[VideoTile] Failed to play video after track event:', err)
+      })
     }
-  }, [videoStream])
+
+    videoStream.addEventListener('addtrack', handleTrackEvent)
+    videoStream.addEventListener('removetrack', handleTrackEvent)
+
+    const tracks = videoStream.getTracks()
+    tracks.forEach((track) => {
+      track.addEventListener('unmute', handleTrackEvent)
+      track.addEventListener('mute', handleTrackEvent)
+    })
+
+    return () => {
+      videoStream.removeEventListener('addtrack', handleTrackEvent)
+      videoStream.removeEventListener('removetrack', handleTrackEvent)
+      tracks.forEach((track) => {
+        track.removeEventListener('unmute', handleTrackEvent)
+        track.removeEventListener('mute', handleTrackEvent)
+      })
+    }
+  }, [videoStream, isCameraOn, isScreenSharing])
 
   useEffect(() => {
     if (!videoRef.current || isLocal) return

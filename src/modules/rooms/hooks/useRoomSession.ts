@@ -394,9 +394,16 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     const pending = pendingIceCandidatesRef.current.get(remoteSocketId)
     if (!pc || !pending?.length || !pc.remoteDescription) return
 
+    console.log(`[WebRTC] Flushing ${pending.length} pending ice candidates for: ${remoteSocketId}`)
     pendingIceCandidatesRef.current.delete(remoteSocketId)
     await Promise.all(
-      pending.map((candidate) => pc.addIceCandidate(new RTCIceCandidate(candidate))),
+      pending.map(async (candidate) => {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate))
+        } catch (err) {
+          console.error(`[WebRTC] Failed to add flushed ice candidate for ${remoteSocketId}:`, err)
+        }
+      }),
     )
   }, [])
 
@@ -425,11 +432,22 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     }
 
     pc.ontrack = (event) => {
-      const [remoteStream] = event.streams
-      if (!remoteStream) return
-
-      remoteStreamsRef.current.set(remoteSocketId, remoteStream)
-      setParticipantsFromPresence()
+      console.log(`[WebRTC] ontrack event fired for peer: ${remoteSocketId}. Track kind: ${event.track.kind}`)
+      let remoteStream = event.streams[0]
+      
+      const existingStream = remoteStreamsRef.current.get(remoteSocketId)
+      if (existingStream) {
+        console.log(`[WebRTC] Existing remote stream found for peer: ${remoteSocketId}. Adding track to it.`)
+        existingStream.addTrack(event.track)
+        setParticipantsFromPresence()
+      } else {
+        if (!remoteStream) {
+          console.log(`[WebRTC] No remote stream in event for peer: ${remoteSocketId}. Creating new MediaStream.`)
+          remoteStream = new MediaStream([event.track])
+        }
+        remoteStreamsRef.current.set(remoteSocketId, remoteStream)
+        setParticipantsFromPresence()
+      }
     }
 
     pc.onconnectionstatechange = () => {
@@ -478,17 +496,81 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   }, [closePeerConnection, createPeerConnection, roomId])
 
   const replaceOutgoingVideoTrack = useCallback(async (track: MediaStreamTrack | null) => {
+    console.log('[WebRTC] replaceOutgoingVideoTrack called with track:', track ? `${track.kind} (${track.id})` : 'null')
     await Promise.all(
-      Array.from(peerConnectionsRef.current.values()).map(async (pc) => {
-        const sender = pc.getSenders().find((item) => item.track?.kind === 'video')
+      Array.from(peerConnectionsRef.current.entries()).map(async ([remoteSocketId, pc]) => {
+        const transceiver = pc.getTransceivers().find(
+          (t) => t.receiver.track.kind === 'video' || t.sender.track?.kind === 'video'
+        )
+        const sender = transceiver?.sender
         if (sender) {
+          console.log(`[WebRTC] Found existing video sender for peer ${remoteSocketId}. Replacing track...`)
           await sender.replaceTrack(track)
+          if (track && localStreamRef.current) {
+            if (typeof sender.setStreams === 'function') {
+              try {
+                console.log(`[WebRTC] Associating local stream with video sender for peer ${remoteSocketId}`)
+                sender.setStreams(localStreamRef.current)
+              } catch (err) {
+                console.warn('[WebRTC] sender.setStreams failed:', err)
+              }
+            }
+          }
+          console.log(`[WebRTC] Track replaced. Previous direction was: ${transceiver.direction}`)
+          if (track) {
+            if (transceiver.direction === 'recvonly') {
+              console.log(`[WebRTC] Changing direction from recvonly to sendrecv for peer ${remoteSocketId}`)
+              transceiver.direction = 'sendrecv'
+            } else if (transceiver.direction === 'inactive') {
+              console.log(`[WebRTC] Changing direction from inactive to sendonly for peer ${remoteSocketId}`)
+              transceiver.direction = 'sendonly'
+            }
+          } else {
+            if (transceiver.direction === 'sendrecv') {
+              console.log(`[WebRTC] Changing direction from sendrecv to recvonly for peer ${remoteSocketId}`)
+              transceiver.direction = 'recvonly'
+            } else if (transceiver.direction === 'sendonly') {
+              console.log(`[WebRTC] Changing direction from sendonly to inactive for peer ${remoteSocketId}`)
+              transceiver.direction = 'inactive'
+            }
+          }
         } else if (track && localStreamRef.current) {
+          console.log(`[WebRTC] Video sender not found for peer ${remoteSocketId}. Adding track...`)
           pc.addTrack(track, localStreamRef.current)
         }
       }),
     )
   }, [])
+
+  const setupNegotiationHandler = useCallback((remoteSocketId: string, pc: RTCPeerConnection) => {
+    console.log(`[WebRTC] setupNegotiationHandler registered for peer: ${remoteSocketId}`)
+    pc.onnegotiationneeded = async () => {
+      console.log(`[WebRTC] onnegotiationneeded event fired for peer: ${remoteSocketId}. signalingState: ${pc.signalingState}`)
+      try {
+        if (pc.signalingState !== 'stable') {
+          console.log(`[WebRTC] signalingState is not stable (${pc.signalingState}), skipping offer creation.`)
+          return
+        }
+        const socket = getSocket()
+        if (!socket?.connected) {
+          console.error('[WebRTC] Socket disconnected, cannot emit offer.')
+          return
+        }
+
+        console.log(`[WebRTC] Creating renegotiation offer for peer: ${remoteSocketId}`)
+        const offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        console.log(`[WebRTC] Local description (offer) set, signalingState is: ${pc.signalingState}`)
+        socket.emit(ROOM_SOCKET_EVENTS.WEBRTC_OFFER, {
+          roomId,
+          toSocketId: remoteSocketId,
+          offer,
+        })
+      } catch (err) {
+        console.error(`[WebRTC] Renegotiation offer creation failed for ${remoteSocketId}:`, err)
+      }
+    }
+  }, [roomId])
 
   const setLocalPreviewVideoTrack = useCallback((track: MediaStreamTrack | null) => {
     const stream = localStreamRef.current
@@ -723,7 +805,9 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
                   // FIX: si la cámara está apagada, videoStream null → avatar en vez de negro
                   videoStream: isLocalParticipant
                     ? (cameraOn ? localStreamRef.current : null)
-                    : participant.videoStream,
+                    : (cameraOn
+                       ? (remoteStreamsRef.current.get(participant.socketId) ?? participant.videoStream)
+                      : participant.videoStream),
                 }
               }),
             }
@@ -731,42 +815,74 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         })
 
         socket.on(ROOM_SOCKET_EVENTS.WEBRTC_OFFER, async (payload: WebRtcOfferPayload) => {
+          console.log(`[WebRTC] Socket received WEBRTC_OFFER from: ${payload.fromSocketId}`)
           if (cancelled || payload.roomId !== roomId) return
 
-          const pc = createPeerConnection(payload.fromSocketId)
-          await pc.setRemoteDescription(new RTCSessionDescription(payload.offer))
-          await flushPendingIceCandidates(payload.fromSocketId)
-          const answer = await pc.createAnswer()
-          await pc.setLocalDescription(answer)
-          socket.emit(ROOM_SOCKET_EVENTS.WEBRTC_ANSWER, {
-            roomId,
-            toSocketId: payload.fromSocketId,
-            answer,
-          })
+          try {
+            const pc = createPeerConnection(payload.fromSocketId)
+            console.log(`[WebRTC] Setting remote description (offer) for peer ${payload.fromSocketId}. signalingState: ${pc.signalingState}`)
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.offer))
+            console.log(`[WebRTC] Remote description (offer) set successfully. Flushing pending candidates...`)
+            await flushPendingIceCandidates(payload.fromSocketId)
+            const answer = await pc.createAnswer()
+            await pc.setLocalDescription(answer)
+            console.log(`[WebRTC] Local description (answer) set successfully. signalingState: ${pc.signalingState}`)
+            await flushPendingIceCandidates(payload.fromSocketId)
+            socket.emit(ROOM_SOCKET_EVENTS.WEBRTC_ANSWER, {
+              roomId,
+              toSocketId: payload.fromSocketId,
+              answer,
+            })
+            setupNegotiationHandler(payload.fromSocketId, pc)
+          } catch (err) {
+            console.error(`[WebRTC] Error handling offer from ${payload.fromSocketId}:`, err)
+          }
         })
 
         socket.on(ROOM_SOCKET_EVENTS.WEBRTC_ANSWER, async (payload: WebRtcAnswerPayload) => {
+          console.log(`[WebRTC] Socket received WEBRTC_ANSWER from: ${payload.fromSocketId}`)
           if (cancelled || payload.roomId !== roomId) return
 
-          const pc = peerConnectionsRef.current.get(payload.fromSocketId)
-          if (!pc || pc.signalingState === 'stable') return
+          try {
+            const pc = peerConnectionsRef.current.get(payload.fromSocketId)
+            if (!pc) {
+              console.warn(`[WebRTC] Answer received but no peer connection exists for socket: ${payload.fromSocketId}`)
+              return
+            }
+            if (pc.signalingState === 'stable') {
+              console.log(`[WebRTC] peer connection for ${payload.fromSocketId} is already stable, ignoring answer.`)
+              return
+            }
 
-          await pc.setRemoteDescription(new RTCSessionDescription(payload.answer))
-          await flushPendingIceCandidates(payload.fromSocketId)
+            console.log(`[WebRTC] Setting remote description (answer) for peer ${payload.fromSocketId}. signalingState: ${pc.signalingState}`)
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.answer))
+            console.log(`[WebRTC] Remote description (answer) set successfully. Flushing pending candidates...`)
+            await flushPendingIceCandidates(payload.fromSocketId)
+            setupNegotiationHandler(payload.fromSocketId, pc)
+          } catch (err) {
+            console.error(`[WebRTC] Error handling answer from ${payload.fromSocketId}:`, err)
+          }
         })
 
         socket.on(ROOM_SOCKET_EVENTS.WEBRTC_ICE_CANDIDATE, async (payload: WebRtcIceCandidatePayload) => {
           if (cancelled || payload.roomId !== roomId) return
 
-          const pc = createPeerConnection(payload.fromSocketId)
-          if (!pc.remoteDescription) {
-            const pending = pendingIceCandidatesRef.current.get(payload.fromSocketId) ?? []
-            pending.push(payload.candidate)
-            pendingIceCandidatesRef.current.set(payload.fromSocketId, pending)
-            return
-          }
+          try {
+            const pc = createPeerConnection(payload.fromSocketId)
+            // Queue candidates if remote description is not set yet, or if connection is currently negotiating (signalingState is not stable)
+            if (!pc.remoteDescription || pc.signalingState !== 'stable') {
+              console.log(`[WebRTC] Queueing candidate from ${payload.fromSocketId}. signalingState: ${pc.signalingState}`)
+              const pending = pendingIceCandidatesRef.current.get(payload.fromSocketId) ?? []
+              pending.push(payload.candidate)
+              pendingIceCandidatesRef.current.set(payload.fromSocketId, pending)
+              return
+            }
 
-          await pc.addIceCandidate(new RTCIceCandidate(payload.candidate))
+            console.log(`[WebRTC] Adding ICE candidate from ${payload.fromSocketId} directly.`)
+            await pc.addIceCandidate(new RTCIceCandidate(payload.candidate))
+          } catch (err) {
+            console.error(`[WebRTC] Failed to add ICE candidate from ${payload.fromSocketId}:`, err)
+          }
         })
 
         socket.on(ROOM_SOCKET_EVENTS.ERROR_MESSAGE, (err: { code?: string; message?: string }) => {
@@ -876,6 +992,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     lobbyMediaPrefs,
     navigate,
     roomId,
+    setupNegotiationHandler,
     syncPeerConnections,
   ])
 
