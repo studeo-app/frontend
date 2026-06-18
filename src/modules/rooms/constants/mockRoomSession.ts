@@ -60,6 +60,7 @@ export function createMockRoomSession(
       },
     ],
     messages: [],
+    reactions: [],
     loadingHistory: false,
     hasMoreHistory: false,
   }

@@ -11,6 +11,7 @@ import { getRoomMembers } from '../api/roomsApi'
 import { ChatPanel } from '../components/ChatPanel'
 import { ControlBar } from '../components/ControlBar'
 import { ParticipantsPanel } from '../components/ParticipantsPanel'
+import { ReactionLayer } from '../components/ReactionLayer'
 import { RoomHeader } from '../components/RoomHeader'
 import { RoomSettingsPanel } from '../components/RoomSettingsPanel'
 import { VideoGrid } from '../components/VideoGrid'
@@ -312,6 +313,8 @@ export default function RoomPage() {
                 />
               )}
 
+            <ReactionLayer reactions={session.reactions} />
+
             {/* Overlay de reconexión: solo aparece si el socket se cae después de conectar */}
             {showReconnecting && (
               <ReconnectingOverlay attempts={reconnectAttempts} />
@@ -322,6 +325,7 @@ export default function RoomPage() {
               onToggleMic={actions.toggleMic}
               onToggleCamera={actions.toggleCamera}
               onToggleScreenShare={actions.toggleScreenShare}
+              onSendReaction={actions.sendReaction}
               onLeave={actions.leaveRoom}
               disabled={mediaStatus === 'requesting_permissions' || mediaStatus === 'webrtc_connecting'}
             />

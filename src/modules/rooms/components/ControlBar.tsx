@@ -1,11 +1,14 @@
 import { Mic, MicOff, Monitor, PhoneOff, Video, VideoOff } from 'lucide-react'
+import type { RoomReactionEmoji } from '../constants/roomReactions'
 import type { LocalMediaState } from '../types/roomSession'
+import { ReactionPicker } from './ReactionPicker'
 
 interface ControlBarProps {
   media: LocalMediaState
   onToggleMic: () => void
   onToggleCamera: () => void
   onToggleScreenShare: () => void
+  onSendReaction: (emoji: RoomReactionEmoji) => void
   onLeave: () => void
   disabled?: boolean
 }
@@ -61,6 +64,7 @@ export function ControlBar({
   onToggleMic,
   onToggleCamera,
   onToggleScreenShare,
+  onSendReaction,
   onLeave,
   disabled = false,
 }: ControlBarProps) {
@@ -96,6 +100,8 @@ export function ControlBar({
             <VideoOff className="h-5 w-5" aria-hidden="true" />
           )}
         </MediaButton>
+
+        <ReactionPicker disabled={disabled} onSelect={onSendReaction} />
 
         {/* Compartir Pantalla */}
         <MediaButton

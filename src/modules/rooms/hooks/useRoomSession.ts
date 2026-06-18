@@ -9,6 +9,7 @@ import {
   createRoomDeletedDashboardState,
 } from '../constants/roomDeletionNotice'
 import { readRoomLobbyMediaPrefs } from '../constants/roomMediaPrefs'
+import type { RoomReactionEmoji } from '../constants/roomReactions'
 import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
 import { readLobbyMediaState, writeLobbyMediaState } from '../utils/lobbyMediaState'
 import type {
@@ -19,6 +20,7 @@ import type {
   RoomSessionState,
 } from '../types/roomSession'
 import type { RoomMember } from '@/types/room'
+import type { RoomReaction } from '../types/roomReaction'
 
 interface UseRoomSessionResult {
   session: RoomSessionState
@@ -217,6 +219,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       },
     ],
     messages: [],
+    reactions: [],
     loadingHistory: false,
     hasMoreHistory: false,
   }))
@@ -240,6 +243,32 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   const offeredPeersRef = useRef(new Set<string>())
   const audioContextRef = useRef<AudioContext | null>(null)
   const speakingDetectorsRef = useRef(new Map<string, SpeakingDetector>())
+  const reactionTimeoutsRef = useRef(new Map<string, number>())
+
+  const receiveReaction = useCallback((reaction: RoomReaction) => {
+    if (reaction.roomId !== roomId) return
+
+    setSession((prev) => ({
+      ...prev,
+      reactions: [
+        ...prev.reactions.filter((item) => item.id !== reaction.id),
+        reaction,
+      ].slice(-24),
+    }))
+
+    const existingTimeout = reactionTimeoutsRef.current.get(reaction.id)
+    if (existingTimeout) window.clearTimeout(existingTimeout)
+
+    const timeoutId = window.setTimeout(() => {
+      setSession((prev) => ({
+        ...prev,
+        reactions: prev.reactions.filter((item) => item.id !== reaction.id),
+      }))
+      reactionTimeoutsRef.current.delete(reaction.id)
+    }, 3600)
+
+    reactionTimeoutsRef.current.set(reaction.id, timeoutId)
+  }, [roomId])
 
   const closeSpeakingDetector = useCallback((socketId: string) => {
     const detector = speakingDetectorsRef.current.get(socketId)
@@ -644,6 +673,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
 
   useEffect(() => {
     let cancelled = false
+    const reactionTimeouts = reactionTimeoutsRef.current
 
     async function init() {
       try {
@@ -849,6 +879,8 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           })
         })
 
+        socket.on(ROOM_SOCKET_EVENTS.REACTION_NEW, receiveReaction)
+
         socket.on(ROOM_SOCKET_EVENTS.WEBRTC_OFFER, async (payload: WebRtcOfferPayload) => {
           console.log(`[WebRTC] Socket received WEBRTC_OFFER from: ${payload.fromSocketId}`)
           if (cancelled || payload.roomId !== roomId) return
@@ -1036,6 +1068,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         socket.off(ROOM_SOCKET_EVENTS.MESSAGE_ERROR)
         socket.off(ROOM_SOCKET_EVENTS.ROOM_USERS)
         socket.off(ROOM_SOCKET_EVENTS.MEDIA_STATUS)
+        socket.off(ROOM_SOCKET_EVENTS.REACTION_NEW, receiveReaction)
         socket.off(ROOM_SOCKET_EVENTS.WEBRTC_OFFER)
         socket.off(ROOM_SOCKET_EVENTS.WEBRTC_ANSWER)
         socket.off(ROOM_SOCKET_EVENTS.WEBRTC_ICE_CANDIDATE)
@@ -1044,6 +1077,8 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         socket.off('roomMemberMuted')
       }
       cleanupWebRtc()
+      reactionTimeouts.forEach((timeoutId) => window.clearTimeout(timeoutId))
+      reactionTimeouts.clear()
       disconnectSocket()
     }
   }, [
@@ -1058,6 +1093,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     lobbyMediaPrefs,
     navigate,
     roomId,
+    receiveReaction,
     retryCount,
     setupNegotiationHandler,
     syncPeerConnections,
@@ -1392,6 +1428,13 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     [],
   )
 
+  const sendReaction = useCallback((emoji: RoomReactionEmoji) => {
+    const socket = getSocket()
+    if (!socket?.connected) return
+
+    socket.emit(ROOM_SOCKET_EVENTS.REACTION_SEND, { roomId, emoji })
+  }, [roomId])
+
   const leaveRoom = useCallback(() => {
     const socket = getSocket()
     if (socket?.connected) {
@@ -1429,6 +1472,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     setOutputVolume,
     switchCamera,
     sendMessage,
+    sendReaction,
     leaveRoom,
     loadMoreHistory,
     retry,
