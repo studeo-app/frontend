@@ -98,6 +98,7 @@ function toRoomParticipants(
   localUserUid?: string,
   localStream?: MediaStream | null,
   remoteStreams: Map<string, MediaStream> = new Map(),
+  localMedia?: LocalMediaState,
 ): RoomParticipant[] {
   return users
     .filter((user) => user.socketId.trim() && (!user.roomId || user.roomId === roomId))
@@ -105,18 +106,22 @@ function toRoomParticipants(
       const profile = resolveParticipantProfile(user, memberByUid)
       const isLocal = user.uid === localUserUid
 
+      const isCameraOn = isLocal && localMedia ? localMedia.isCameraOn : !user.isVideoOff
+      const isMicOn = isLocal && localMedia ? localMedia.isMicOn : !user.isMuted
+      const isScreenSharing = isLocal && localMedia ? localMedia.isScreenSharing : Boolean(user.isScreenSharing)
+
       return {
         id: user.uid ?? user.socketId,
         socketId: user.socketId,
         displayName: profile.displayName,
         avatarUrl: profile.avatarUrl,
         isLocal,
-        isCameraOn: !user.isVideoOff,
-        isMicOn: !user.isMuted,
-        isScreenSharing: Boolean(user.isScreenSharing),
+        isCameraOn,
+        isMicOn,
+        isScreenSharing,
         // FIX: si la cámara está apagada, pasar null → VideoGrid muestra avatar en vez de pantalla negra
         videoStream: isLocal
-          ? (user.isVideoOff ? null : localStream ?? null)
+          ? (isCameraOn ? localStream ?? null : null)
           : remoteStreams.get(user.socketId) ?? null,
       }
     })
@@ -255,7 +260,10 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     })
 
     participants.forEach((participant) => {
-      const stream = participant.videoStream
+      const stream = participant.isLocal
+        ? localStreamRef.current
+        : remoteStreamsRef.current.get(participant.socketId)
+
       const hasLiveAudio = stream?.getAudioTracks().some(
         (track) => track.readyState === 'live',
       )
@@ -359,6 +367,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         // FIX: si la cámara local está apagada, pasar null para que aparezca el avatar
         localMediaRef.current.isCameraOn ? localStreamRef.current : null,
         remoteStreamsRef.current,
+        localMediaRef.current,
       ),
     }))
   }, [firebaseUser?.uid, roomId])
@@ -380,7 +389,11 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     if (!socket?.connected) return
 
     socket.emit(ROOM_SOCKET_EVENTS.NEW_USER)
-    socket.emit(ROOM_SOCKET_EVENTS.JOIN_ROOM, { roomId })
+    socket.emit(ROOM_SOCKET_EVENTS.JOIN_ROOM, {
+      roomId,
+      isMuted: !localMediaRef.current.isMicOn,
+      isVideoOff: !localMediaRef.current.isCameraOn,
+    })
   }, [roomId])
 
   const closePeerConnection = useCallback((remoteSocketId: string) => {
@@ -662,6 +675,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
                 audio: true,
                 video: true,
               })
+              setMediaError(null)
             } catch (err2: any) {
               if (err2.name === 'NotAllowedError' || err2.name === 'PermissionDeniedError') {
                 setMediaError('permissions')
@@ -670,9 +684,11 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
               }
               try {
                 localStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true })
+                setMediaError(null)
               } catch {
                 try {
                   localStreamRef.current = await navigator.mediaDevices.getUserMedia({ video: true })
+                  setMediaError(null)
                 } catch {
                   localStreamRef.current = new MediaStream()
                 }
@@ -763,15 +779,15 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
 
           // FIX: para el usuario local, usar el estado conocido localmente (localMediaRef)
           // en lugar de confiar en lo que el servidor devuelve, que puede estar desactualizado
-          const localCameraOn = localMediaRef.current.isCameraOn
           const participants = toRoomParticipants(
             users,
             roomId,
             memberByUidRef.current,
             firebaseUser?.uid,
             // Si la cámara local está apagada, pasar null para mostrar avatar
-            localCameraOn ? localStreamRef.current : null,
+            localMediaRef.current.isCameraOn ? localStreamRef.current : null,
             remoteStreamsRef.current,
+            localMediaRef.current,
           )
 
           setSession((prev) => ({
@@ -1047,7 +1063,8 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   }, [roomId, getIdToken])
 
   const toggleMic = useCallback(() => {
-    const audioTracks = localStreamRef.current?.getAudioTracks() ?? []
+    if (!localStreamRef.current) return
+    const audioTracks = localStreamRef.current.getAudioTracks()
     const nextMic = !session.localMedia.isMicOn
     audioTracks.forEach((track) => {
       track.enabled = nextMic
@@ -1069,6 +1086,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   // FIX: toggleCamera ahora usa track.stop() para liberar el hardware (apaga el LED de la cámara)
   // y getUserMedia para adquirir un nuevo track al encender, en lugar de solo track.enabled
   const toggleCamera = useCallback(async () => {
+    if (!localStreamRef.current) return
     const nextCam = !session.localMedia.isCameraOn
 
     if (!nextCam) {
@@ -1160,6 +1178,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   }, [emitMediaStatus, replaceOutgoingVideoTrack, roomId, session.localMedia])
 
   const toggleScreenShare = useCallback(async () => {
+    if (!localStreamRef.current) return
     if (session.localMedia.isScreenSharing) {
       const currentScreenTrack = screenTrackRef.current
       screenTrackRef.current = null

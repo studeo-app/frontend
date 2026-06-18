@@ -7,11 +7,13 @@ interface VideoGridProps {
   outputVolume?: number
 }
 
-function gridClass(count: number): string {
-  if (count <= 1) return 'grid-cols-1'
-  if (count <= 4) return 'grid-cols-1 sm:grid-cols-2'
-  if (count <= 6) return 'grid-cols-2 lg:grid-cols-3'
-  return 'grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+function tileWidthClass(count: number): string {
+  if (count <= 1) return 'w-full max-w-5xl'
+  if (count === 2) return 'w-full sm:w-[calc(50%-0.5rem)] max-w-3xl'
+  if (count === 3) return 'w-[calc(50%-0.25rem)] md:w-[calc(33.33%-0.75rem)] max-w-2xl'
+  if (count === 4) return 'w-[calc(50%-0.25rem)] sm:w-[calc(50%-0.5rem)] max-w-2xl'
+  if (count <= 6) return 'w-[calc(50%-0.25rem)] lg:w-[calc(33.33%-0.75rem)] max-w-xl'
+  return 'w-[calc(50%-0.25rem)] sm:w-[calc(33.33%-0.5rem)] lg:w-[calc(25%-0.75rem)] max-w-lg'
 }
 
 function screenGridClass(count: number): string {
@@ -66,7 +68,7 @@ export function VideoGrid({
       )}
 
       <div
-        className={`grid min-h-0 flex-1 auto-rows-fr gap-2 sm:gap-3 ${gridClass(sortedParticipants.length)} ${
+        className={`flex flex-wrap justify-center items-center content-center gap-2 sm:gap-3 min-h-0 flex-1 overflow-y-auto ${
           hasScreenShares ? 'max-h-[42%]' : ''
         }`}
       >
@@ -75,7 +77,7 @@ export function VideoGrid({
           <div
             key={participant.socketId}
             role="listitem"
-            className="w-full h-full min-h-0 flex items-center justify-center"
+            className={`flex items-center justify-center ${tileWidthClass(sortedParticipants.length)}`}
           >
             <VideoTile
               participant={participant}
@@ -88,4 +90,4 @@ export function VideoGrid({
       </div>
     </div>
   )
-}
+}
