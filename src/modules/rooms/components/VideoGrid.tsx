@@ -155,6 +155,7 @@ export function VideoGrid({
               mode={pinnedTile.type}
               isPinned={true}
               onTogglePin={() => setPinnedTileId(null)}
+              suppressScreenShareVideo={hasScreenShares && pinnedTile.type === 'camera'}
               isOwner={isOwner}
               onMute={() => onMuteParticipant?.(pinnedTile.participant.id)}
               onKick={() => onKickParticipant?.(pinnedTile.participant.id)}

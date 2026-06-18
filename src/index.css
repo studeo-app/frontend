@@ -125,6 +125,28 @@ input:focus-visible:not(.auth-input) {
   }
 }
 
+.room-reaction-float {
+  animation: roomReactionFloat 3.6s cubic-bezier(0.2, 0.72, 0.25, 1) forwards;
+}
+
+@keyframes roomReactionFloat {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 18px) scale(0.65);
+  }
+  14% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.08);
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--reaction-drift)), -55vh) scale(1.2);
+  }
+}
+
 
 body {
   font-size: 10px;
