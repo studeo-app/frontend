@@ -7,6 +7,7 @@ interface ControlBarProps {
   onToggleCamera: () => void
   onToggleScreenShare: () => void
   onLeave: () => void
+  disabled?: boolean
 }
 
 function MediaButton({
@@ -15,14 +16,18 @@ function MediaButton({
   onClick,
   children,
   isDangerWhenOff = false,
+  disabled = false,
 }: {
   active?: boolean
   label: string
   onClick: () => void
   children: React.ReactNode
   isDangerWhenOff?: boolean
+  disabled?: boolean
 }) {
-  const bg = isDangerWhenOff
+  const bg = disabled
+    ? 'bg-auth-input-bg/40 text-auth-label/30 cursor-not-allowed opacity-50 pointer-events-none'
+    : isDangerWhenOff
     ? (active
         ? 'bg-auth-input-bg text-auth-title hover:bg-auth-input-border/50'
         : 'bg-rose-400/20 text-rose-300 hover:bg-rose-400/30'
@@ -38,6 +43,7 @@ function MediaButton({
       aria-label={label}
       title={label}
       onClick={onClick}
+      disabled={disabled}
       className={`
         flex h-11 w-11 items-center justify-center rounded-full sm:h-12 sm:w-12
         transition-all active:scale-95 cursor-pointer
@@ -56,6 +62,7 @@ export function ControlBar({
   onToggleCamera,
   onToggleScreenShare,
   onLeave,
+  disabled = false,
 }: ControlBarProps) {
   return (
     <div className="flex shrink-0 w-full justify-center pb-4 pt-2 px-3 sm:pb-6 sm:px-4">
@@ -66,6 +73,7 @@ export function ControlBar({
           active={media.isMicOn}
           onClick={onToggleMic}
           isDangerWhenOff
+          disabled={disabled}
         >
           {media.isMicOn ? (
             <Mic className="h-5 w-5" aria-hidden="true" />
@@ -74,11 +82,13 @@ export function ControlBar({
           )}
         </MediaButton>
 
+        {/* Cámara */}
         <MediaButton
           label={media.isCameraOn ? 'Apagar cámara' : 'Encender cámara'}
           active={media.isCameraOn}
           onClick={onToggleCamera}
           isDangerWhenOff
+          disabled={disabled}
         >
           {media.isCameraOn ? (
             <Video className="h-5 w-5" aria-hidden="true" />
@@ -92,10 +102,12 @@ export function ControlBar({
           label={media.isScreenSharing ? 'Dejar de compartir' : 'Compartir pantalla'}
           active={media.isScreenSharing}
           onClick={onToggleScreenShare}
+          disabled={disabled}
         >
           <Monitor className="h-5 w-5" aria-hidden="true" />
         </MediaButton>
 
+        {/* Salir */}
         <button
           type="button"
           onClick={onLeave}

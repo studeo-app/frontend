@@ -55,4 +55,5 @@ export interface RoomSessionActions {
   sendMessage: (text: string) => void
   leaveRoom: () => void
   loadMoreHistory: () => void
+  retry: () => void
 }

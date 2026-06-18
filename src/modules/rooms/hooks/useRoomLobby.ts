@@ -152,11 +152,24 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
 
         const audioTrack = stream.getAudioTracks()[0]
         const videoTrack = stream.getVideoTracks()[0]
-        setLocalMedia((prev) => ({
-          ...prev,
-          isMicOn: Boolean(audioTrack),
-          isCameraOn: Boolean(videoTrack),
-        }))
+        setLocalMedia((prev) => {
+          const nextMicOn = Boolean(audioTrack) && prev.isMicOn
+          const nextCameraOn = Boolean(videoTrack) && prev.isCameraOn
+
+          if (!nextMicOn && audioTrack) {
+            audioTrack.enabled = false
+          }
+          if (!nextCameraOn && videoTrack) {
+            videoTrack.stop()
+            stream.removeTrack(videoTrack)
+          }
+
+          return {
+            ...prev,
+            isMicOn: nextMicOn,
+            isCameraOn: nextCameraOn,
+          }
+        })
 
         const devices = await navigator.mediaDevices.enumerateDevices()
         if (cancelled) return
@@ -182,10 +195,18 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
           setCameraDevices(videoInputs)
           setSelectedCameraId(videoTrack?.getSettings().deviceId ?? videoInputs[0].deviceId)
         }
-      } catch {
+      } catch (err: any) {
         if (!cancelled) {
           setLocalMedia((prev) => ({ ...prev, isMicOn: false, isCameraOn: false }))
-          setMediaError('No pudimos acceder a la cámara o al micrófono.')
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            setMediaError('Acceso denegado. Por favor, permite el acceso a la cámara y al micrófono en la barra de direcciones.')
+          } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+            setMediaError('Cámara o micrófono ocupados. Asegúrate de que no estén siendo usados por otra aplicación.')
+          } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+            setMediaError('No se detectaron dispositivos. Asegúrate de tener una cámara y micrófono conectados.')
+          } else {
+            setMediaError('No pudimos acceder a la cámara o al micrófono. Verifica tus conexiones.')
+          }
         }
       }
     }
@@ -204,10 +225,16 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
 
     try {
       const previousStream = localStreamRef.current
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const cameraOn = localMediaRef.current.isCameraOn
+
+      const constraints: MediaStreamConstraints = {
         audio: nextMicId ? { deviceId: { exact: nextMicId } } : true,
-        video: nextCameraId ? { deviceId: { exact: nextCameraId } } : true,
-      })
+      }
+      if (cameraOn) {
+        constraints.video = nextCameraId ? { deviceId: { exact: nextCameraId } } : true
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
 
       previousStream?.getTracks().forEach((track) => track.stop())
       localStreamRef.current = stream
@@ -227,8 +254,14 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
         })
         return nextMedia
       })
-    } catch {
-      setMediaError('No pudimos cambiar el dispositivo seleccionado.')
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setMediaError('Permisos insuficientes para el dispositivo seleccionado.')
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        setMediaError('El dispositivo seleccionado está en uso por otra aplicación.')
+      } else {
+        setMediaError('No pudimos cambiar al dispositivo seleccionado.')
+      }
     }
   }, [])
 
@@ -329,15 +362,51 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
     })
   }, [])
 
-  const toggleCamera = useCallback(() => {
-    setLocalMedia((prev) => {
-      const nextCamera = !prev.isCameraOn
+  const toggleCamera = useCallback(async () => {
+    const nextCamera = !localMediaRef.current.isCameraOn
+
+    if (!nextCamera) {
       localStreamRef.current?.getVideoTracks().forEach((track) => {
-        track.enabled = nextCamera
+        track.stop()
+        localStreamRef.current?.removeTrack(track)
       })
-      return { ...prev, isCameraOn: nextCamera }
-    })
-  }, [])
+      setLocalMedia((prev) => ({ ...prev, isCameraOn: false }))
+    } else {
+      if (!navigator.mediaDevices?.getUserMedia) return
+
+      try {
+        setMediaError(null)
+        const videoStream = await navigator.mediaDevices.getUserMedia({
+          video: selectedCameraId ? { deviceId: { exact: selectedCameraId } } : true,
+        })
+        const track = videoStream.getVideoTracks()[0]
+        if (track) {
+          track.enabled = true
+          localStreamRef.current?.getVideoTracks().forEach((t) => {
+            t.stop()
+            localStreamRef.current?.removeTrack(t)
+          })
+          if (localStreamRef.current) {
+            localStreamRef.current.addTrack(track)
+            setLocalStream(new MediaStream(localStreamRef.current.getTracks()))
+          } else {
+            const newStream = new MediaStream([track])
+            localStreamRef.current = newStream
+            setLocalStream(newStream)
+          }
+        }
+        setLocalMedia((prev) => ({ ...prev, isCameraOn: true }))
+      } catch (err: any) {
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setMediaError('Acceso denegado a la cámara. Por favor permite los permisos en tu navegador.')
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+          setMediaError('La cámara está en uso por otra aplicación.')
+        } else {
+          setMediaError('No pudimos acceder a la cámara.')
+        }
+      }
+    }
+  }, [selectedCameraId])
 
   const updateSelectedMicId = useCallback((id: string) => {
     setSelectedMicId(id)
@@ -375,7 +444,7 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
       }),
     )
     navigate(`/room/${roomId}`)
-  }, [localMedia.isCameraOn, localMedia.isMicOn, navigate, roomId, selectedCameraId, selectedMicId])
+  }, [localMedia, navigate, roomId, selectedCameraId, selectedMicId])
 
   return {
     localMedia,

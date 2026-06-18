@@ -7,11 +7,13 @@ interface VideoGridProps {
   outputVolume?: number
 }
 
-function gridClass(count: number): string {
-  if (count <= 1) return 'grid-cols-1'
-  if (count <= 4) return 'grid-cols-1 sm:grid-cols-2'
-  if (count <= 6) return 'grid-cols-2 lg:grid-cols-3'
-  return 'grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+function tileWidthClass(count: number): string {
+  if (count <= 1) return 'w-full max-w-5xl'
+  if (count === 2) return 'w-full sm:w-[calc(50%-0.5rem)] max-w-3xl'
+  if (count === 3) return 'w-[calc(50%-0.25rem)] md:w-[calc(33.33%-0.75rem)] max-w-2xl'
+  if (count === 4) return 'w-[calc(50%-0.25rem)] sm:w-[calc(50%-0.5rem)] max-w-2xl'
+  if (count <= 6) return 'w-[calc(50%-0.25rem)] lg:w-[calc(33.33%-0.75rem)] max-w-xl'
+  return 'w-[calc(50%-0.25rem)] sm:w-[calc(33.33%-0.5rem)] lg:w-[calc(25%-0.75rem)] max-w-lg'
 }
 
 function screenGridClass(count: number): string {
@@ -29,6 +31,13 @@ export function VideoGrid({
     (participant) => participant.isScreenSharing && participant.videoStream,
   )
   const hasScreenShares = screenShareParticipants.length > 0
+
+  // 👑 ORDENAR PARTICIPANTES: El usuario local siempre va primero (arriba a la izquierda)
+  const sortedParticipants = [...participants].sort((a, b) => {
+    if (a.isLocal) return -1 // 'a' es local, va primero
+    if (b.isLocal) return 1  // 'b' es local, va primero
+    return 0                 // los demás mantienen su orden
+  })
 
   return (
     <div
@@ -59,25 +68,26 @@ export function VideoGrid({
       )}
 
       <div
-        className={`grid min-h-0 flex-1 auto-rows-fr gap-2 sm:gap-3 ${gridClass(participants.length)} ${
+        className={`flex flex-wrap justify-center items-center content-center gap-2 sm:gap-3 min-h-0 flex-1 overflow-y-auto ${
           hasScreenShares ? 'max-h-[42%]' : ''
         }`}
       >
-      {participants.map((participant) => (
-        <div
-          key={participant.socketId}
-          role="listitem"
-          className="w-full h-full min-h-0 flex items-center justify-center"
-        >
-          <VideoTile
-            participant={participant}
-            mirrorLocalVideo={mirrorLocalVideo}
-            outputVolume={outputVolume}
-            suppressScreenShareVideo={hasScreenShares}
-          />
-        </div>
-      ))}
+        {/* Usamos sortedParticipants en lugar de participants */}
+        {sortedParticipants.map((participant) => (
+          <div
+            key={participant.socketId}
+            role="listitem"
+            className={`flex items-center justify-center ${tileWidthClass(sortedParticipants.length)}`}
+          >
+            <VideoTile
+              participant={participant}
+              mirrorLocalVideo={mirrorLocalVideo}
+              outputVolume={outputVolume}
+              suppressScreenShareVideo={hasScreenShares}
+            />
+          </div>
+        ))}
       </div>
     </div>
   )
-}
+}

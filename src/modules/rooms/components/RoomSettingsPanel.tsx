@@ -1,4 +1,4 @@
-import { Camera, FlipHorizontal, Volume2 } from 'lucide-react'
+import { Camera, FlipHorizontal, Volume2, ChevronRight } from 'lucide-react'
 
 interface RoomSettingsPanelProps {
   isOpen?: boolean
@@ -8,7 +8,11 @@ interface RoomSettingsPanelProps {
   onOutputVolumeChange: (volume: number) => void
   onToggleMirrorLocalVideo: () => void
   onSwitchCamera: () => void
+  onClose?: () => void 
 }
+
+const isMobileDevice =
+  typeof navigator !== 'undefined' && /Mobi|Android/i.test(navigator.userAgent)
 
 export function RoomSettingsPanel({
   isOpen = true,
@@ -18,6 +22,7 @@ export function RoomSettingsPanel({
   onOutputVolumeChange,
   onToggleMirrorLocalVideo,
   onSwitchCamera,
+  onClose, 
 }: RoomSettingsPanelProps) {
   return (
     <div
@@ -32,8 +37,17 @@ export function RoomSettingsPanel({
         aria-label="Ajustes de sala"
         className="flex h-full w-full shrink-0 flex-col border border-auth-input-border bg-auth-surface md:w-[320px] md:border-y-0 md:border-r-0"
       >
-        <div className="border-b border-auth-input-border px-4 py-3.5">
+        <div className="flex items-center justify-between border-b border-auth-input-border px-4 py-3">
           <h2 className="text-sm font-semibold text-auth-title">Ajustes</h2>
+          <button
+            type="button"
+            onClick={onClose} // 👑 Dispara el cierre del panel lateral
+            aria-label="Esconder ajustes"
+            title="Esconder ajustes"
+            className="rounded-lg p-1 text-auth-label transition-colors hover:bg-auth-input-bg hover:text-auth-title cursor-pointer shrink-0"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-5">
@@ -86,19 +100,22 @@ export function RoomSettingsPanel({
               </span>
             </button>
 
-            <button
-              type="button"
-              onClick={onSwitchCamera}
-              className="flex w-full items-center justify-between gap-3 rounded-xl border border-auth-input-border bg-auth-input-bg px-3 py-2.5 text-left text-sm text-auth-title transition hover:border-auth-btn/40"
-            >
-              <span className="flex items-center gap-2">
-                <Camera className="h-4 w-4 text-auth-label" aria-hidden="true" />
-                Cámara del celular
-              </span>
-              <span className="rounded-lg bg-auth-surface px-2 py-1 text-xs font-medium text-auth-label">
-                {cameraFacingMode === 'user' ? 'Frontal' : 'Trasera'}
-              </span>
-            </button>
+            {/* Solo visible en móvil: los laptops/desktop no tienen cámara frontal/trasera */}
+            {isMobileDevice && (
+              <button
+                type="button"
+                onClick={onSwitchCamera}
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-auth-input-border bg-auth-input-bg px-3 py-2.5 text-left text-sm text-auth-title transition hover:border-auth-btn/40"
+              >
+                <span className="flex items-center gap-2">
+                  <Camera className="h-4 w-4 text-auth-label" aria-hidden="true" />
+                  Cambiar cámara
+                </span>
+                <span className="rounded-lg bg-auth-surface px-2 py-1 text-xs font-medium text-auth-label">
+                  {cameraFacingMode === 'user' ? 'Frontal' : 'Trasera'}
+                </span>
+              </button>
+            )}
           </section>
         </div>
       </aside>
