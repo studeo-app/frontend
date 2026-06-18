@@ -25,3 +25,29 @@ export function hasRoomDeletedDashboardNotice(
   )
 }
 
+export const ROOM_KICKED_DASHBOARD_NOTICE = {
+  stateKey: 'roomKickedByHost',
+  message: 'Fuiste expulsado de la sala por el anfitrión.',
+} as const
+
+export interface RoomKickedDashboardState {
+  [ROOM_KICKED_DASHBOARD_NOTICE.stateKey]?: boolean
+}
+
+export function createRoomKickedDashboardState(): RoomKickedDashboardState {
+  return {
+    [ROOM_KICKED_DASHBOARD_NOTICE.stateKey]: true,
+  }
+}
+
+export function hasRoomKickedDashboardNotice(
+  state: unknown,
+): state is RoomKickedDashboardState {
+  return (
+    typeof state === 'object' &&
+    state !== null &&
+    (state as RoomKickedDashboardState)[ROOM_KICKED_DASHBOARD_NOTICE.stateKey] === true
+  )
+}
+
+

@@ -56,4 +56,6 @@ export interface RoomSessionActions {
   leaveRoom: () => void
   loadMoreHistory: () => void
   retry: () => void
+  muteParticipant: (uid: string) => void
+  kickParticipant: (uid: string) => void
 }

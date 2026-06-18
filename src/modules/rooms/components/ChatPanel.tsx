@@ -18,22 +18,7 @@ const MAX_MESSAGE_LENGTH = 150
 const GAP = 12 // Spacing between messages (corresponds to space-y-3 which is 12px)
 const BUFFER = 500 // Render buffer in pixels (viewport safety margin)
 
-/**
- * Formatea un timestamp ISO a una hora relativa legible.
- */
-function formatRelativeTime(isoString: string): string {
-  const date = new Date(isoString)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffSec = Math.floor(diffMs / 1000)
-  const diffMin = Math.floor(diffSec / 60)
-  const diffHour = Math.floor(diffMin / 60)
 
-  if (diffSec < 60) return 'ahora'
-  if (diffMin < 60) return `hace ${diffMin} min`
-  if (diffHour < 24) return `hace ${diffHour}h`
-  return date.toLocaleDateString('es', { day: 'numeric', month: 'short' })
-}
 
 /**
  * Estima la altura del mensaje en base a la longitud del texto y si está agrupado.
@@ -228,15 +213,29 @@ export function ChatPanel({
   // Ajuste fino del scroll en la apertura/animación del chat
   useEffect(() => {
     if (isOpen) {
-      const timer = setTimeout(() => {
+      isAtBottom.current = true
+      scrollToBottom('instant')
+      const timer1 = setTimeout(() => scrollToBottom('instant'), 50)
+      const timer2 = setTimeout(() => scrollToBottom('instant'), 150)
+      const timer3 = setTimeout(() => {
         updateScrollState()
-        if (isAtBottom.current) {
-          scrollToBottom('instant')
-        }
+        scrollToBottom('instant')
       }, 350) // Esperamos a que la animación de css (duration-300) termine
-      return () => clearTimeout(timer)
+      return () => {
+        clearTimeout(timer1)
+        clearTimeout(timer2)
+        clearTimeout(timer3)
+      }
     }
   }, [isOpen, scrollToBottom, updateScrollState])
+
+  // Asegurar que si estamos marcados para estar al fondo (isAtBottom.current === true),
+  // mantengamos el scroll al fondo cuando se actualicen las alturas medidas de los mensajes.
+  useEffect(() => {
+    if (isOpen && isAtBottom.current && messages.length > 0) {
+      scrollToBottom('instant')
+    }
+  }, [heights, isOpen, messages.length, scrollToBottom])
 
   // Cálculos de posiciones acumuladas (virtualización)
   const positions = []
@@ -500,32 +499,28 @@ export function ChatPanel({
                   onMeasure={handleMeasure}
                 >
                   {/* Contenedor interno del mensaje */}
-                  <div className={`max-w-[82%] min-w-0 ${isOwnMessage ? 'text-right' : 'text-left'}`}>
-                    {!isGrouped && (
-                      <div
-                        className={`flex items-baseline gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'
-                          }`}
-                      >
-                        <p className="text-xs font-semibold text-auth-btn truncate max-w-[120px]">
-                          {isOwnMessage ? 'Tú' : msg.displayName}
-                        </p>
-                        <time
-                          className="text-[10px] text-auth-label/50 shrink-0"
-                          dateTime={msg.timestamp}
-                          title={new Date(msg.timestamp).toLocaleString('es')}
-                        >
-                          {formatRelativeTime(msg.timestamp)}
-                        </time>
-                      </div>
-                    )}
-                    <p
-                      className={`mt-0.5 block rounded-2xl px-3 py-2 text-sm leading-relaxed break-words overflow-hidden ${isOwnMessage
-                          ? 'bg-auth-btn text-auth-btn-text'
-                          : 'bg-transparent px-0 text-auth-title'
-                        }`}
+                  <div className={`max-w-[82%] min-w-[70px] text-left`}>
+                    <div
+                      className={`mt-0.5 relative rounded-2xl px-3 pb-5 pt-2 text-sm leading-relaxed break-words overflow-hidden ${
+                        isOwnMessage
+                          ? 'bg-auth-btn text-auth-btn-text rounded-tr-sm'
+                          : 'bg-auth-input-bg border border-auth-input-border/30 text-auth-title rounded-tl-sm'
+                      }`}
                     >
-                      {msg.text}
-                    </p>
+                      {!isOwnMessage && !isGrouped && (
+                        <div className="text-[10px] font-bold text-violet-500 mb-0.5 truncate max-w-[150px] select-none">
+                          {msg.displayName}
+                        </div>
+                      )}
+                      <div className="pr-4">{msg.text}</div>
+                      <time
+                        className="absolute bottom-1 right-2 text-[9px] opacity-60 pointer-events-none select-none shrink-0"
+                        dateTime={msg.timestamp}
+                        title={new Date(msg.timestamp).toLocaleString('es')}
+                      >
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </time>
+                    </div>
                   </div>
                 </VirtualMessageItem>
               )

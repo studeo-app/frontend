@@ -5,6 +5,7 @@ export const ROOM_SOCKET_EVENTS = {
   JOIN_ROOM: 'joinRoom',
   LEAVE_ROOM: 'leaveRoom',
   ROOM_MEMBER_REMOVED: 'roomMemberRemoved',
+  ROOM_MEMBER_MUTED: 'roomMemberMuted',
   ROOM_USERS_PREVIEW: 'roomUsersPrevisualization',
   DELETE_ROOM: 'deleteRoom',
   ROOM_DELETED: 'roomDeleted',
