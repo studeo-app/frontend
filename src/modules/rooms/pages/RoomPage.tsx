@@ -5,6 +5,8 @@ import { useAuthStore } from '@/stores/useAuthStore'
 import { getSocket } from '@/config/socket.config'
 import useDocumentTitle from '@/shared/hooks/useDocumentTitle'
 import { WarningModal } from '@/shared/components/ui/WarningModal'
+import { ConfirmModal } from '@/shared/components/ui/ConfirmModal'
+import { createRoomKickedDashboardState } from '../constants/roomDeletionNotice'
 import { getRoomMembers } from '../api/roomsApi'
 import { ChatPanel } from '../components/ChatPanel'
 import { ControlBar } from '../components/ControlBar'
@@ -49,6 +51,23 @@ export default function RoomPage() {
   const [members, setMembers] = useState<RoomMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(false)
   const [removedMemberUids, setRemovedMemberUids] = useState<Set<string>>(() => new Set())
+  const [muteConfirmTarget, setMuteConfirmTarget] = useState<{ uid: string; displayName: string } | null>(null)
+  const [kickConfirmTarget, setKickConfirmTarget] = useState<{ uid: string; displayName: string } | null>(null)
+  const [showMutedByHostWarning, setShowMutedByHostWarning] = useState(false)
+
+  const handleRequestMute = useCallback((uid: string) => {
+    const participant = session.participants.find((p) => p.id === uid)
+    const member = members.find((m) => m.uid === uid)
+    const displayName = participant?.displayName || member?.displayName || member?.username || 'este miembro'
+    setMuteConfirmTarget({ uid, displayName })
+  }, [session.participants, members])
+
+  const handleRequestKick = useCallback((uid: string) => {
+    const participant = session.participants.find((p) => p.id === uid)
+    const member = members.find((m) => m.uid === uid)
+    const displayName = participant?.displayName || member?.displayName || member?.username || 'este miembro'
+    setKickConfirmTarget({ uid, displayName })
+  }, [session.participants, members])
 
   // Overlay de reconexión: se activa solo cuando el socket se desconecta, DESPUÉS de haber estado conectado (no al cargar por primera vez)
   const hasBeenConnectedRef = useRef(false)
@@ -162,12 +181,29 @@ export default function RoomPage() {
     if (!socket) return
     const handleRoomMemberRemoved = (payload: { roomId: string; uid: string }) => {
       if (payload.roomId !== roomId) return
+
+      if (payload.uid === firebaseUser?.uid) {
+        actions.leaveRoom()
+        navigate('/dashboard', { replace: true, state: createRoomKickedDashboardState() })
+        return
+      }
+
       setRemovedMemberUids((prev) => new Set(prev).add(payload.uid))
       setMembers((prev) => prev.filter((member) => member.uid !== payload.uid))
     }
+    const handleRoomMemberMuted = (payload: { roomId: string; uid: string }) => {
+      if (payload.roomId !== roomId) return
+      if (payload.uid === firebaseUser?.uid) {
+        setShowMutedByHostWarning(true)
+      }
+    }
     socket.on(ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED, handleRoomMemberRemoved)
-    return () => { socket.off(ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED, handleRoomMemberRemoved) }
-  }, [roomId, session.connectionStatus])
+    socket.on('roomMemberMuted', handleRoomMemberMuted)
+    return () => {
+      socket.off(ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED, handleRoomMemberRemoved)
+      socket.off('roomMemberMuted', handleRoomMemberMuted)
+    }
+  }, [roomId, session.connectionStatus, firebaseUser?.uid, actions, navigate])
 
   useEffect(() => {
     setRemovedMemberUids(new Set())
@@ -270,6 +306,9 @@ export default function RoomPage() {
                   participants={session.participants}
                   mirrorLocalVideo={session.mirrorLocalVideo}
                   outputVolume={session.outputVolume}
+                  isOwner={isOwner}
+                  onMuteParticipant={handleRequestMute}
+                  onKickParticipant={handleRequestKick}
                 />
               )}
 
@@ -316,6 +355,9 @@ export default function RoomPage() {
               loadingMembers={loadingMembers}
               isOpen={activePanel === 'participants'}
               onClose={() => setActivePanel(null)}
+              isOwner={isOwner}
+              onMuteParticipant={handleRequestMute}
+              onKickParticipant={handleRequestKick}
             />
 
             <RoomSettingsPanel
@@ -362,6 +404,64 @@ export default function RoomPage() {
           joinWarningMessage ??
           'Ya te encuentras conectado a esta sala desde otra pestaña o dispositivo.'
         }
+      />
+
+      {/* Confirmation Modals for Host controls */}
+      <ConfirmModal
+        isOpen={Boolean(muteConfirmTarget)}
+        onClose={() => setMuteConfirmTarget(null)}
+        onConfirm={() => {
+          if (muteConfirmTarget) {
+            actions.muteParticipant(muteConfirmTarget.uid)
+          }
+          setMuteConfirmTarget(null)
+        }}
+        title="Silenciar participante"
+        message={
+          muteConfirmTarget ? (
+            <span>
+              ¿Estás seguro de que deseas silenciar el micrófono de{' '}
+              <strong>{muteConfirmTarget.displayName}</strong>?
+            </span>
+          ) : (
+            ''
+          )
+        }
+        confirmText="Silenciar"
+        cancelText="Cancelar"
+        warning={true}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(kickConfirmTarget)}
+        onClose={() => setKickConfirmTarget(null)}
+        onConfirm={() => {
+          if (kickConfirmTarget) {
+            actions.kickParticipant(kickConfirmTarget.uid)
+          }
+          setKickConfirmTarget(null)
+        }}
+        title="Expulsar participante"
+        message={
+          kickConfirmTarget ? (
+            <span>
+              ¿Estás seguro de que deseas expulsar a{' '}
+              <strong>{kickConfirmTarget.displayName}</strong> de la sala? Esta acción no se puede deshacer.
+            </span>
+          ) : (
+            ''
+          )
+        }
+        confirmText="Expulsar"
+        cancelText="Cancelar"
+        critical={true}
+      />
+
+      {/* Notification Modal for Muted Client */}
+      <WarningModal
+        isOpen={showMutedByHostWarning}
+        onClose={() => setShowMutedByHostWarning(false)}
+        message="El anfitrión ha silenciado tu micrófono."
       />
     </div>
   )

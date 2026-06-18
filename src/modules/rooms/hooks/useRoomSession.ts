@@ -956,6 +956,36 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           })
         })
 
+        socket.on('roomMemberMuted', (payload: { roomId: string; uid: string }) => {
+          if (cancelled || payload.roomId !== roomId) return
+          if (payload.uid === firebaseUser?.uid) {
+            if (localStreamRef.current) {
+              localStreamRef.current.getAudioTracks().forEach((track) => {
+                track.enabled = false
+              })
+            }
+            const nextMedia = { ...localMediaRef.current, isMicOn: false }
+            localMediaRef.current = nextMedia
+            writeLobbyMediaState(roomId, nextMedia)
+            setSession((prev) => ({
+              ...prev,
+              localMedia: nextMedia,
+              participants: prev.participants.map((p) =>
+                p.isLocal ? { ...p, isMicOn: false } : p,
+              ),
+            }))
+            const socketInstance = getSocket()
+            if (socketInstance?.connected) {
+              socketInstance.emit(ROOM_SOCKET_EVENTS.MEDIA_STATUS, {
+                roomId,
+                isMuted: true,
+                isVideoOff: !nextMedia.isCameraOn,
+                isScreenSharing: nextMedia.isScreenSharing,
+              })
+            }
+          }
+        })
+
         if (socket.connected) {
           setSession((prev) => ({ ...prev, connectionStatus: 'connected' }))
           emitJoinRoom()
@@ -1011,6 +1041,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         socket.off(ROOM_SOCKET_EVENTS.WEBRTC_ICE_CANDIDATE)
         socket.off(ROOM_SOCKET_EVENTS.ERROR_MESSAGE)
         socket.off(ROOM_SOCKET_EVENTS.ROOM_DELETED)
+        socket.off('roomMemberMuted')
       }
       cleanupWebRtc()
       disconnectSocket()
@@ -1376,6 +1407,20 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     setRetryCount((prev) => prev + 1)
   }, [])
 
+  const muteParticipant = useCallback((targetUid: string) => {
+    const socket = getSocket()
+    if (socket?.connected) {
+      socket.emit('roomMemberMuted', { roomId, uid: targetUid })
+    }
+  }, [roomId])
+
+  const kickParticipant = useCallback((targetUid: string) => {
+    const socket = getSocket()
+    if (socket?.connected) {
+      socket.emit(ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED, { roomId, uid: targetUid })
+    }
+  }, [roomId])
+
   const actions: RoomSessionActions = {
     toggleMic,
     toggleCamera,
@@ -1387,6 +1432,8 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     leaveRoom,
     loadMoreHistory,
     retry,
+    muteParticipant,
+    kickParticipant,
   }
 
   const clearJoinWarning = useCallback(() => {

@@ -1,4 +1,4 @@
-import { Loader2, Mic, MicOff, VideoOff } from 'lucide-react'
+import { Loader2, Mic, MicOff, VideoOff, Pin, UserMinus } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { UserAvatar } from '@/shared/components/user/UserAvatar'
 import type { RoomParticipant } from '../types/roomSession'
@@ -9,6 +9,12 @@ interface VideoTileProps {
   outputVolume?: number
   mode?: 'camera' | 'screen'
   suppressScreenShareVideo?: boolean
+  isPinned?: boolean
+  onTogglePin?: () => void
+  isOwner?: boolean
+  onMute?: () => void
+  onKick?: () => void
+  fullSize?: boolean
 }
 
 export function VideoTile({
@@ -17,6 +23,12 @@ export function VideoTile({
   outputVolume = 80,
   mode = 'camera',
   suppressScreenShareVideo = false,
+  isPinned = false,
+  onTogglePin,
+  isOwner = false,
+  onMute,
+  onKick,
+  fullSize = false,
 }: VideoTileProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const {
@@ -93,12 +105,29 @@ export function VideoTile({
   return (
     <div
       className={`
-      relative flex w-full max-h-full aspect-video items-center justify-center overflow-hidden
+      group relative flex ${fullSize ? 'w-full h-full' : 'w-full max-h-full aspect-video'} items-center justify-center overflow-hidden
       rounded-xl sm:rounded-2xl
       bg-auth-input-bg/90 border border-gray-300 dark:border-transparent shadow-md transition-all duration-300
       ${isSpeaking ? 'ring-[3px] ring-sky-500 ring-offset-2 ring-offset-auth-bg shadow-sky-500/30' : ''}
     `}
     >
+      {/* Botón de fijar (Pin) */}
+      {onTogglePin && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onTogglePin()
+          }}
+          className={`absolute left-3 top-3 z-20 rounded-lg bg-auth-bg/85 p-1.5 text-auth-label hover:text-auth-title transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn ${
+            isPinned ? '!text-sky-400 bg-sky-500/10 border border-sky-500/30' : ''
+          }`}
+          title={isPinned ? 'Desfijar' : 'Fijar'}
+          aria-label={isPinned ? 'Desfijar participante' : 'Fijar participante'}
+        >
+          <Pin className={`h-4 w-4 ${isPinned ? 'fill-current' : ''}`} />
+        </button>
+      )}
       {/* Video — siempre en el DOM si hay stream, la visibilidad la controla opacity */}
       {shouldRenderVideo && (
         <video
@@ -129,8 +158,42 @@ export function VideoTile({
 
       {/* Ícono de cámara apagada — se muestra cuando la cámara está apagada y no compartiendo pantalla */}
       {mode === 'camera' && !isCameraOn && !isScreenSharing && (
-        <div className="absolute right-3 top-3 rounded-lg bg-auth-bg/80 p-1.5 animate-fade-in">
+        <div className={`absolute right-3 top-3 rounded-lg bg-auth-bg/80 p-1.5 animate-fade-in transition-opacity ${
+          isOwner && !isLocal ? 'group-hover:opacity-0 group-hover:pointer-events-none' : ''
+        }`}>
           <VideoOff className="h-4 w-4 text-auth-label" aria-hidden="true" />
+        </div>
+      )}
+
+      {/* Botones de acción del Anfitrión (Silenciar y Expulsar) */}
+      {isOwner && !isLocal && (
+        <div className="absolute right-3 top-3 z-30 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          {isMicOn && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onMute?.()
+              }}
+              className="rounded-lg bg-auth-bg/90 border border-auth-input-border/30 hover:bg-auth-btn hover:text-auth-btn-text p-1.5 text-auth-label transition cursor-pointer focus-visible:outline-none"
+              title="Silenciar a este participante"
+              aria-label="Silenciar a este participante"
+            >
+              <MicOff className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onKick?.()
+            }}
+            className="rounded-lg bg-red-500/90 border border-red-600/30 hover:bg-red-600 p-1.5 text-white transition cursor-pointer focus-visible:outline-none"
+            title="Expulsar a este participante"
+            aria-label="Expulsar a este participante"
+          >
+            <UserMinus className="h-4 w-4" />
+          </button>
         </div>
       )}
 
