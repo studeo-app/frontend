@@ -284,6 +284,7 @@ export default function RoomPage() {
               onToggleCamera={actions.toggleCamera}
               onToggleScreenShare={actions.toggleScreenShare}
               onLeave={actions.leaveRoom}
+              disabled={mediaStatus === 'requesting_permissions' || mediaStatus === 'webrtc_connecting'}
             />
           </div>
 

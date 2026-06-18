@@ -51,7 +51,7 @@ export function RoomHeader({
   }
 
   return (
-    <header className="flex min-h-[62px] shrink-0 items-center justify-between gap-2 border-b border-auth-input-border px-3 py-2.5 sm:gap-4 sm:px-5 sm:py-3.5">
+    <header className="relative z-[45] bg-auth-bg flex min-h-[62px] shrink-0 items-center justify-between gap-2 border-b border-auth-input-border px-3 py-2.5 sm:gap-4 sm:px-5 sm:py-3.5">
       <div className="flex min-w-0 items-center gap-2 sm:gap-4">
         <button
           type="button"

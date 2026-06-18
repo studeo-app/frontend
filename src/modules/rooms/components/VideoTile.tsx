@@ -1,4 +1,4 @@
-import { Mic, MicOff, VideoOff } from 'lucide-react'
+import { Loader2, Mic, MicOff, VideoOff } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { UserAvatar } from '@/shared/components/user/UserAvatar'
 import type { RoomParticipant } from '../types/roomSession'
@@ -95,8 +95,8 @@ export function VideoTile({
       className={`
       relative flex w-full max-h-full aspect-video items-center justify-center overflow-hidden
       rounded-xl sm:rounded-2xl
-      bg-auth-input-bg/90 border border-gray-300 dark:border-transparent shadow-md
-      ${isSpeaking ? 'ring-[3px] ring-violet-500 ring-offset-2 ring-offset-auth-bg shadow-violet-500/30' : ''}
+      bg-auth-input-bg/90 border border-gray-300 dark:border-transparent shadow-md transition-all duration-300
+      ${isSpeaking ? 'ring-[3px] ring-sky-500 ring-offset-2 ring-offset-auth-bg shadow-sky-500/30' : ''}
     `}
     >
       {/* Video — siempre en el DOM si hay stream, la visibilidad la controla opacity */}
@@ -127,10 +127,20 @@ export function VideoTile({
         )
       )}
 
-      {/* Ícono de cámara apagada — se muestra cuando no hay video visible, solo en modo camera */}
-      {mode === 'camera' && !shouldShowVideo && !isScreenSharing && (
-        <div className="absolute right-3 top-3 rounded-lg bg-auth-bg/80 p-1.5">
+      {/* Ícono de cámara apagada — se muestra cuando la cámara está apagada y no compartiendo pantalla */}
+      {mode === 'camera' && !isCameraOn && !isScreenSharing && (
+        <div className="absolute right-3 top-3 rounded-lg bg-auth-bg/80 p-1.5 animate-fade-in">
           <VideoOff className="h-4 w-4 text-auth-label" aria-hidden="true" />
+        </div>
+      )}
+
+      {/* Indicador de conectando video — se muestra si la cámara está encendida pero no ha llegado el stream */}
+      {mode === 'camera' && isCameraOn && !videoStream && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-auth-bg/45 backdrop-blur-[2px] select-none animate-fade-in gap-2 z-10">
+          <Loader2 className="h-6 w-6 text-violet-500 animate-spin" />
+          <span className="text-[10px] font-semibold text-auth-title bg-auth-bg/85 px-2 py-0.5 rounded-full border border-auth-input-border/30">
+            Conectando video...
+          </span>
         </div>
       )}
 
