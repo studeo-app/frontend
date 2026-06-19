@@ -31,6 +31,8 @@ import { ROOM_SOCKET_EVENTS } from "@/modules/rooms/constants/socketEvents";
 import {
   ROOM_DELETED_DASHBOARD_NOTICE,
   hasRoomDeletedDashboardNotice,
+  ROOM_KICKED_DASHBOARD_NOTICE,
+  hasRoomKickedDashboardNotice,
 } from "@/modules/rooms/constants/roomDeletionNotice";
 import { DEFAULT_ROOM_COVERS } from "@/modules/rooms/constants/defaultRoomCovers";
 import { joinRoomByCode, removeRoomMembership } from "@/modules/rooms/api/roomsApi";
@@ -93,6 +95,9 @@ export default function DashboardPage() {
   const [roomDeletedWarningOpen, setRoomDeletedWarningOpen] = useState(() =>
     hasRoomDeletedDashboardNotice(location.state),
   );
+  const [roomKickedWarningOpen, setRoomKickedWarningOpen] = useState(() =>
+    hasRoomKickedDashboardNotice(location.state),
+  );
   const subscribeRoomsMembers = useRoomsStore((state) => state.subscribeRoomsMembers);
   const removeRoomMembersLocally = useRoomsStore((state) => state.removeRoomMembersLocally);
 
@@ -134,10 +139,18 @@ export default function DashboardPage() {
     if (hasRoomDeletedDashboardNotice(location.state)) {
       setRoomDeletedWarningOpen(true);
     }
+    if (hasRoomKickedDashboardNotice(location.state)) {
+      setRoomKickedWarningOpen(true);
+    }
   }, [location.state]);
 
   const handleRoomDeletedWarningClose = () => {
     setRoomDeletedWarningOpen(false);
+    navigate("/dashboard", { replace: true, state: null });
+  };
+
+  const handleRoomKickedWarningClose = () => {
+    setRoomKickedWarningOpen(false);
     navigate("/dashboard", { replace: true, state: null });
   };
 
@@ -824,6 +837,12 @@ export default function DashboardPage() {
         isOpen={roomDeletedWarningOpen}
         onClose={handleRoomDeletedWarningClose}
         message={ROOM_DELETED_DASHBOARD_NOTICE.message}
+      />
+
+      <WarningModal
+        isOpen={roomKickedWarningOpen}
+        onClose={handleRoomKickedWarningClose}
+        message={ROOM_KICKED_DASHBOARD_NOTICE.message}
       />
 
       <ErrorModal

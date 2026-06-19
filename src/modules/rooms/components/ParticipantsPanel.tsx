@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Circle, Mic, MicOff, Video, VideoOff, ChevronRight } from 'lucide-react'
+import { Circle, Mic, MicOff, Video, VideoOff, ChevronRight, UserMinus } from 'lucide-react'
 import { UserAvatar } from '@/shared/components/user/UserAvatar'
 import type { RoomMember } from '@/types/room'
 import type { RoomParticipant } from '../types/roomSession'
@@ -9,7 +9,10 @@ interface ParticipantsPanelProps {
   onlineParticipants: RoomParticipant[]
   loadingMembers?: boolean
   isOpen?: boolean
-  onClose?: () => void 
+  onClose?: () => void
+  isOwner?: boolean
+  onMuteParticipant?: (uid: string) => void
+  onKickParticipant?: (uid: string) => void
 }
 
 export function ParticipantsPanel({
@@ -17,7 +20,10 @@ export function ParticipantsPanel({
   onlineParticipants,
   loadingMembers = false,
   isOpen = true,
-  onClose, 
+  onClose,
+  isOwner = false,
+  onMuteParticipant,
+  onKickParticipant,
 }: ParticipantsPanelProps) {
   const memberUids = useMemo(
     () => new Set(members.map((member) => member.uid)),
@@ -133,6 +139,29 @@ export function ParticipantsPanel({
                       ) : (
                         <VideoOff className="h-3.5 w-3.5 text-auth-label" aria-hidden="true" />
                       )}
+                      
+                      {isOwner && !online.isLocal && (
+                        <div className="flex items-center gap-1 ml-1 rounded-lg bg-auth-input-bg/40 p-0.5 border border-auth-input-border/30">
+                          {online.isMicOn && (
+                            <button
+                              type="button"
+                              onClick={() => onMuteParticipant?.(online.id)}
+                              className="p-1 rounded hover:bg-auth-btn hover:text-auth-btn-text text-auth-label transition cursor-pointer"
+                              title="Silenciar micrófono"
+                            >
+                              <MicOff className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => onKickParticipant?.(online.id)}
+                            className="p-1 rounded hover:bg-red-600 hover:text-white text-auth-label transition cursor-pointer"
+                            title="Expulsar de la sala"
+                          >
+                            <UserMinus className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </li>
@@ -170,6 +199,29 @@ export function ParticipantsPanel({
                     <Video className="h-3.5 w-3.5 text-auth-label" aria-hidden="true" />
                   ) : (
                     <VideoOff className="h-3.5 w-3.5 text-auth-label" aria-hidden="true" />
+                  )}
+
+                  {isOwner && !participant.isLocal && (
+                    <div className="flex items-center gap-1 ml-1 rounded-lg bg-auth-input-bg/40 p-0.5 border border-auth-input-border/30">
+                      {participant.isMicOn && (
+                        <button
+                          type="button"
+                          onClick={() => onMuteParticipant?.(participant.id)}
+                          className="p-1 rounded hover:bg-auth-btn hover:text-auth-btn-text text-auth-label transition cursor-pointer"
+                          title="Silenciar micrófono"
+                        >
+                          <MicOff className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onKickParticipant?.(participant.id)}
+                        className="p-1 rounded hover:bg-red-600 hover:text-white text-auth-label transition cursor-pointer"
+                        title="Expulsar de la sala"
+                      >
+                        <UserMinus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
               </li>

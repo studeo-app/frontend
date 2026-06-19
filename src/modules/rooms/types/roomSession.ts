@@ -1,3 +1,6 @@
+import type { RoomReactionEmoji } from '../constants/roomReactions'
+import type { RoomReaction } from './roomReaction'
+
 export type RoomConnectionStatus = 'disconnected' | 'connecting' | 'connected'
 
 export interface RoomParticipant {
@@ -12,6 +15,7 @@ export interface RoomParticipant {
   isScreenSharing?: boolean
   isSpeaking?: boolean
   videoStream?: MediaStream | null
+  screenStream?: MediaStream | null
 }
 
 export interface RoomChatMessage {
@@ -34,6 +38,7 @@ export interface RoomSessionState {
   roomCode: string
   participants: RoomParticipant[]
   messages: RoomChatMessage[]
+  reactions: RoomReaction[]
   localMedia: LocalMediaState
   mirrorLocalVideo: boolean
   outputVolume: number
@@ -53,7 +58,10 @@ export interface RoomSessionActions {
   setOutputVolume: (volume: number) => void
   switchCamera: () => void
   sendMessage: (text: string) => void
+  sendReaction: (emoji: RoomReactionEmoji) => void
   leaveRoom: () => void
   loadMoreHistory: () => void
   retry: () => void
+  muteParticipant: (uid: string) => void
+  kickParticipant: (uid: string) => void
 }

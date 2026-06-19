@@ -18,22 +18,7 @@ const MAX_MESSAGE_LENGTH = 150
 const GAP = 12 // Spacing between messages (corresponds to space-y-3 which is 12px)
 const BUFFER = 500 // Render buffer in pixels (viewport safety margin)
 
-/**
- * Formatea un timestamp ISO a una hora relativa legible.
- */
-function formatRelativeTime(isoString: string): string {
-  const date = new Date(isoString)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffSec = Math.floor(diffMs / 1000)
-  const diffMin = Math.floor(diffSec / 60)
-  const diffHour = Math.floor(diffMin / 60)
 
-  if (diffSec < 60) return 'ahora'
-  if (diffMin < 60) return `hace ${diffMin} min`
-  if (diffHour < 24) return `hace ${diffHour}h`
-  return date.toLocaleDateString('es', { day: 'numeric', month: 'short' })
-}
 
 /**
  * Estima la altura del mensaje en base a la longitud del texto y si está agrupado.
@@ -96,6 +81,9 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const [draft, setDraft] = useState('')
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const userHasScrolledRef = useRef(false)
+  const historyLoadRequestedRef = useRef(false)
+  const historyAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null)
 
   // Alturas dinámicas indexadas por mensaje ID
   const [heights, setHeights] = useState<Record<string, number>>({})
@@ -144,7 +132,7 @@ export function ChatPanel({
   }, [])
 
   // Escuchar el evento scroll para detectar si estamos al final y actualizar viewport virtual
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current
     if (!container) return
 
@@ -156,7 +144,29 @@ export function ChatPanel({
       scrollTop,
       clientHeight,
     })
-  }
+
+    if (
+      userHasScrolledRef.current &&
+      scrollTop <= 40 &&
+      hasMoreHistory &&
+      !loadingHistory &&
+      !historyLoadRequestedRef.current &&
+      onLoadMore
+    ) {
+      historyLoadRequestedRef.current = true
+      historyAnchorRef.current = { scrollHeight, scrollTop }
+      isAtBottom.current = false
+      onLoadMore()
+    }
+  }, [hasMoreHistory, loadingHistory, onLoadMore])
+
+  const markUserScroll = useCallback(() => {
+    userHasScrolledRef.current = true
+  }, [])
+
+  useEffect(() => {
+    if (!loadingHistory) historyLoadRequestedRef.current = false
+  }, [loadingHistory])
 
   // Medir la altura real de un mensaje y ajustar el scroll (scroll anchoring) si está antes del viewport
   const handleMeasure = useCallback((id: string, height: number, index: number, isGrouped: boolean) => {
@@ -188,7 +198,7 @@ export function ChatPanel({
           msgTop += gap + (heightsRef.current[m.id] || estimateMessageHeight(m, isGrp))
         }
 
-        if (msgTop < container.scrollTop) {
+        if (!isAtBottom.current && msgTop < container.scrollTop) {
           container.scrollTop += diff
         }
       }
@@ -225,18 +235,31 @@ export function ChatPanel({
     }
   }, [containerWidth, updateScrollState])
 
-  // Ajuste fino del scroll en la apertura/animación del chat
-  useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(() => {
-        updateScrollState()
-        if (isAtBottom.current) {
-          scrollToBottom('instant')
-        }
-      }, 350) // Esperamos a que la animación de css (duration-300) termine
-      return () => clearTimeout(timer)
-    }
+  // Un único posicionamiento al abrir; el historial no carga hasta que el
+  // usuario desplace realmente la conversación.
+  useLayoutEffect(() => {
+    if (!isOpen) return
+
+    userHasScrolledRef.current = false
+    historyLoadRequestedRef.current = false
+    historyAnchorRef.current = null
+    isAtBottom.current = true
+
+    const frameId = requestAnimationFrame(() => {
+      scrollToBottom('instant')
+      updateScrollState()
+    })
+
+    return () => cancelAnimationFrame(frameId)
   }, [isOpen, scrollToBottom, updateScrollState])
+
+  // Asegurar que si estamos marcados para estar al fondo (isAtBottom.current === true),
+  // mantengamos el scroll al fondo cuando se actualicen las alturas medidas de los mensajes.
+  useEffect(() => {
+    if (isOpen && isAtBottom.current && messages.length > 0) {
+      scrollToBottom('instant')
+    }
+  }, [heights, isOpen, messages.length, scrollToBottom])
 
   // Cálculos de posiciones acumuladas (virtualización)
   const positions = []
@@ -314,33 +337,22 @@ export function ChatPanel({
 
     const isFirst = prev.length === 0
 
-    // 1. Verificar si se han añadido mensajes al inicio (historial cargado)
-    let prependedHeight = 0
+    // Verificar si se han añadido mensajes al inicio (historial cargado).
+    let messagesWerePrepended = false
     if (prev.length > 0 && curr.length > prev.length) {
       const oldFirstId = prev[0].id
       const newIndex = curr.findIndex((m) => m.id === oldFirstId)
-      if (newIndex > 0) {
-        for (let i = 0; i < newIndex; i++) {
-          const msg = curr[i]
-          const prevMsg = i > 0 ? curr[i - 1] : null
-          const isSameAuthor = prevMsg?.userId === msg.userId
-          const timeDiff = prevMsg
-            ? new Date(msg.timestamp).getTime() - new Date(prevMsg.timestamp).getTime()
-            : Infinity
-          const isGrouped = isSameAuthor && timeDiff < 60000
-
-          const h = heightsRef.current[msg.id] || estimateMessageHeight(msg, isGrouped)
-          const gap = i === 0 ? 0 : isGrouped ? 2 : GAP
-          prependedHeight += h + gap
-        }
-      }
+      messagesWerePrepended = newIndex > 0
     }
 
-    // 2. Ajustar el scroll de forma síncrona si hubo prepended
-    if (prependedHeight > 0 && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop += prependedHeight
+    // Conservar el punto exacto usando el cambio real del scrollHeight.
+    const container = scrollContainerRef.current
+    const anchor = historyAnchorRef.current
+    if (messagesWerePrepended && container && anchor) {
+      const addedHeight = container.scrollHeight - anchor.scrollHeight
+      container.scrollTop = anchor.scrollTop + addedHeight
+      historyAnchorRef.current = null
     }
-    // 3. Scroll al fondo en primer carga o cuando se añade un mensaje abajo
     else if (isFirst) {
       scrollToBottom('instant')
     } else {
@@ -369,16 +381,18 @@ export function ChatPanel({
   const charsLeft = MAX_MESSAGE_LENGTH - draft.length
 
   return (
-    <aside
-      aria-label="Chat de sala"
+    <div
       className={`
-        pointer-events-auto fixed inset-x-3 bottom-[92px] top-[74px] z-40 flex h-auto shrink-0 flex-col
-        rounded-2xl border border-auth-input-border bg-auth-surface shadow-2xl
-        transition-all duration-300 ease-in-out overflow-hidden
-        md:static md:h-full md:rounded-none md:border-y-0 md:border-r-0 md:shadow-none
-        ${isOpen ? 'translate-y-0 opacity-100 md:w-[320px]' : 'pointer-events-none translate-y-4 opacity-0 md:w-0 md:translate-y-0 md:border-l-0'}
+        pointer-events-auto fixed inset-x-3 bottom-[92px] top-[74px] z-40 flex h-auto shrink-0 overflow-hidden
+        rounded-2xl shadow-2xl transition-all duration-300 ease-in-out
+        md:static md:h-full md:rounded-none md:shadow-none
+        ${isOpen ? 'translate-y-0 opacity-100 md:w-[320px]' : 'pointer-events-none translate-y-4 opacity-0 md:w-0 md:translate-y-0'}
       `}
     >
+      <aside
+        aria-label="Chat de sala"
+        className="flex h-full w-full shrink-0 flex-col border border-auth-input-border bg-auth-surface md:w-[320px] md:border-y-0 md:border-r-0"
+      >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-auth-input-border px-4 py-3">
         <h2 className="text-sm font-semibold text-auth-title">Chat</h2>
@@ -405,29 +419,19 @@ export function ChatPanel({
       {/* Lista de mensajes */}
       <div ref={scrollContainerRef} 
                 onScroll={handleScroll}
-                className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4">
-        {/* Botón cargar historial */}
-        {hasMoreHistory && (
-          <div className="mb-4 flex justify-center">
-            <button
-              type="button"
-              onClick={onLoadMore}
-              disabled={loadingHistory}
-              className="
-                flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium
-                text-auth-btn transition-all hover:bg-auth-btn/10
-                disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer
-              "
-            >
-              {loadingHistory ? (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-                  Cargando…
-                </>
-              ) : (
-                'Cargar mensajes anteriores'
-              )}
-            </button>
+                onWheel={markUserScroll}
+                onTouchStart={markUserScroll}
+                onPointerDown={markUserScroll}
+                className="relative flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4">
+        {/* Ocupa el lugar del botón anterior dentro del flujo del chat. */}
+        {hasMoreHistory && messages.length > 0 && (
+          <div className="mb-4 flex min-h-7 items-center justify-center" role="status">
+            {loadingHistory ? (
+              <span className="flex items-center gap-1.5 text-xs font-medium text-auth-btn">
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                Cargando mensajes anteriores…
+              </span>
+            ) : null}
           </div>
         )}
 
@@ -500,32 +504,28 @@ export function ChatPanel({
                   onMeasure={handleMeasure}
                 >
                   {/* Contenedor interno del mensaje */}
-                  <div className={`max-w-[82%] min-w-0 ${isOwnMessage ? 'text-right' : 'text-left'}`}>
-                    {!isGrouped && (
-                      <div
-                        className={`flex items-baseline gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'
-                          }`}
-                      >
-                        <p className="text-xs font-semibold text-auth-btn truncate max-w-[120px]">
-                          {isOwnMessage ? 'Tú' : msg.displayName}
-                        </p>
-                        <time
-                          className="text-[10px] text-auth-label/50 shrink-0"
-                          dateTime={msg.timestamp}
-                          title={new Date(msg.timestamp).toLocaleString('es')}
-                        >
-                          {formatRelativeTime(msg.timestamp)}
-                        </time>
-                      </div>
-                    )}
-                    <p
-                      className={`mt-0.5 block rounded-2xl px-3 py-2 text-sm leading-relaxed break-words overflow-hidden ${isOwnMessage
-                          ? 'bg-auth-btn text-auth-btn-text'
-                          : 'bg-transparent px-0 text-auth-title'
-                        }`}
+                  <div className={`max-w-[82%] min-w-[70px] text-left`}>
+                    <div
+                      className={`mt-0.5 relative rounded-2xl px-3 pb-5 pt-2 text-sm leading-relaxed break-words overflow-hidden ${
+                        isOwnMessage
+                          ? 'bg-auth-btn text-auth-btn-text rounded-tr-sm'
+                          : 'bg-auth-input-bg border border-auth-input-border/30 text-auth-title rounded-tl-sm'
+                      }`}
                     >
-                      {msg.text}
-                    </p>
+                      {!isOwnMessage && !isGrouped && (
+                        <div className="text-[10px] font-bold text-violet-500 mb-0.5 truncate max-w-[150px] select-none">
+                          {msg.displayName}
+                        </div>
+                      )}
+                      <div className="pr-4">{msg.text}</div>
+                      <time
+                        className="absolute bottom-1 right-2 text-[9px] opacity-60 pointer-events-none select-none shrink-0"
+                        dateTime={msg.timestamp}
+                        title={new Date(msg.timestamp).toLocaleString('es')}
+                      >
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </time>
+                    </div>
                   </div>
                 </VirtualMessageItem>
               )
@@ -585,6 +585,7 @@ export function ChatPanel({
           </p>
         )}
       </form>
-    </aside>
+      </aside>
+    </div>
   )
 }

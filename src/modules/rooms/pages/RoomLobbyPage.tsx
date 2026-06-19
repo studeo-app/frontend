@@ -1,4 +1,4 @@
-import { ArrowLeft, Mic, MicOff, User, Video, VideoOff } from 'lucide-react'
+import { ArrowLeft, Headphones, Mic, MicOff, User, Video, VideoOff } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import useDocumentTitle from '@/shared/hooks/useDocumentTitle'
@@ -31,8 +31,10 @@ export default function RoomLobbyPage() {
     loadingParticipants,
     previewError,
     mediaError,
+    micMonitoring,
     toggleMic,
     toggleCamera,
+    toggleMicMonitoring,
     setSelectedMicId,
     setSelectedCameraId,
     joinRoom,
@@ -48,7 +50,7 @@ export default function RoomLobbyPage() {
   }, [localStream])
 
   return (
-    <div className="mx-auto flex h-dvh min-h-0 w-full max-w-2xl flex-col items-center justify-start overflow-y-auto overscroll-contain px-4 py-4 animate-fade-in sm:px-6 sm:py-6 md:max-w-4xl lg:max-w-5xl">
+    <div className="mx-auto flex h-dvh min-h-0 w-full max-w-2xl flex-col items-center justify-start overflow-y-auto overscroll-contain px-4 py-4 animate-fade-in sm:px-6 sm:py-6 md:max-w-4xl">
       {/* Cabecera / Navegación */}
       <div className="relative flex w-full items-center justify-center mb-3 sm:mb-4">
         <button
@@ -82,12 +84,13 @@ export default function RoomLobbyPage() {
         )}
       </div>
 
-      {/* COMPACTADO: Agrandamos el max-h de la cámara aprovechando la reducción de márgenes */}
+      {/* Camera preview — object-contain, strict 16:9, aligned with controls below */}
       <div
         className="
-          relative mb-3 flex aspect-video w-full max-h-[200px] sm:max-h-[260px] md:max-h-[340px] lg:max-h-[400px] min-h-[170px] items-center justify-center
-          overflow-hidden rounded-xl border border-auth-input-border bg-auth-input-bg/80 sm:mb-4 sm:rounded-2xl
+          relative mb-3 w-full items-center justify-center
+          overflow-hidden rounded-xl border border-auth-input-border bg-black sm:mb-4 sm:rounded-2xl
         "
+        style={{ aspectRatio: '16 / 9' }}
       >
         {localMedia.isCameraOn && localStream ? (
           <video
@@ -95,15 +98,17 @@ export default function RoomLobbyPage() {
             autoPlay
             playsInline
             muted
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-contain"
           />
         ) : localMedia.isCameraOn ? (
-          <User
-            className="h-16 w-16 text-auth-label/40 sm:h-20 sm:w-20 md:h-24 md:w-24 lg:h-28 lg:w-28"
-            aria-hidden="true"
-          />
+          <div className="absolute inset-0 flex items-center justify-center bg-auth-input-bg/80">
+            <User
+              className="h-16 w-16 text-auth-label/40 sm:h-20 sm:w-20 md:h-24 md:w-24 lg:h-28 lg:w-28"
+              aria-hidden="true"
+            />
+          </div>
         ) : (
-          <div className="flex flex-col items-center gap-1.5 text-auth-label">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-auth-input-bg/80 text-auth-label">
             <VideoOff className="h-12 w-12 sm:h-14 sm:w-14 md:h-18 md:w-18 lg:h-20 lg:w-20 opacity-40" aria-hidden="true" />
             <p className="text-xs sm:text-sm md:text-base">Cámara desactivada</p>
           </div>
@@ -115,8 +120,8 @@ export default function RoomLobbyPage() {
           </div>
         )}
 
-        {/* COMPACTADO: Subimos levemente los botones con bottom-3 y h-10 para limpiar espacio */}
-        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2.5">
+        {/* Controls: mic, camera, and monitoring */}
+        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2.5">
           <button
             type="button"
             aria-label={localMedia.isMicOn ? 'Silenciar micrófono' : 'Activar micrófono'}
@@ -162,6 +167,37 @@ export default function RoomLobbyPage() {
               <VideoOff className="h-4 w-4" aria-hidden="true" />
             )}
           </button>
+
+          {/* Mic monitoring button — only useful when mic is on */}
+          {localMedia.isMicOn && (
+            <div className="group relative">
+              <button
+                type="button"
+                aria-label={micMonitoring ? 'Dejar de escucharme' : 'Escucharme (requiere audífonos)'}
+                onClick={toggleMicMonitoring}
+                className={`
+                  flex h-10 w-10 items-center justify-center rounded-full
+                  border backdrop-blur-sm transition-all
+                  cursor-pointer active:scale-95
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn
+                  ${
+                    micMonitoring
+                      ? 'border-violet-500/60 bg-violet-500/20 text-violet-300 hover:bg-violet-500/30'
+                      : 'border-auth-input-border/60 bg-auth-bg/70 text-auth-label hover:bg-auth-surface hover:text-auth-title'
+                  }
+                `}
+              >
+                <Headphones className="h-4 w-4" aria-hidden="true" />
+              </button>
+              {/* Tooltip */}
+              <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-auth-input-border bg-auth-bg/95 px-2.5 py-1.5 text-center text-xs text-auth-label opacity-0 shadow-lg backdrop-blur-sm transition-opacity duration-150 group-hover:opacity-100">
+                {micMonitoring ? 'Escuchándote · clic para desactivar' : 'Escucharme'}
+                {!micMonitoring && (
+                  <span className="mt-0.5 block text-[10px] text-amber-400">⚠ Usa audífonos para evitar eco</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
