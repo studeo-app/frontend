@@ -1,4 +1,5 @@
 import { ChevronDown } from 'lucide-react'
+import { useId } from 'react'
 import type { MediaDeviceOption } from '../types/lobby'
 
 interface DeviceSelectProps {
@@ -9,13 +10,19 @@ interface DeviceSelectProps {
 }
 
 export function DeviceSelect({ label, value, options, onChange }: DeviceSelectProps) {
+  const selectId = useId()
+
   return (
     <div className="min-w-0 flex-1">
-      <label className="mb-2 block font-auth text-[11px] font-medium uppercase tracking-widest text-auth-label">
+      <label
+        htmlFor={selectId}
+        className="mb-2 block font-auth text-[11px] font-medium uppercase tracking-widest text-auth-label"
+      >
         {label}
       </label>
       <div className="relative">
         <select
+          id={selectId}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="

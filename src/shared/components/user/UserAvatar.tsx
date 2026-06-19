@@ -15,6 +15,7 @@ interface UserAvatarProps {
   alt: string;
   size?: keyof typeof sizeClasses;
   className?: string;
+  fetchPriority?: "high" | "low" | "auto";
 }
 
 export const UserAvatar: React.FC<UserAvatarProps> = ({
@@ -22,6 +23,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   alt,
   size = "md",
   className = "",
+  fetchPriority = "auto",
 }) => {
   const imageSrc = src?.trim() ?? "";
 
@@ -45,12 +47,16 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
         <AdvancedImage
           cldImg={cloudinaryImage}
           alt={alt}
+          fetchPriority={fetchPriority}
+          loading={fetchPriority === "high" ? "eager" : undefined}
           className="h-full w-full object-cover"
         />
       ) : imageSrc ? (
         <img
           src={imageSrc}
           alt={alt}
+          fetchPriority={fetchPriority}
+          loading={fetchPriority === "high" ? "eager" : undefined}
           className="h-full w-full object-cover"
           referrerPolicy="no-referrer"
         />

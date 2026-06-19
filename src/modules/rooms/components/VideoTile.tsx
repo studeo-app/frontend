@@ -8,13 +8,13 @@ interface VideoTileProps {
   mirrorLocalVideo?: boolean
   outputVolume?: number
   mode?: 'camera' | 'screen'
-  suppressScreenShareVideo?: boolean
   isPinned?: boolean
   onTogglePin?: () => void
   isOwner?: boolean
   onMute?: () => void
   onKick?: () => void
   fullSize?: boolean
+  prioritizeAvatar?: boolean
 }
 
 export function VideoTile({
@@ -22,13 +22,13 @@ export function VideoTile({
   mirrorLocalVideo = true,
   outputVolume = 80,
   mode = 'camera',
-  suppressScreenShareVideo = false,
   isPinned = false,
   onTogglePin,
   isOwner = false,
   onMute,
   onKick,
   fullSize = false,
+  prioritizeAvatar = false,
 }: VideoTileProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const {
@@ -53,9 +53,7 @@ export function VideoTile({
   // El video debe ser visible en pantalla
   const shouldShowVideo = Boolean(
     videoStream &&
-    (mode === 'screen'
-      ? isScreenSharing
-      : isCameraOn && (!isScreenSharing || !suppressScreenShareVideo)),
+    (mode === 'screen' ? isScreenSharing : isCameraOn),
   )
 
   // FIX: mostrar avatar/placeholder siempre que el video NO sea visible,
@@ -95,7 +93,7 @@ export function VideoTile({
         track.removeEventListener('mute', handleTrackEvent)
       })
     }
-  }, [videoStream, isCameraOn, isScreenSharing])
+  }, [videoStream])
 
   useEffect(() => {
     if (!videoRef.current || isLocal) return
@@ -108,7 +106,7 @@ export function VideoTile({
       group relative flex ${fullSize ? 'w-full h-full' : 'w-full max-h-full aspect-video'} items-center justify-center overflow-hidden
       rounded-xl sm:rounded-2xl
       bg-auth-input-bg/90 border border-gray-300 dark:border-transparent shadow-md transition-all duration-300
-      ${isSpeaking ? 'ring-[3px] ring-sky-500 ring-offset-2 ring-offset-auth-bg shadow-sky-500/30' : ''}
+      ${isSpeaking ? 'ring-[3px] ring-auth-btn ring-offset-2 ring-offset-auth-bg shadow-auth-btn/30' : ''}
     `}
     >
       {/* Botón de fijar (Pin) */}
@@ -119,9 +117,8 @@ export function VideoTile({
             e.stopPropagation()
             onTogglePin()
           }}
-          className={`absolute left-3 top-3 z-20 rounded-lg bg-auth-bg/85 p-1.5 text-auth-label hover:text-auth-title transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn ${
-            isPinned ? '!text-sky-400 bg-sky-500/10 border border-sky-500/30' : ''
-          }`}
+          className={`absolute left-3 top-3 z-20 rounded-lg bg-auth-bg/85 p-1.5 text-auth-label hover:text-auth-title transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn ${isPinned ? '!text-auth-btn bg-auth-btn/10 border border-auth-btn/30' : ''
+            }`}
           title={isPinned ? 'Desfijar' : 'Fijar'}
           aria-label={isPinned ? 'Desfijar participante' : 'Fijar participante'}
         >
@@ -134,9 +131,9 @@ export function VideoTile({
           ref={videoRef}
           autoPlay
           playsInline
-          muted={isLocal}
+          muted={isLocal || mode === 'screen'}
           className={`
-            absolute inset-0 h-full w-full object-cover transition-opacity duration-150
+            absolute inset-0 h-full w-full object-contain transition-opacity duration-150
             ${shouldShowVideo ? 'opacity-100' : 'opacity-0'}
             ${isLocal && mirrorLocalVideo && mode === 'camera' && !isScreenSharing ? '-scale-x-100' : ''}
           `}
@@ -148,7 +145,12 @@ export function VideoTile({
       {/* Placeholder: avatar o iniciales — se muestra siempre que el video no sea visible */}
       {shouldShowPlaceholder && (
         avatarUrl ? (
-          <UserAvatar src={avatarUrl} alt={displayName} size="xl" />
+          <UserAvatar
+            src={avatarUrl}
+            alt={displayName}
+            size="xl"
+            fetchPriority={prioritizeAvatar ? 'high' : 'auto'}
+          />
         ) : (
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-auth-btn/30 text-xl font-bold text-auth-btn sm:h-24 sm:w-24 sm:text-2xl">
             {initials ?? displayName.charAt(0).toUpperCase()}
@@ -156,11 +158,10 @@ export function VideoTile({
         )
       )}
 
-      {/* Ícono de cámara apagada — se muestra cuando la cámara está apagada y no compartiendo pantalla */}
-      {mode === 'camera' && !isCameraOn && !isScreenSharing && (
-        <div className={`absolute right-3 top-3 rounded-lg bg-auth-bg/80 p-1.5 animate-fade-in transition-opacity ${
-          isOwner && !isLocal ? 'group-hover:opacity-0 group-hover:pointer-events-none' : ''
-        }`}>
+      {/* Ícono de cámara apagada — se muestra cuando la cámara está apagada */}
+      {mode === 'camera' && !isCameraOn && (
+        <div className={`absolute right-3 top-3 rounded-lg bg-auth-bg/80 p-1.5 animate-fade-in transition-opacity ${isOwner && !isLocal ? 'group-hover:opacity-0 group-hover:pointer-events-none' : ''
+          }`}>
           <VideoOff className="h-4 w-4 text-auth-label" aria-hidden="true" />
         </div>
       )}

@@ -15,6 +15,7 @@ export interface RoomParticipant {
   isScreenSharing?: boolean
   isSpeaking?: boolean
   videoStream?: MediaStream | null
+  screenStream?: MediaStream | null
 }
 
 export interface RoomChatMessage {

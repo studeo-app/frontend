@@ -116,6 +116,8 @@ export function ControlBar({
         {/* Salir */}
         <button
           type="button"
+          aria-label="Salir de la sala"
+          title="Salir de la sala"
           onClick={onLeave}
           className="
             ml-1 flex h-11 items-center gap-2 rounded-full px-3 sm:px-5

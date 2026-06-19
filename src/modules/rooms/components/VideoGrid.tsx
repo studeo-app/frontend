@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { RoomParticipant } from '../types/roomSession'
 import { VideoTile } from './VideoTile'
@@ -10,6 +10,56 @@ interface VideoGridProps {
   isOwner?: boolean
   onMuteParticipant?: (uid: string) => void
   onKickParticipant?: (uid: string) => void
+}
+
+function ScreenShareAudio({ stream, volume }: { stream: MediaStream; volume: number }) {
+  const audioRef = useRef<HTMLAudioElement>(null)
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.srcObject = stream
+    audio.play().catch(() => undefined)
+
+    return () => {
+      audio.pause()
+      audio.srcObject = null
+    }
+  }, [stream])
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume
+  }, [volume])
+
+  return (
+    <audio ref={audioRef} autoPlay className="hidden">
+      <track kind="captions" />
+    </audio>
+  )
+}
+
+function ScreenShareAudioLayer({
+  participants,
+  outputVolume,
+}: {
+  participants: RoomParticipant[]
+  outputVolume: number
+}) {
+  const normalizedVolume = Math.min(1, Math.max(0, outputVolume / 100))
+
+  return participants
+    .filter((participant) => (
+      !participant.isLocal &&
+      participant.isScreenSharing &&
+      Boolean(participant.screenStream?.getAudioTracks().length)
+    ))
+    .map((participant) => (
+      <ScreenShareAudio
+        key={`${participant.socketId}-screen-audio`}
+        stream={participant.screenStream!}
+        volume={normalizedVolume}
+      />
+    ))
 }
 
 function getGridItemStyle(M: number, isMobile: boolean) {
@@ -62,33 +112,31 @@ export function VideoGrid({
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // 2. Ordenar participantes: El usuario local siempre va primero (arriba a la izquierda)
-  const sortedParticipants = [...participants].sort((a, b) => {
-    if (a.isLocal) return -1
-    if (b.isLocal) return 1
-    return 0
-  })
-
-  // 3. Construir lista de mosaicos (cámara y compartir pantalla por separado)
-  const allTiles: { id: string; type: 'camera' | 'screen'; participant: RoomParticipant }[] = []
-  sortedParticipants.forEach((p) => {
-    // Tile de cámara
-    allTiles.push({
-      id: `${p.socketId}-camera`,
-      type: 'camera',
-      participant: p,
+  // Mantener estable la lista evita reactivar efectos al abrir un panel lateral.
+  const allTiles = useMemo(() => {
+    const sortedParticipants = [...participants].sort((a, b) => {
+      if (a.isLocal) return -1
+      if (b.isLocal) return 1
+      return 0
     })
-    // Tile de pantalla compartida (si está activa y tiene stream)
-    if (p.isScreenSharing && p.videoStream) {
-      allTiles.push({
-        id: `${p.socketId}-screen`,
-        type: 'screen',
-        participant: p,
-      })
-    }
-  })
 
-  const hasScreenShares = allTiles.some((t) => t.type === 'screen')
+    const tiles: { id: string; type: 'camera' | 'screen'; participant: RoomParticipant }[] = []
+    sortedParticipants.forEach((participant) => {
+      tiles.push({
+        id: `${participant.socketId}-camera`,
+        type: 'camera',
+        participant,
+      })
+      if (participant.isScreenSharing && participant.screenStream) {
+        tiles.push({
+          id: `${participant.socketId}-screen`,
+          type: 'screen',
+          participant,
+        })
+      }
+    })
+    return tiles
+  }, [participants])
 
   // 4. Estados de fijado (Pin) de mosaico
   const [pinnedTileId, setPinnedTileId] = useState<string | null>(null)
@@ -145,21 +193,27 @@ export function VideoGrid({
         role="list"
         aria-label="Participantes en la sala con orador fijado"
       >
+        <ScreenShareAudioLayer participants={participants} outputVolume={outputVolume} />
+
         {/* Orador/Pantalla Fijada (Área Principal) */}
         <div className="flex-1 min-w-0 min-h-0 relative @container flex items-center justify-center" style={{ containerType: 'size' }}>
           <div style={{ aspectRatio: '16 / 9', width: 'min(100cqw, calc(100cqh * 16 / 9))' }} className="flex items-center justify-center">
             <VideoTile
-              participant={pinnedTile.participant}
+              participant={
+                pinnedTile.type === 'screen'
+                  ? { ...pinnedTile.participant, videoStream: pinnedTile.participant.screenStream }
+                  : pinnedTile.participant
+              }
               mirrorLocalVideo={pinnedTile.type === 'camera' ? mirrorLocalVideo : false}
               outputVolume={outputVolume}
               mode={pinnedTile.type}
               isPinned={true}
               onTogglePin={() => setPinnedTileId(null)}
-              suppressScreenShareVideo={hasScreenShares && pinnedTile.type === 'camera'}
               isOwner={isOwner}
               onMute={() => onMuteParticipant?.(pinnedTile.participant.id)}
               onKick={() => onKickParticipant?.(pinnedTile.participant.id)}
               fullSize={true}
+              prioritizeAvatar={true}
             />
           </div>
         </div>
@@ -185,13 +239,16 @@ export function VideoGrid({
                 {slicedOtherTiles.map((tile) => (
                   <div key={tile.id} className="h-full shrink-0 aspect-video">
                     <VideoTile
-                      participant={tile.participant}
+                      participant={
+                        tile.type === 'screen'
+                          ? { ...tile.participant, videoStream: tile.participant.screenStream }
+                          : tile.participant
+                      }
                       mirrorLocalVideo={tile.type === 'camera' ? mirrorLocalVideo : false}
                       outputVolume={outputVolume}
                       mode={tile.type}
                       isPinned={false}
                       onTogglePin={() => setPinnedTileId(tile.id)}
-                      suppressScreenShareVideo={hasScreenShares && tile.type === 'camera'}
                       isOwner={isOwner}
                       onMute={() => onMuteParticipant?.(tile.participant.id)}
                       onKick={() => onKickParticipant?.(tile.participant.id)}
@@ -215,7 +272,7 @@ export function VideoGrid({
             </div>
           ) : (
             // Layout desktop: barra lateral vertical derecha
-            <div className="w-[220px] h-full flex flex-col justify-between items-center gap-2 bg-auth-input-bg/15 p-2 rounded-2xl border border-auth-input-border/25 shrink-0 select-none">
+            <div className="w-[260px] h-full flex flex-col justify-between items-center gap-2 bg-auth-input-bg/15 p-2 rounded-2xl border border-auth-input-border/25 shrink-0 select-none">
               {totalSidebarPages > 1 && (
                 <div className="flex items-center justify-between w-full px-2 py-1 bg-auth-bg/60 rounded-lg border border-auth-input-border/20 text-[10px]">
                   <button
@@ -240,17 +297,20 @@ export function VideoGrid({
                 </div>
               )}
 
-              <div className="flex-1 w-full flex flex-col gap-2 min-h-0 justify-start items-center overflow-y-auto">
+              <div className="flex-1 w-full flex flex-col gap-2 min-h-0 justify-start items-center overflow-y-auto px-2 py-1.5">
                 {slicedOtherTiles.map((tile) => (
                   <div key={tile.id} className="w-full shrink-0 aspect-video">
                     <VideoTile
-                      participant={tile.participant}
+                      participant={
+                        tile.type === 'screen'
+                          ? { ...tile.participant, videoStream: tile.participant.screenStream }
+                          : tile.participant
+                      }
                       mirrorLocalVideo={tile.type === 'camera' ? mirrorLocalVideo : false}
                       outputVolume={outputVolume}
                       mode={tile.type}
                       isPinned={false}
                       onTogglePin={() => setPinnedTileId(tile.id)}
-                      suppressScreenShareVideo={hasScreenShares && tile.type === 'camera'}
                       isOwner={isOwner}
                       onMute={() => onMuteParticipant?.(tile.participant.id)}
                       onKick={() => onKickParticipant?.(tile.participant.id)}
@@ -320,26 +380,32 @@ export function VideoGrid({
       role="list"
       aria-label="Participantes en la sala"
     >
+      <ScreenShareAudioLayer participants={participants} outputVolume={outputVolume} />
+
       <div
         className="@container w-full h-full flex flex-wrap items-center justify-center content-center gap-2 sm:gap-3 overflow-hidden"
         style={{ containerType: 'size' }}
       >
-        {itemsToRender.map((slot) => {
+        {itemsToRender.map((slot, index) => {
           if (slot.type === 'tile' && slot.tile) {
             return (
-              <div key={slot.key} role="listitem" style={itemStyle} className="flex items-center justify-center min-h-0 min-w-0 transition-all duration-300">
+              <div key={slot.key} role="listitem" style={itemStyle} className="flex items-center justify-center min-h-0 min-w-0">
                 <VideoTile
-                  participant={slot.tile.participant}
+                  participant={
+                    slot.tile.type === 'screen'
+                      ? { ...slot.tile.participant, videoStream: slot.tile.participant.screenStream }
+                      : slot.tile.participant
+                  }
                   mirrorLocalVideo={slot.tile.type === 'camera' ? mirrorLocalVideo : false}
                   outputVolume={outputVolume}
                   mode={slot.tile.type}
                   isPinned={false}
                   onTogglePin={() => setPinnedTileId(slot.tile!.id)}
-                  suppressScreenShareVideo={hasScreenShares && slot.tile.type === 'camera'}
                   isOwner={isOwner}
                   onMute={() => onMuteParticipant?.(slot.tile!.participant.id)}
                   onKick={() => onKickParticipant?.(slot.tile!.participant.id)}
                   fullSize={true}
+                  prioritizeAvatar={index === 0}
                 />
               </div>
             )
@@ -347,7 +413,7 @@ export function VideoGrid({
 
           if (slot.type === 'next') {
             return (
-              <div key={slot.key} role="listitem" style={itemStyle} className="flex items-center justify-center min-h-0 min-w-0 transition-all duration-300">
+              <div key={slot.key} role="listitem" style={itemStyle} className="flex items-center justify-center min-h-0 min-w-0">
                 <button
                   type="button"
                   onClick={() => setGridPage((p) => p + 1)}
@@ -363,7 +429,7 @@ export function VideoGrid({
 
           if (slot.type === 'prev') {
             return (
-              <div key={slot.key} role="listitem" style={itemStyle} className="flex items-center justify-center min-h-0 min-w-0 transition-all duration-300">
+              <div key={slot.key} role="listitem" style={itemStyle} className="flex items-center justify-center min-h-0 min-w-0">
                 <button
                   type="button"
                   onClick={() => setGridPage((p) => p - 1)}

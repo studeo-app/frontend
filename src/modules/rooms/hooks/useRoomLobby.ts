@@ -13,9 +13,23 @@ import {
   readLobbyMediaState,
   writeLobbyMediaState,
 } from '../utils/lobbyMediaState'
+import { createRoomAudioConstraints } from '../utils/roomMediaConstraints'
 import type { LobbyWaitingParticipant } from '../types/lobby'
 import type { LocalMediaState } from '../types/roomSession'
 import type { RoomMember } from '@/types/room'
+
+/**
+ * Builds the same ideal 16:9 widescreen video constraints used by useRoomSession,
+ * so the lobby preview is pixel-identical to what appears in the room.
+ */
+function createLobbyVideoConstraints(cameraId?: string): MediaTrackConstraints {
+  return {
+    ...(cameraId ? { deviceId: { exact: cameraId } } : {}),
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    aspectRatio: { ideal: 1.7777777778 }, // 16:9
+  }
+}
 
 interface RealtimeUserPresence {
   socketId: string
@@ -40,8 +54,10 @@ interface UseRoomLobbyResult {
   loadingParticipants: boolean
   previewError: string | null
   mediaError: string | null
+  micMonitoring: boolean
   toggleMic: () => void
   toggleCamera: () => void
+  toggleMicMonitoring: () => void
   setSelectedMicId: (id: string) => void
   setSelectedCameraId: (id: string) => void
   joinRoom: () => void
@@ -129,6 +145,85 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
   const [micDevices, setMicDevices] = useState(MOCK_MIC_DEVICES)
   const [cameraDevices, setCameraDevices] = useState(MOCK_CAMERA_DEVICES)
 
+  // ── Mic monitoring (loopback) ────────────────────────────────────────────
+  const [micMonitoring, setMicMonitoring] = useState(false)
+  const monitoringAudioRef = useRef<HTMLAudioElement | null>(null)
+  const monitoringPeersRef = useRef<RTCPeerConnection[]>([])
+  const monitoringAttemptRef = useRef(0)
+
+  /** Tear down any active monitoring source (does NOT close the AudioContext). */
+  const stopMonitoringSource = useCallback(() => {
+    monitoringAttemptRef.current += 1
+    const audio = monitoringAudioRef.current
+    if (audio) {
+      audio.pause()
+      audio.srcObject = null
+      monitoringAudioRef.current = null
+    }
+    monitoringPeersRef.current.forEach((peer) => peer.close())
+    monitoringPeersRef.current = []
+  }, [])
+
+  /** Connect the current stream to the speakers for monitoring. */
+  const startMonitoringSource = useCallback(async (stream: MediaStream) => {
+    stopMonitoringSource()
+    const [track] = stream.getAudioTracks()
+    if (!track?.enabled) return
+
+    const attempt = monitoringAttemptRef.current
+    const senderPeer = new RTCPeerConnection()
+    const receiverPeer = new RTCPeerConnection()
+    monitoringPeersRef.current = [senderPeer, receiverPeer]
+
+    senderPeer.onicecandidate = ({ candidate }) => {
+      if (candidate) receiverPeer.addIceCandidate(candidate).catch(() => undefined)
+    }
+    receiverPeer.onicecandidate = ({ candidate }) => {
+      if (candidate) senderPeer.addIceCandidate(candidate).catch(() => undefined)
+    }
+
+    const transceiver = senderPeer.addTransceiver(track, {
+      direction: 'sendonly',
+      streams: [new MediaStream([track])],
+    })
+    const opusCodecs = RTCRtpReceiver.getCapabilities?.('audio')?.codecs.filter(
+      (codec) => codec.mimeType.toLowerCase() === 'audio/opus',
+    )
+    if (opusCodecs?.length && transceiver.setCodecPreferences) {
+      transceiver.setCodecPreferences(opusCodecs)
+    }
+
+    const remoteStreamPromise = new Promise<MediaStream>((resolve) => {
+      receiverPeer.ontrack = (event) => {
+        resolve(event.streams[0] ?? new MediaStream([event.track]))
+      }
+    })
+
+    try {
+      const offer = await senderPeer.createOffer()
+      await senderPeer.setLocalDescription(offer)
+      await receiverPeer.setRemoteDescription(offer)
+      const answer = await receiverPeer.createAnswer()
+      await receiverPeer.setLocalDescription(answer)
+      await senderPeer.setRemoteDescription(answer)
+
+      const remoteStream = await remoteStreamPromise
+      if (attempt !== monitoringAttemptRef.current) return
+
+      const audio = new Audio()
+      audio.autoplay = true
+      audio.srcObject = remoteStream
+      monitoringAudioRef.current = audio
+      await audio.play()
+    } catch (error) {
+      if (attempt === monitoringAttemptRef.current) {
+        console.error('[Lobby] No se pudo iniciar la preescucha WebRTC:', error)
+        stopMonitoringSource()
+        setMicMonitoring(false)
+      }
+    }
+  }, [stopMonitoringSource])
+
   useEffect(() => {
     if (!navigator.mediaDevices?.getUserMedia) {
       setMediaError('Tu navegador no permite usar cámara o micrófono.')
@@ -140,7 +235,10 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
 
     async function loadDevices() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: createRoomAudioConstraints(),
+          video: createLobbyVideoConstraints(),
+        })
         if (cancelled) {
           stream.getTracks().forEach((track) => track.stop())
           return
@@ -220,6 +318,21 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
     }
   }, [])
 
+  // When the active stream changes (device switch), reconnect monitoring if active
+  useEffect(() => {
+    if (micMonitoring && localStreamRef.current) {
+      startMonitoringSource(localStreamRef.current)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localStream])
+
+  // Cleanup the WebRTC monitor on unmount
+  useEffect(() => {
+    return () => {
+      stopMonitoringSource()
+    }
+  }, [stopMonitoringSource])
+
   const restartLocalStream = useCallback(async (nextMicId: string, nextCameraId: string) => {
     if (!navigator.mediaDevices?.getUserMedia) return
 
@@ -228,10 +341,10 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
       const cameraOn = localMediaRef.current.isCameraOn
 
       const constraints: MediaStreamConstraints = {
-        audio: nextMicId ? { deviceId: { exact: nextMicId } } : true,
+        audio: createRoomAudioConstraints(nextMicId || undefined),
       }
       if (cameraOn) {
-        constraints.video = nextCameraId ? { deviceId: { exact: nextCameraId } } : true
+        constraints.video = createLobbyVideoConstraints(nextCameraId || undefined)
       }
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -352,15 +465,37 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
     [roomUsers],
   )
 
+  const toggleMicMonitoring = useCallback(() => {
+    setMicMonitoring((prev) => {
+      const next = !prev
+      if (next) {
+        const stream = localStreamRef.current
+        if (stream && localMediaRef.current.isMicOn) {
+          startMonitoringSource(stream)
+        }
+      } else {
+        stopMonitoringSource()
+      }
+      return next
+    })
+  }, [startMonitoringSource, stopMonitoringSource])
+
   const toggleMic = useCallback(() => {
     setLocalMedia((prev) => {
       const nextMic = !prev.isMicOn
       localStreamRef.current?.getAudioTracks().forEach((track) => {
         track.enabled = nextMic
       })
+      // Stop monitoring when mic is muted; restart if it was active when unmuting
+      if (!nextMic) {
+        stopMonitoringSource()
+        setMicMonitoring(false)
+      } else if (micMonitoring && localStreamRef.current) {
+        startMonitoringSource(localStreamRef.current)
+      }
       return { ...prev, isMicOn: nextMic }
     })
-  }, [])
+  }, [micMonitoring, startMonitoringSource, stopMonitoringSource])
 
   const toggleCamera = useCallback(async () => {
     const nextCamera = !localMediaRef.current.isCameraOn
@@ -377,7 +512,7 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
       try {
         setMediaError(null)
         const videoStream = await navigator.mediaDevices.getUserMedia({
-          video: selectedCameraId ? { deviceId: { exact: selectedCameraId } } : true,
+          video: createLobbyVideoConstraints(selectedCameraId || undefined),
         })
         const track = videoStream.getVideoTracks()[0]
         if (track) {
@@ -457,8 +592,10 @@ export function useRoomLobby(roomId: string): UseRoomLobbyResult {
     loadingParticipants,
     previewError,
     mediaError,
+    micMonitoring,
     toggleMic,
     toggleCamera,
+    toggleMicMonitoring,
     setSelectedMicId: updateSelectedMicId,
     setSelectedCameraId: updateSelectedCameraId,
     joinRoom,

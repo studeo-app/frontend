@@ -1,41 +1,47 @@
+import type { ReactNode } from 'react'
 import { createBrowserRouter, Navigate } from "react-router";
-import AppLayout from "./layouts/AppLayout";
-import LandingPage from "./modules/landing/pages/LandingPage";
-import LoginPage from "./modules/auth/pages/LoginPage";
-import RegisterPage from "./modules/auth/pages/RegisterPage";
-import RoomLobbyPage from "./modules/rooms/pages/RoomLobbyPage";
-import RoomPage from "./modules/rooms/pages/RoomPage";
-import RoomLayout from "./modules/rooms/layouts/RoomLayout";
-import ProfilePage from "./modules/users/pages/ProfilePage";
-import LandingLayout from "./layouts/LandingLayout";
-import PublicLayout from "./layouts/PublicLayout";
-import CompleteProfilePage from "./modules/auth/pages/CompleteProfilePage";
-import DashboardPage from "./modules/dashboard/pages/DashboardPage";
-import NotFoundPage from "./shared/pages/NotFoundPage";
 import {
   GuestRoute,
   RequireCompleteProfile,
   RequireIncompleteProfile,
 } from "./modules/auth/components/AuthRouteGuards";
+import {
+  AppLayout,
+  CompleteProfilePage,
+  DashboardPage,
+  LandingLayout,
+  LandingPage,
+  LoginPage,
+  NotFoundPage,
+  ProfilePage,
+  PublicLayout,
+  RegisterPage,
+  RoomLayout,
+  RoomLobbyPage,
+  RoomPage,
+  RouteSuspense,
+} from './routeElements'
+
+const routeElement = (element: ReactNode) => <RouteSuspense>{element}</RouteSuspense>
 
 export const Router = createBrowserRouter([
   {
-    element: <LandingLayout />,
+    element: routeElement(<LandingLayout />),
     children: [
       {
         element: <GuestRoute />,
         children: [
           {
             index: true,
-            element: <LandingPage />,
+            element: routeElement(<LandingPage />),
           },
           {
             path: "login",
-            element: <LoginPage />,
+            element: routeElement(<LoginPage />),
           },
           {
             path: "register",
-            element: <RegisterPage />,
+            element: routeElement(<RegisterPage />),
           },
         ],
       },
@@ -44,7 +50,7 @@ export const Router = createBrowserRouter([
 
   // PUBLIC ROUTES
   {
-    element: <PublicLayout />,
+    element: routeElement(<PublicLayout />),
     children: [
       {
         path: "completar-perfil",
@@ -55,13 +61,13 @@ export const Router = createBrowserRouter([
         children: [
           {
             path: "complete-profile",
-            element: <CompleteProfilePage />,
+            element: routeElement(<CompleteProfilePage />),
           },
         ],
       },
       {
         path: "*",
-        element: <NotFoundPage />,
+        element: routeElement(<NotFoundPage />),
       },
     ],
   },
@@ -69,7 +75,7 @@ export const Router = createBrowserRouter([
     element: <RequireCompleteProfile />,
     children: [
       {
-        element: <AppLayout />,
+        element: routeElement(<AppLayout />),
         children: [
           {
             index: true,
@@ -77,24 +83,24 @@ export const Router = createBrowserRouter([
           },
           {
             path: "dashboard",
-            element: <DashboardPage />,
+            element: routeElement(<DashboardPage />),
           },
           {
             path: "profile",
-            element: <ProfilePage />,
+            element: routeElement(<ProfilePage />),
           },
         ],
       },
       {
-        element: <RoomLayout />,
+        element: routeElement(<RoomLayout />),
         children: [
           {
             path: "room/:id/lobby",
-            element: <RoomLobbyPage />,
+            element: routeElement(<RoomLobbyPage />),
           },
           {
             path: "room/:id",
-            element: <RoomPage />,
+            element: routeElement(<RoomPage />),
           },
         ],
       },
