@@ -1,6 +1,5 @@
-import { ArrowLeft, Check, Copy, MessageSquare, Settings, Users, UserPlus, X } from 'lucide-react'
+import { Check, Copy, MessageSquare, Settings, Users, UserPlus, X } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
 import type { Room } from '@/types/room'
 import { RoomActionsMenu } from './RoomActionsMenu'
 import type { RoomSidebarPanel } from '../types/roomSession'
@@ -36,7 +35,6 @@ export function RoomHeader({
   chatHasUnread = false,
   onPanelChange,
 }: RoomHeaderProps) {
-  const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
@@ -53,14 +51,6 @@ export function RoomHeader({
   return (
     <header className="relative z-[45] bg-auth-bg flex min-h-[62px] shrink-0 items-center justify-between gap-2 border-b border-auth-input-border px-3 py-2.5 sm:gap-4 sm:px-5 sm:py-3.5">
       <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-        <button
-          type="button"
-          onClick={() => navigate('/dashboard')}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-auth-input-border bg-auth-input-bg/50 text-auth-label hover:border-auth-btn/40 hover:text-auth-title transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
-          aria-label="Volver al panel"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
         <h1 className="truncate text-sm font-medium text-auth-title sm:text-base">
           {roomName}
         </h1>

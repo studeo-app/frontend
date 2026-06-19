@@ -9,7 +9,7 @@ import {
   type QueryDocumentSnapshot,
   type Unsubscribe,
 } from "firebase/firestore";
-import { db } from "@/config/firebase.config";
+import { db } from "@/config/firestore.config";
 import type { Room, RoomMember } from "@/types/room";
 
 const MEMBERS_COLLECTION = "members";

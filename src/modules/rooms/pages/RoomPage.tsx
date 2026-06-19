@@ -18,6 +18,7 @@ import { VideoGrid } from '../components/VideoGrid'
 import { useRoom } from '../hooks/useRoom'
 import { useRoomSession } from '../hooks/useRoomSession'
 import { ROOM_SOCKET_EVENTS } from '../constants/socketEvents'
+import { createCooldownSound } from '../utils/roomSounds'
 import type { RoomSidebarPanel } from '../types/roomSession'
 import type { RoomMember } from '@/types/room'
 
@@ -139,12 +140,17 @@ export default function RoomPage() {
     }
   }, [getIdToken, roomId])
 
+  // Stable cooldown-gated message sound (2 s cooldown, lives for the lifetime of the page)
+  const playMessageSoundRef = useRef(createCooldownSound('message', 2000))
+
   const [chatHasUnread, setChatHasUnread] = useState(false)
   const prevMsgCountRef = useRef(session.messages.length)
 
   useEffect(() => {
     if (session.messages.length > prevMsgCountRef.current && activePanel !== 'chat') {
       setChatHasUnread(true)
+      // Play notification sound only when the chat panel is not active
+      playMessageSoundRef.current()
     }
     prevMsgCountRef.current = session.messages.length
   }, [session.messages.length, activePanel])
