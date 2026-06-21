@@ -11,6 +11,19 @@ interface ControlBarProps {
   onSendReaction: (emoji: RoomReactionEmoji) => void
   onLeave: () => void
   disabled?: boolean
+  showMicPermissionWarning?: boolean
+  showCameraPermissionWarning?: boolean
+}
+
+function PermissionBadge() {
+  return (
+    <span
+      aria-hidden="true"
+      className="absolute right-0 top-0 z-10 flex h-5 w-5 translate-x-1 -translate-y-1 items-center justify-center rounded-full bg-amber-400 text-[11px] font-black text-slate-900 shadow-md shadow-amber-500/30"
+    >
+      !
+    </span>
+  )
 }
 
 function MediaButton({
@@ -20,6 +33,7 @@ function MediaButton({
   children,
   isDangerWhenOff = false,
   disabled = false,
+  showPermissionWarning = false,
 }: {
   active?: boolean
   label: string
@@ -27,6 +41,7 @@ function MediaButton({
   children: React.ReactNode
   isDangerWhenOff?: boolean
   disabled?: boolean
+  showPermissionWarning?: boolean
 }) {
   const bg = disabled
     ? 'bg-auth-input-bg/40 text-auth-label/30 cursor-not-allowed opacity-50 pointer-events-none'
@@ -41,21 +56,24 @@ function MediaButton({
       )
 
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      disabled={disabled}
-      className={`
-        flex h-11 w-11 items-center justify-center rounded-full sm:h-12 sm:w-12
-        transition-all active:scale-95 cursor-pointer
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn
-        shadow-sm ${bg}
-      `}
-    >
-      {children}
-    </button>
+    <div className="relative">
+      {showPermissionWarning && <PermissionBadge />}
+      <button
+        type="button"
+        aria-label={label}
+        title={label}
+        onClick={onClick}
+        disabled={disabled}
+        className={`
+          flex h-11 w-11 items-center justify-center rounded-full sm:h-12 sm:w-12
+          transition-all active:scale-95 cursor-pointer
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn
+          shadow-sm ${bg}
+        `}
+      >
+        {children}
+      </button>
+    </div>
   )
 }
 
@@ -67,6 +85,8 @@ export function ControlBar({
   onSendReaction,
   onLeave,
   disabled = false,
+  showMicPermissionWarning = false,
+  showCameraPermissionWarning = false,
 }: ControlBarProps) {
   return (
     <div className="flex shrink-0 w-full justify-center pb-4 pt-2 px-3 sm:pb-6 sm:px-4">
@@ -78,6 +98,7 @@ export function ControlBar({
           onClick={onToggleMic}
           isDangerWhenOff
           disabled={disabled}
+          showPermissionWarning={showMicPermissionWarning}
         >
           {media.isMicOn ? (
             <Mic className="h-5 w-5" aria-hidden="true" />
@@ -93,6 +114,7 @@ export function ControlBar({
           onClick={onToggleCamera}
           isDangerWhenOff
           disabled={disabled}
+          showPermissionWarning={showCameraPermissionWarning}
         >
           {media.isCameraOn ? (
             <Video className="h-5 w-5" aria-hidden="true" />
