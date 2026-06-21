@@ -44,7 +44,7 @@ export function VideoTile({
   } = participant
 
   const nameLabel = mode === 'screen'
-    ? `Pantalla de ${isLocal ? 'ti' : displayName}`
+    ? isLocal ? 'Tu pantalla' : `Pantalla de ${displayName}`
     : isLocal ? `${displayName} (Tu)` : displayName
 
   // Hay stream de video adjunto al elemento <video>
