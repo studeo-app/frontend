@@ -29,6 +29,8 @@ interface UseRoomSessionResult {
   actions: RoomSessionActions
   joinWarningMessage: string | null
   clearJoinWarning: () => void
+  screenShareWarningMessage: string | null
+  clearScreenShareWarning: () => void
   mediaError: 'permissions' | 'hardware' | 'webrtc' | null
   mediaPermissions: MediaPermissionSnapshot
   permissionWarnings: {
@@ -145,6 +147,8 @@ function toRoomParticipants(
 // playSynthesizedSound is now imported from '../utils/roomSounds'
 
 const defaultIceServers: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
+const PEER_DISCONNECTED_GRACE_MS = 8_000
+const MAX_ICE_RESTART_ATTEMPTS_PER_PEER = 1
 
 type MediaPermissionSnapshot = {
   microphone?: PermissionState | 'unsupported'
@@ -178,6 +182,34 @@ function cleanIceServerValue(value: string): string {
   return value.trim().replace(/^["']+|["']+$/g, '')
 }
 
+function isLikelyMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false
+
+  return (
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi/i.test(
+      navigator.userAgent,
+    ) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent))
+  )
+}
+
+function getScreenShareUnavailableMessage(): string {
+  return isLikelyMobileDevice()
+    ? 'Tu navegador movil no permite compartir pantalla desde una pagina web. Si este dispositivo soporta captura de pantalla, prueba con la version mas reciente de Chrome/Edge; en iPhone/iPad normalmente se requiere una app nativa.'
+    : 'Tu navegador no permite compartir pantalla en esta pagina. Verifica que estes usando HTTPS y un navegador compatible.'
+}
+
+function getScreenShareFailureMessage(err: unknown): string | null {
+  const errorName = err instanceof DOMException ? err.name : undefined
+  if (errorName === 'NotAllowedError' || errorName === 'AbortError') {
+    return null
+  }
+
+  return isLikelyMobileDevice()
+    ? 'No pudimos iniciar la captura de pantalla en este celular. El navegador puede bloquear esta funcion aunque la camara siga funcionando.'
+    : 'No pudimos iniciar la captura de pantalla. Revisa los permisos del navegador e intentalo de nuevo.'
+}
+
 function getPeerConnectionConfig(): RTCConfiguration {
   const turnUrls = (import.meta.env.VITE_TURN_URL as string | undefined)
     ?.split(',')
@@ -185,7 +217,10 @@ function getPeerConnectionConfig(): RTCConfiguration {
     .filter(Boolean)
 
   if (!turnUrls?.length) {
-    return { iceServers: defaultIceServers }
+    return {
+      iceServers: defaultIceServers,
+      bundlePolicy: 'max-bundle',
+    }
   }
 
   const username = cleanIceServerValue(
@@ -204,6 +239,7 @@ function getPeerConnectionConfig(): RTCConfiguration {
         ...(credential ? { credential } : {}),
       },
     ],
+    bundlePolicy: 'max-bundle',
   }
 }
 
@@ -268,12 +304,14 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     hasMoreHistory: false,
   }))
   const [joinWarningMessage, setJoinWarningMessage] = useState<string | null>(null)
+  const [screenShareWarningMessage, setScreenShareWarningMessage] = useState<string | null>(null)
   const [mediaError, setMediaError] = useState<'permissions' | 'hardware' | 'webrtc' | null>(null)
   const [mediaPermissions, setMediaPermissions] = useState<MediaPermissionSnapshot>({
     microphone: 'unsupported',
     camera: 'unsupported',
   })
   const [retryCount, setRetryCount] = useState(0)
+  const [peerFailureRevision, setPeerFailureRevision] = useState(0)
 
   const nextCursorRef = useRef<string | null>(null)
   const loadingHistoryRef = useRef(false)
@@ -294,6 +332,11 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   const remoteScreenStreamIdsRef = useRef(new Map<string, string>())
   const pendingIceCandidatesRef = useRef(new Map<string, RTCIceCandidateInit[]>())
   const offeredPeersRef = useRef(new Set<string>())
+  const peerRecoveryTimeoutsRef = useRef(new Map<string, number>())
+  const peerIceRestartAttemptsRef = useRef(new Map<string, number>())
+  const peerConnectedOnceRef = useRef(new Set<string>())
+  const localHadAnyPeerConnectionRef = useRef(false)
+  const isolatedPeerFailuresRef = useRef(new Set<string>())
   const audioContextRef = useRef<AudioContext | null>(null)
   const speakingDetectorsRef = useRef(new Map<string, SpeakingDetector>())
   const reactionTimeoutsRef = useRef(new Map<string, number>())
@@ -520,7 +563,24 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     })
   }, [roomId])
 
-  const closePeerConnection = useCallback((remoteSocketId: string) => {
+  const clearPeerRecoveryTimeout = useCallback((remoteSocketId: string) => {
+    const timeoutId = peerRecoveryTimeoutsRef.current.get(remoteSocketId)
+    if (!timeoutId) return
+
+    window.clearTimeout(timeoutId)
+    peerRecoveryTimeoutsRef.current.delete(remoteSocketId)
+  }, [])
+
+  const markIsolatedPeerFailure = useCallback((remoteSocketId: string) => {
+    isolatedPeerFailuresRef.current.add(remoteSocketId)
+    setPeerFailureRevision((revision) => revision + 1)
+  }, [])
+
+  const closePeerConnection = useCallback((
+    remoteSocketId: string,
+    options: { preserveFailure?: boolean } = {},
+  ) => {
+    clearPeerRecoveryTimeout(remoteSocketId)
     peerConnectionsRef.current.get(remoteSocketId)?.close()
     peerConnectionsRef.current.delete(remoteSocketId)
     remoteStreamsRef.current.delete(remoteSocketId)
@@ -529,8 +589,36 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     remoteScreenStreamIdsRef.current.delete(remoteSocketId)
     pendingIceCandidatesRef.current.delete(remoteSocketId)
     offeredPeersRef.current.delete(remoteSocketId)
+    peerIceRestartAttemptsRef.current.delete(remoteSocketId)
+    peerConnectedOnceRef.current.delete(remoteSocketId)
+    if (!options.preserveFailure) {
+      isolatedPeerFailuresRef.current.delete(remoteSocketId)
+    }
     setParticipantsFromPresence()
-  }, [setParticipantsFromPresence])
+  }, [clearPeerRecoveryTimeout, setParticipantsFromPresence])
+
+  const restartPeerIce = useCallback(async (
+    remoteSocketId: string,
+    pc: RTCPeerConnection,
+  ) => {
+    const socket = getSocket()
+    if (!socket?.connected || pc.signalingState !== 'stable') return false
+
+    try {
+      pc.restartIce()
+      const offer = await pc.createOffer({ iceRestart: true })
+      await pc.setLocalDescription(offer)
+      socket.emit(ROOM_SOCKET_EVENTS.WEBRTC_OFFER, {
+        roomId,
+        toSocketId: remoteSocketId,
+        offer,
+      })
+      return true
+    } catch (err) {
+      console.error(`[WebRTC] ICE restart failed for ${remoteSocketId}:`, err)
+      return false
+    }
+  }, [roomId])
 
   const flushPendingIceCandidates = useCallback(async (remoteSocketId: string) => {
     const pc = peerConnectionsRef.current.get(remoteSocketId)
@@ -649,16 +737,67 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
 
     pc.onconnectionstatechange = () => {
       console.log(`[WebRTC] Connection state change for ${remoteSocketId}: ${pc.connectionState}`)
-      if (['closed', 'disconnected', 'failed'].includes(pc.connectionState)) {
-        if (pc.connectionState === 'failed') {
-          setMediaError('webrtc')
+      if (pc.connectionState === 'connected') {
+        clearPeerRecoveryTimeout(remoteSocketId)
+        peerIceRestartAttemptsRef.current.delete(remoteSocketId)
+        peerConnectedOnceRef.current.add(remoteSocketId)
+        localHadAnyPeerConnectionRef.current = true
+        isolatedPeerFailuresRef.current.delete(remoteSocketId)
+        if (mediaErrorRef.current === 'webrtc') {
+          setMediaError(null)
         }
+        return
+      }
+
+      if (pc.connectionState === 'disconnected') {
+        if (!peerRecoveryTimeoutsRef.current.has(remoteSocketId)) {
+          const timeoutId = window.setTimeout(() => {
+            peerRecoveryTimeoutsRef.current.delete(remoteSocketId)
+            if (pc.connectionState !== 'disconnected') return
+
+            const attempts = peerIceRestartAttemptsRef.current.get(remoteSocketId) ?? 0
+            if (attempts < MAX_ICE_RESTART_ATTEMPTS_PER_PEER) {
+              peerIceRestartAttemptsRef.current.set(remoteSocketId, attempts + 1)
+              restartPeerIce(remoteSocketId, pc).catch(() => undefined)
+              return
+            }
+
+            markIsolatedPeerFailure(remoteSocketId)
+            closePeerConnection(remoteSocketId, { preserveFailure: true })
+          }, PEER_DISCONNECTED_GRACE_MS)
+          peerRecoveryTimeoutsRef.current.set(remoteSocketId, timeoutId)
+        }
+        return
+      }
+
+      if (pc.connectionState === 'failed') {
+        clearPeerRecoveryTimeout(remoteSocketId)
+        const attempts = peerIceRestartAttemptsRef.current.get(remoteSocketId) ?? 0
+        if (attempts < MAX_ICE_RESTART_ATTEMPTS_PER_PEER) {
+          peerIceRestartAttemptsRef.current.set(remoteSocketId, attempts + 1)
+          restartPeerIce(remoteSocketId, pc).catch(() => undefined)
+          return
+        }
+
+        markIsolatedPeerFailure(remoteSocketId)
+        closePeerConnection(remoteSocketId, { preserveFailure: true })
+        return
+      }
+
+      if (pc.connectionState === 'closed') {
         closePeerConnection(remoteSocketId)
       }
     }
 
     return pc
-  }, [closePeerConnection, roomId, setParticipantsFromPresence])
+  }, [
+    clearPeerRecoveryTimeout,
+    closePeerConnection,
+    markIsolatedPeerFailure,
+    restartPeerIce,
+    roomId,
+    setParticipantsFromPresence,
+  ])
 
   const syncPeerConnections = useCallback(async (users: RoomUserPresencePayload[]) => {
     const socket = getSocket()
@@ -668,6 +807,9 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     const remoteSocketIds = users
       .map((user) => user.socketId)
       .filter((socketId) => socketId && socketId !== localSocketId)
+    const connectableRemoteSocketIds = remoteSocketIds.filter(
+      (socketId) => !isolatedPeerFailuresRef.current.has(socketId),
+    )
 
     peerConnectionsRef.current.forEach((_, socketId) => {
       if (!remoteSocketIds.includes(socketId)) {
@@ -675,7 +817,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       }
     })
 
-    await Promise.all(remoteSocketIds.map(async (remoteSocketId) => {
+    await Promise.all(connectableRemoteSocketIds.map(async (remoteSocketId) => {
       const pc = createPeerConnection(remoteSocketId)
       if (
         localSocketId <= remoteSocketId ||
@@ -944,8 +1086,6 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     return grantedAnyDevice
   }, [
     emitMediaStatus,
-    lobbyMediaPrefs?.selectedCameraId,
-    lobbyMediaPrefs?.selectedMicId,
     refreshMediaPermissions,
     replaceLocalCameraTrack,
     replaceOutgoingAudioTrack,
@@ -966,6 +1106,12 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     remoteScreenStreamIdsRef.current.clear()
     pendingIceCandidatesRef.current.clear()
     offeredPeersRef.current.clear()
+    peerRecoveryTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
+    peerRecoveryTimeoutsRef.current.clear()
+    peerIceRestartAttemptsRef.current.clear()
+    peerConnectedOnceRef.current.clear()
+    localHadAnyPeerConnectionRef.current = false
+    isolatedPeerFailuresRef.current.clear()
     localStreamRef.current?.getTracks().forEach((track) => track.stop())
     localStreamRef.current = null
     localScreenStreamRef.current?.getTracks().forEach((track) => track.stop())
@@ -976,6 +1122,33 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     screenAudioTrackRef.current?.stop()
     screenAudioTrackRef.current = null
   }, [closeSpeakingDetector])
+
+  useEffect(() => {
+    if (!peerFailureRevision || localHadAnyPeerConnectionRef.current) return
+
+    const socket = getSocket()
+    const localSocketId = socket?.id
+    if (!socket?.connected || !localSocketId) return
+
+    const remoteSocketIds = roomUsersRef.current
+      .map((user) => user.socketId)
+      .filter((socketId) => socketId && socketId !== localSocketId)
+
+    if (!remoteSocketIds.length) return
+    if (!remoteSocketIds.every((socketId) => isolatedPeerFailuresRef.current.has(socketId))) return
+
+    socket.emit(ROOM_SOCKET_EVENTS.LEAVE_ROOM)
+    cleanupWebRtc()
+    disconnectSocket()
+    setJoinWarningMessage(
+      'No pudimos establecer la conexion de audio y video con esta sala. Si tu red necesita TURN, es posible que el relay no este disponible en este momento.',
+    )
+    setSession((prev) => ({
+      ...prev,
+      connectionStatus: 'disconnected',
+      participants: prev.participants.filter((participant) => participant.isLocal),
+    }))
+  }, [cleanupWebRtc, peerFailureRevision])
 
   useEffect(() => {
     let cancelled = false
@@ -1594,9 +1767,13 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       return
     }
 
-    if (!navigator.mediaDevices?.getDisplayMedia) return
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setScreenShareWarningMessage(getScreenShareUnavailableMessage())
+      return
+    }
 
     try {
+      setScreenShareWarningMessage(null)
       console.log('[WebRTC] Starting screen share...')
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
@@ -1699,6 +1876,10 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       emitMediaStatus(nextMedia)
     } catch (err) {
       console.error('[WebRTC] screen share failed:', err)
+      const message = getScreenShareFailureMessage(err)
+      if (message) {
+        setScreenShareWarningMessage(message)
+      }
     }
   }, [emitMediaStatus, roomId, session.localMedia])
 
@@ -1827,6 +2008,10 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     setJoinWarningMessage(null)
   }, [])
 
+  const clearScreenShareWarning = useCallback(() => {
+    setScreenShareWarningMessage(null)
+  }, [])
+
   const permissionWarnings = {
     microphone:
       mediaPermissions.microphone !== 'granted' &&
@@ -1841,6 +2026,8 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     actions,
     joinWarningMessage,
     clearJoinWarning,
+    screenShareWarningMessage,
+    clearScreenShareWarning,
     mediaError,
     mediaPermissions,
     permissionWarnings,
