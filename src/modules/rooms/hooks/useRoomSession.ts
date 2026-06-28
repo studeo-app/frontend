@@ -86,6 +86,8 @@ interface SpeakingDetector {
   isSpeaking: boolean
 }
 
+type SpeakingDetectorKind = 'camera' | 'screen'
+
 function resolveParticipantProfile(
   user: RoomUserPresencePayload,
   memberByUid: Map<string, RoomMember>,
@@ -376,32 +378,58 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   }, [])
 
   const syncSpeakingDetectors = useCallback((participants: RoomParticipant[]) => {
-    const liveSocketIds = new Set(participants.map((participant) => participant.socketId))
+    const getDetectorKey = (socketId: string, kind: SpeakingDetectorKind) =>
+      `${socketId}:${kind}`
 
-    speakingDetectorsRef.current.forEach((_, socketId) => {
-      if (!liveSocketIds.has(socketId)) {
-        closeSpeakingDetector(socketId)
+    const liveDetectorKeys = new Set<string>()
+    participants.forEach((participant) => {
+      liveDetectorKeys.add(getDetectorKey(participant.socketId, 'camera'))
+      liveDetectorKeys.add(getDetectorKey(participant.socketId, 'screen'))
+    })
+
+    speakingDetectorsRef.current.forEach((_, detectorKey) => {
+      if (!liveDetectorKeys.has(detectorKey)) {
+        closeSpeakingDetector(detectorKey)
       }
     })
 
-    participants.forEach((participant) => {
-      const stream = participant.isLocal
-        ? localStreamRef.current
-        : remoteStreamsRef.current.get(participant.socketId)
+    const syncDetectorForStream = (
+      participant: RoomParticipant,
+      kind: SpeakingDetectorKind,
+      stream: MediaStream | null | undefined,
+    ) => {
+      const detectorKey = getDetectorKey(participant.socketId, kind)
 
       const hasLiveAudio = stream?.getAudioTracks().some(
         (track) => track.readyState === 'live',
       )
 
       if (!stream || !hasLiveAudio) {
-        closeSpeakingDetector(participant.socketId)
+        closeSpeakingDetector(detectorKey)
+        const isCurrentlyMarkedSpeaking =
+          kind === 'screen' ? participant.isScreenSpeaking : participant.isSpeaking
+        if (isCurrentlyMarkedSpeaking) {
+          setSession((prev) => ({
+            ...prev,
+            participants: prev.participants.map((item) =>
+              item.socketId === participant.socketId
+                ? {
+                    ...item,
+                    ...(kind === 'screen'
+                      ? { isScreenSpeaking: false }
+                      : { isSpeaking: false }),
+                  }
+                : item,
+            ),
+          }))
+        }
         return
       }
 
-      const existing = speakingDetectorsRef.current.get(participant.socketId)
+      const existing = speakingDetectorsRef.current.get(detectorKey)
       if (existing?.stream === stream) return
 
-      closeSpeakingDetector(participant.socketId)
+      closeSpeakingDetector(detectorKey)
 
       const AudioContextConstructor = window.AudioContext
       if (!AudioContextConstructor) return
@@ -441,7 +469,14 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
             setSession((prev) => ({
               ...prev,
               participants: prev.participants.map((item) =>
-                item.socketId === participant.socketId ? { ...item, isSpeaking: false } : item,
+                item.socketId === participant.socketId
+                  ? {
+                      ...item,
+                      ...(kind === 'screen'
+                        ? { isScreenSpeaking: false }
+                        : { isSpeaking: false }),
+                    }
+                  : item,
               ),
             }))
           }
@@ -473,13 +508,30 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           ...prev,
           participants: prev.participants.map((item) =>
             item.socketId === participant.socketId
-              ? { ...item, isSpeaking: nextSpeaking }
+              ? {
+                  ...item,
+                  ...(kind === 'screen'
+                    ? { isScreenSpeaking: nextSpeaking }
+                    : { isSpeaking: nextSpeaking }),
+                }
               : item,
           ),
         }))
       }, 80)
 
-      speakingDetectorsRef.current.set(participant.socketId, detector)
+      speakingDetectorsRef.current.set(detectorKey, detector)
+    }
+
+    participants.forEach((participant) => {
+      const cameraStream = participant.isLocal
+        ? localStreamRef.current
+        : remoteStreamsRef.current.get(participant.socketId)
+      const screenStream = participant.isLocal
+        ? localScreenStreamRef.current
+        : remoteScreenStreamsRef.current.get(participant.socketId)
+
+      syncDetectorForStream(participant, 'camera', cameraStream)
+      syncDetectorForStream(participant, 'screen', screenStream)
     })
   }, [closeSpeakingDetector])
 

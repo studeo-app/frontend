@@ -40,6 +40,7 @@ export function VideoTile({
     isMicOn,
     isScreenSharing,
     isSpeaking,
+    isScreenSpeaking,
     videoStream,
   } = participant
 
@@ -61,6 +62,7 @@ export function VideoTile({
   const shouldShowPlaceholder = !shouldShowVideo
 
   const normalizedVolume = Math.min(1, Math.max(0, outputVolume / 100))
+  const isTileSpeaking = mode === 'screen' ? isScreenSpeaking : isSpeaking
 
   useEffect(() => {
     const videoEl = videoRef.current
@@ -96,9 +98,9 @@ export function VideoTile({
   }, [videoStream])
 
   useEffect(() => {
-    if (!videoRef.current || isLocal) return
+    if (!videoRef.current) return
     videoRef.current.volume = normalizedVolume
-  }, [isLocal, normalizedVolume])
+  }, [normalizedVolume])
 
   return (
     <div
@@ -106,7 +108,7 @@ export function VideoTile({
       group relative flex ${fullSize ? 'w-full h-full' : 'w-full max-h-full aspect-video'} items-center justify-center overflow-hidden
       rounded-xl sm:rounded-2xl
       bg-auth-input-bg/90 border border-gray-300 dark:border-transparent shadow-md transition-all duration-300
-      ${isSpeaking ? 'ring-[3px] ring-auth-btn ring-offset-2 ring-offset-auth-bg shadow-auth-btn/30' : ''}
+      ${isTileSpeaking ? 'ring-[3px] ring-auth-btn ring-offset-2 ring-offset-auth-bg shadow-auth-btn/30' : ''}
     `}
     >
       {/* Botón de fijar (Pin) */}
@@ -131,7 +133,7 @@ export function VideoTile({
           ref={videoRef}
           autoPlay
           playsInline
-          muted={isLocal || mode === 'screen'}
+          muted
           className={`
             absolute inset-0 h-full w-full object-contain transition-opacity duration-150
             ${shouldShowVideo ? 'opacity-100' : 'opacity-0'}
