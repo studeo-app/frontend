@@ -213,10 +213,12 @@ export function VideoTile({
       {/* Etiqueta de nombre y micrófono */}
       <div className="absolute bottom-2 left-2 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-lg bg-auth-bg/75 px-2.5 py-1 backdrop-blur-sm sm:bottom-3 sm:left-3">
         <span className="truncate text-xs font-medium text-auth-title">{nameLabel}</span>
-        {isMicOn ? (
-          <Mic className="h-3 w-3 text-auth-link" aria-label="Microfono activo" />
-        ) : (
-          <MicOff className="h-3 w-3 text-red-500" aria-label="Microfono silenciado" />
+        {mode === 'camera' && (
+          isMicOn ? (
+            <Mic className="h-3 w-3 text-auth-link" aria-label="Microfono activo" />
+          ) : (
+            <MicOff className="h-3 w-3 text-red-500" aria-label="Microfono silenciado" />
+          )
         )}
       </div>
     </div>
