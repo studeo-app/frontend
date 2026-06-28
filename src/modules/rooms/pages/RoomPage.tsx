@@ -100,6 +100,8 @@ export default function RoomPage() {
     actions,
     joinWarningMessage,
     clearJoinWarning,
+    screenShareWarningMessage,
+    clearScreenShareWarning,
     mediaError,
     mediaPermissions,
     permissionWarnings,
@@ -644,6 +646,15 @@ export default function RoomPage() {
         message={
           joinWarningMessage ??
           'Ya te encuentras conectado a esta sala desde otra pestaña o dispositivo.'
+        }
+      />
+
+      <WarningModal
+        isOpen={Boolean(screenShareWarningMessage)}
+        onClose={clearScreenShareWarning}
+        message={
+          screenShareWarningMessage ??
+          'No pudimos iniciar la captura de pantalla en este dispositivo.'
         }
       />
 

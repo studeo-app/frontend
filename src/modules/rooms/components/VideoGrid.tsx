@@ -12,7 +12,7 @@ interface VideoGridProps {
   onKickParticipant?: (uid: string) => void
 }
 
-function ScreenShareAudio({ stream, volume }: { stream: MediaStream; volume: number }) {
+function RemoteStreamAudio({ stream, volume }: { stream: MediaStream; volume: number }) {
   const audioRef = useRef<HTMLAudioElement>(null)
 
   useEffect(() => {
@@ -21,7 +21,17 @@ function ScreenShareAudio({ stream, volume }: { stream: MediaStream; volume: num
     audio.srcObject = stream
     audio.play().catch(() => undefined)
 
+    const handleTrackEvent = () => {
+      audio.srcObject = stream
+      audio.play().catch(() => undefined)
+    }
+
+    stream.addEventListener('addtrack', handleTrackEvent)
+    stream.addEventListener('removetrack', handleTrackEvent)
+
     return () => {
+      stream.removeEventListener('addtrack', handleTrackEvent)
+      stream.removeEventListener('removetrack', handleTrackEvent)
       audio.pause()
       audio.srcObject = null
     }
@@ -36,6 +46,29 @@ function ScreenShareAudio({ stream, volume }: { stream: MediaStream; volume: num
       <track kind="captions" />
     </audio>
   )
+}
+
+function CameraAudioLayer({
+  participants,
+  outputVolume,
+}: {
+  participants: RoomParticipant[]
+  outputVolume: number
+}) {
+  const normalizedVolume = Math.min(1, Math.max(0, outputVolume / 100))
+
+  return participants
+    .filter((participant) => (
+      !participant.isLocal &&
+      Boolean(participant.videoStream?.getAudioTracks().length)
+    ))
+    .map((participant) => (
+      <RemoteStreamAudio
+        key={`${participant.socketId}-camera-audio`}
+        stream={participant.videoStream!}
+        volume={normalizedVolume}
+      />
+    ))
 }
 
 function ScreenShareAudioLayer({
@@ -54,7 +87,7 @@ function ScreenShareAudioLayer({
       Boolean(participant.screenStream?.getAudioTracks().length)
     ))
     .map((participant) => (
-      <ScreenShareAudio
+      <RemoteStreamAudio
         key={`${participant.socketId}-screen-audio`}
         stream={participant.screenStream!}
         volume={normalizedVolume}
@@ -193,6 +226,7 @@ export function VideoGrid({
         role="list"
         aria-label="Participantes en la sala con orador fijado"
       >
+        <CameraAudioLayer participants={participants} outputVolume={outputVolume} />
         <ScreenShareAudioLayer participants={participants} outputVolume={outputVolume} />
 
         {/* Orador/Pantalla Fijada (Área Principal) */}
@@ -380,6 +414,7 @@ export function VideoGrid({
       role="list"
       aria-label="Participantes en la sala"
     >
+      <CameraAudioLayer participants={participants} outputVolume={outputVolume} />
       <ScreenShareAudioLayer participants={participants} outputVolume={outputVolume} />
 
       <div
