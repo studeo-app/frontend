@@ -180,6 +180,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                 onChange={handleNameChange}
                 disabled={isCreating}
                 maxLength={60}
+                aria-required="true" // Added aria-required for accessibility
                 aria-invalid={name.length > 0 && !isNameValid ? "true" : "false"}
                 aria-describedby={name.length > 0 && !isNameValid ? "room-name-error" : undefined}
                 className="w-full h-11 px-4 text-sm rounded-xl border border-auth-input-border bg-auth-input-bg text-auth-title focus:outline-none focus:ring-2 focus:ring-auth-btn focus:border-transparent transition"

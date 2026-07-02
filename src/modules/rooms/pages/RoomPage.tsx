@@ -484,6 +484,7 @@ export default function RoomPage() {
             <button
               type="button"
               aria-label="Cerrar panel"
+              tabIndex={-1} // Exclude backdrop from keyboard tab navigation since explicit close buttons exist inside the panels
               onClick={() => setActivePanel(null)}
               className="fixed inset-0 z-30 bg-black/45 md:hidden"
             />
@@ -528,6 +529,9 @@ export default function RoomPage() {
               <button
                 type="button"
                 onClick={() => setActivePanel('chat')}
+                aria-expanded="false" // Button is only visible when chat is closed
+                aria-controls="chat-panel" // Links to the chat panel element id
+                aria-label="Mostrar panel de chat" // Clear label for screen readers
                 className="
                   pointer-events-auto absolute left-0 top-1/2 z-40 hidden -translate-x-full -translate-y-1/2
                   h-40 w-8 shrink-0 cursor-pointer

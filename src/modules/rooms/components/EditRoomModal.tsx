@@ -172,11 +172,13 @@ export function EditRoomModal({
                 onChange={(e) => setName(e.target.value)}
                 disabled={isUpdating}
                 maxLength={60}
+                aria-required="true" // Added aria-required for accessibility
                 aria-invalid={name.length > 0 && !isNameValid ? 'true' : 'false'}
+                aria-describedby={name.length > 0 && !isNameValid ? 'edit-room-name-error' : undefined} // Linked input to error message via aria-describedby
                 className="h-11 w-full rounded-xl border border-auth-input-border bg-auth-input-bg px-4 text-sm text-auth-title transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-auth-btn"
               />
               <div className="flex items-center justify-between px-1">
-                <span className="text-[10px] text-auth-label">
+                <span id="edit-room-name-error" aria-live="polite" className="text-[10px] text-auth-label"> {/* Added id and aria-live for error announcement */}
                   {name.length > 0 && !isNameValid && (
                     <span className="text-auth-error">
                       El nombre debe tener entre 3 y 50 caracteres
@@ -218,7 +220,11 @@ export function EditRoomModal({
                 aria-label="Subir nueva portada"
               />
 
-              <div className="grid max-h-[180px] grid-cols-3 gap-2 overflow-y-auto pr-1">
+              <div 
+                className="grid max-h-[180px] grid-cols-3 gap-2 overflow-y-auto pr-1"
+                role="radiogroup" // Added radiogroup role
+                aria-label="Opciones de imagen de portada" // Added label for radiogroup
+              >
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -232,9 +238,11 @@ export function EditRoomModal({
                 {previewUrl && (
                   <button
                     type="button"
+                    role="radio" // Added radio role for keyboard navigation semantics
+                    aria-checked={selectedImageUrl === previewUrl} // Added checked state
                     onClick={() => setSelectedImageUrl(previewUrl)}
                     disabled={isUpdating}
-                    aria-label="Seleccionar imagen subida"
+                    aria-label={`Seleccionar imagen subida${selectedImageUrl === previewUrl ? ", seleccionada" : ""}`}
                     className="relative aspect-video cursor-pointer overflow-hidden rounded-lg border-2 border-auth-btn p-0 text-left shadow-md transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
                   >
                     <img
@@ -257,9 +265,11 @@ export function EditRoomModal({
                     <button
                       key={`${cover.id}-${cover.src}`}
                       type="button"
+                      role="radio" // Added radio role
+                      aria-checked={isSelected} // Added checked state
                       onClick={() => handleSelectImageUrl(cover.src)}
                       disabled={isUpdating}
-                      aria-label={`Seleccionar portada ${cover.name}`}
+                      aria-label={`Seleccionar portada ${cover.name}${isSelected ? ", seleccionada" : ""}`}
                       className={`relative aspect-video cursor-pointer overflow-hidden rounded-lg border-2 p-0 text-left transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn ${
                         isSelected ? 'border-auth-btn shadow-md' : 'border-transparent opacity-80 hover:opacity-100'
                       }`}

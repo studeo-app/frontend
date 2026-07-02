@@ -94,7 +94,7 @@ export default function AppLayout() {
                     type="button"
                     onClick={() => setIsExpanded(false)}
                     aria-label="Colapsar menú"
-                    className="hidden md:flex cursor-pointer rounded-lg p-1 text-auth-label hover:bg-auth-input-bg hover:text-auth-title transition-colors duration-200"
+                    className="hidden md:flex cursor-pointer rounded-lg p-1 text-auth-label hover:bg-auth-input-bg hover:text-auth-title transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn" // Added focus-visible ring
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
@@ -104,7 +104,7 @@ export default function AppLayout() {
                   type="button"
                   onClick={() => setIsExpanded(true)}
                   aria-label="Expandir menú"
-                  className="hidden md:flex mx-auto cursor-pointer rounded-lg p-1 text-auth-label hover:bg-auth-input-bg hover:text-auth-title transition-colors duration-200"
+                  className="hidden md:flex mx-auto cursor-pointer rounded-lg p-1 text-auth-label hover:bg-auth-input-bg hover:text-auth-title transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn" // Added focus-visible ring
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>
@@ -116,7 +116,7 @@ export default function AppLayout() {
               onClick={() => navigate("/profile")}
               aria-label="Ir al perfil"
               className={`
-                mb-5 transition-all duration-300 cursor-pointer
+                mb-5 transition-all duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:ring-offset-auth-surface
                 ${isExpanded 
                   ? "w-full rounded-xl border border-auth-input-border bg-auth-input-bg/60 shadow-sm flex items-center gap-3 p-3 hover:bg-auth-input-bg hover:border-auth-btn/30 text-left" 
                   : "mx-auto flex flex-col items-center justify-center border-0 bg-transparent p-0 hover:scale-105"
@@ -170,7 +170,7 @@ export default function AppLayout() {
                               aria-label="Alternar lista de salas"
                               aria-expanded={roomsDropdownOpen}
                               aria-controls="sidebar-rooms-list"
-                              className="absolute right-2 p-1 rounded-md text-auth-label hover:bg-auth-input-bg hover:text-auth-title transition-colors cursor-pointer"
+                              className="absolute right-2 p-1 rounded-md text-auth-label hover:bg-auth-input-bg hover:text-auth-title transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn" // Added focus-visible ring
                             >
                               <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${roomsDropdownOpen ? "rotate-180" : ""}`} />
                             </button>
@@ -224,7 +224,7 @@ export default function AppLayout() {
                                   to={`/room/${room.id}/lobby`}
                                   aria-label={`Ir a la sala ${room.name}`}
                                   className={({ isActive }) =>
-                                    `flex h-9 w-9 items-center justify-center rounded-3xl transition-all duration-300 cursor-pointer overflow-hidden border border-auth-input-border/40 ${
+                                    `flex h-9 w-9 items-center justify-center rounded-3xl transition-all duration-300 cursor-pointer overflow-hidden border border-auth-input-border/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn ${
                                       isActive
                                         ? "rounded-xl bg-auth-btn text-auth-btn-text shadow-md shadow-auth-btn/25"
                                         : "bg-auth-input-bg hover:rounded-xl hover:bg-auth-btn hover:text-auth-btn-text"

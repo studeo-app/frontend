@@ -722,6 +722,7 @@ export default function ProfilePage() {
                   className="h-11 rounded-xl pr-10 bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition disabled:opacity-50"
                   placeholder="Tu nombre"
                   required
+                  aria-required="true" // Added aria-required for accessibility
                 />
                 {!firstNameError && fields.firstName.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
@@ -748,6 +749,7 @@ export default function ProfilePage() {
                   className="h-11 rounded-xl pr-10 bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition disabled:opacity-50"
                   placeholder="Tus apellidos"
                   required
+                  aria-required="true" // Added aria-required for accessibility
                 />
                 {!lastNameError && fields.lastName.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
@@ -777,6 +779,7 @@ export default function ProfilePage() {
                   className="h-11 pl-9 pr-10 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition disabled:opacity-50"
                   placeholder="nombre_usuario"
                   required
+                  aria-required="true" // Added aria-required for accessibility
                 />
                 {isUsernameValid && fields.username.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
@@ -824,6 +827,7 @@ export default function ProfilePage() {
                   className="h-11 rounded-xl pr-10 bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition disabled:opacity-40"
                   placeholder="correo@ejemplo.com"
                   required
+                  aria-required="true" // Added aria-required for accessibility
                 />
                 {!emailError && fields.email.value.trim() && isEditingMode && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
@@ -882,6 +886,7 @@ export default function ProfilePage() {
                   className="h-11 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
                   placeholder="••••••••"
                   required
+                  aria-required="true" // Added aria-required for accessibility
                 />
               </div>
 
@@ -902,6 +907,7 @@ export default function ProfilePage() {
                   className="h-11 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
                   placeholder="••••••••"
                   required
+                  aria-required="true" // Added aria-required for accessibility
                 />
                 
                 {/* Real-time Password Rules */}
@@ -950,6 +956,7 @@ export default function ProfilePage() {
                   className="h-11 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
                   placeholder="••••••••"
                   required
+                  aria-required="true" // Added aria-required for accessibility
                 />
                 
                 {/* Password Match Confirmation */}
