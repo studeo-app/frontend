@@ -490,6 +490,7 @@ export default function DashboardPage() {
               value={inviteCode}
               disabled={isJoining}
               onChange={(e) => setInviteCode(e.target.value)}
+              aria-required="true" // Added aria-required for accessibility
               className="h-14 flex-1 rounded-xl border border-auth-input-border bg-auth-input-bg/40 px-4 text-sm text-auth-title transition placeholder:text-auth-label focus:border-transparent focus:outline-none focus:ring-2 focus:ring-auth-btn"
             />
             <button

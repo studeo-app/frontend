@@ -117,6 +117,7 @@ export function VideoTile({
             e.stopPropagation()
             onTogglePin()
           }}
+          aria-pressed={isPinned} // Added aria-pressed to communicate toggle state
           className={`absolute left-3 top-3 z-20 rounded-lg bg-auth-bg/85 p-1.5 text-auth-label hover:text-auth-title transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn ${isPinned ? '!text-auth-btn bg-auth-btn/10 border border-auth-btn/30' : ''
             }`}
           title={isPinned ? 'Desfijar' : 'Fijar'}
@@ -132,6 +133,7 @@ export function VideoTile({
           autoPlay
           playsInline
           muted={isLocal || mode === 'screen'}
+          aria-label={nameLabel} // Added aria-label to describe video stream
           className={`
             absolute inset-0 h-full w-full object-contain transition-opacity duration-150
             ${shouldShowVideo ? 'opacity-100' : 'opacity-0'}
@@ -168,7 +170,7 @@ export function VideoTile({
 
       {/* Botones de acción del Anfitrión (Silenciar y Expulsar) */}
       {isOwner && !isLocal && (
-        <div className="absolute right-3 top-3 z-30 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute right-3 top-3 z-30 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"> {/* Added group-focus-within:opacity-100 to ensure visibility on keyboard focus */}
           {isMicOn && (
             <button
               type="button"
@@ -176,7 +178,7 @@ export function VideoTile({
                 e.stopPropagation()
                 onMute?.()
               }}
-              className="rounded-lg bg-auth-bg/90 border border-auth-input-border/30 hover:bg-auth-btn hover:text-auth-btn-text p-1.5 text-auth-label transition cursor-pointer focus-visible:outline-none"
+              className="rounded-lg bg-auth-bg/90 border border-auth-input-border/30 hover:bg-auth-btn hover:text-auth-btn-text p-1.5 text-auth-label transition cursor-pointer focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:outline-none" // Added focus-visible ring styles
               title="Silenciar a este participante"
               aria-label="Silenciar a este participante"
             >
@@ -189,7 +191,7 @@ export function VideoTile({
               e.stopPropagation()
               onKick?.()
             }}
-            className="rounded-lg bg-red-500/90 border border-red-600/30 hover:bg-red-600 p-1.5 text-white transition cursor-pointer focus-visible:outline-none"
+            className="rounded-lg bg-red-500/90 border border-red-600/30 hover:bg-red-600 p-1.5 text-white transition cursor-pointer focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:outline-none" // Added focus-visible ring styles
             title="Expulsar a este participante"
             aria-label="Expulsar a este participante"
           >
@@ -212,9 +214,9 @@ export function VideoTile({
       <div className="absolute bottom-2 left-2 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-lg bg-auth-bg/75 px-2.5 py-1 backdrop-blur-sm sm:bottom-3 sm:left-3">
         <span className="truncate text-xs font-medium text-auth-title">{nameLabel}</span>
         {isMicOn ? (
-          <Mic className="h-3 w-3 text-auth-link" aria-label="Microfono activo" />
+          <Mic className="h-3 w-3 text-auth-link" aria-label="Microfono activo" role="img" /> // Added role="img"
         ) : (
-          <MicOff className="h-3 w-3 text-red-500" aria-label="Microfono silenciado" />
+          <MicOff className="h-3 w-3 text-red-500" aria-label="Microfono silenciado" role="img" /> // Added role="img"
         )}
       </div>
     </div>
