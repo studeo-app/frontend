@@ -40,6 +40,7 @@ export function VideoTile({
     isMicOn,
     isScreenSharing,
     isSpeaking,
+    isScreenSpeaking,
     videoStream,
   } = participant
 
@@ -61,6 +62,7 @@ export function VideoTile({
   const shouldShowPlaceholder = !shouldShowVideo
 
   const normalizedVolume = Math.min(1, Math.max(0, outputVolume / 100))
+  const isTileSpeaking = mode === 'screen' ? isScreenSpeaking : isSpeaking
 
   useEffect(() => {
     const videoEl = videoRef.current
@@ -96,9 +98,9 @@ export function VideoTile({
   }, [videoStream])
 
   useEffect(() => {
-    if (!videoRef.current || isLocal) return
+    if (!videoRef.current) return
     videoRef.current.volume = normalizedVolume
-  }, [isLocal, normalizedVolume])
+  }, [normalizedVolume])
 
   return (
     <div
@@ -106,7 +108,7 @@ export function VideoTile({
       group relative flex ${fullSize ? 'w-full h-full' : 'w-full max-h-full aspect-video'} items-center justify-center overflow-hidden
       rounded-xl sm:rounded-2xl
       bg-auth-input-bg/90 border border-gray-300 dark:border-transparent shadow-md transition-all duration-300
-      ${isSpeaking ? 'ring-[3px] ring-auth-btn ring-offset-2 ring-offset-auth-bg shadow-auth-btn/30' : ''}
+      ${isTileSpeaking ? 'ring-[3px] ring-auth-btn ring-offset-2 ring-offset-auth-bg shadow-auth-btn/30' : ''}
     `}
     >
       {/* Botón de fijar (Pin) */}
@@ -132,8 +134,8 @@ export function VideoTile({
           ref={videoRef}
           autoPlay
           playsInline
-          muted={isLocal || mode === 'screen'}
-          aria-label={nameLabel} // Added aria-label to describe video stream
+          muted
+          aria-label={nameLabel}
           className={`
             absolute inset-0 h-full w-full object-contain transition-opacity duration-150
             ${shouldShowVideo ? 'opacity-100' : 'opacity-0'}
@@ -213,10 +215,12 @@ export function VideoTile({
       {/* Etiqueta de nombre y micrófono */}
       <div className="absolute bottom-2 left-2 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-lg bg-auth-bg/75 px-2.5 py-1 backdrop-blur-sm sm:bottom-3 sm:left-3">
         <span className="truncate text-xs font-medium text-auth-title">{nameLabel}</span>
-        {isMicOn ? (
-          <Mic className="h-3 w-3 text-auth-link" aria-label="Microfono activo" role="img" /> // Added role="img"
-        ) : (
-          <MicOff className="h-3 w-3 text-red-500" aria-label="Microfono silenciado" role="img" /> // Added role="img"
+        {mode === 'camera' && (
+          isMicOn ? (
+            <Mic className="h-3 w-3 text-auth-link" aria-label="Microfono activo" role="img" />
+          ) : (
+            <MicOff className="h-3 w-3 text-red-500" aria-label="Microfono silenciado" role="img" />
+          )
         )}
       </div>
     </div>

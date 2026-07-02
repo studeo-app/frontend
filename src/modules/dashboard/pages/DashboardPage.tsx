@@ -174,15 +174,15 @@ export default function DashboardPage() {
       navigate(`/room/${room.id}/lobby`);
     } catch (err: any) {
       const errorMessage = err?.message || "";
-          
-          setJoinErrorTitle("No pudimos unirte a la sala"); // Mantenemos el título por defecto
-          
-          // Evaluamos el texto del error
-          if (errorMessage.includes("was not found")) {
-            setJoinError("La sala con ese código no existe. Verifica e intenta de nuevo.");
-          } else {
-            setJoinError(errorMessage || "No pudimos unirnos a esa sala.");
-          }
+
+      setJoinErrorTitle("No pudimos unirte a la sala"); // Mantenemos el título por defecto
+
+      // Evaluamos el texto del error
+      if (errorMessage.includes("was not found")) {
+        setJoinError("La sala con ese código no existe. Verifica e intenta de nuevo.");
+      } else {
+        setJoinError(errorMessage || "No pudimos unirnos a esa sala.");
+      }
     } finally {
       setIsJoining(false);
       setConnectionMessage(null);
@@ -204,14 +204,14 @@ export default function DashboardPage() {
       setRemovingRoomId(null);
     }
   };
-  
+
   const handleConfirmLeaveRoom = async () => {
-      if (!roomToLeave) return;
-      
-      const targetRoomId = roomToLeave.id;
-      setRoomToLeave(null); 
-      await handleRemoveMembership(targetRoomId);
-    };
+    if (!roomToLeave) return;
+
+    const targetRoomId = roomToLeave.id;
+    setRoomToLeave(null);
+    await handleRemoveMembership(targetRoomId);
+  };
   const handleCopyCode = (e: React.MouseEvent, room: Room) => {
     e.stopPropagation();
     navigator.clipboard.writeText(room.roomCode);
@@ -289,7 +289,7 @@ export default function DashboardPage() {
         <div className="absolute left-3 top-3 z-10">
           <div className="relative">
             {copiedRoomId === room.id && (
-              <span 
+              <span
                 className="absolute top-9 left-0 z-20 whitespace-nowrap rounded-md bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm animate-scale-up"
                 aria-live="polite"
                 role="status"
@@ -304,7 +304,7 @@ export default function DashboardPage() {
               aria-label={copiedRoomId === room.id ? "Código copiado" : `Copiar código de la sala ${room.name}`}
               title="Copiar código de la sala"
             >
-              <span>{room.roomCode}</span> 
+              <span>{room.roomCode}</span>
               {copiedRoomId === room.id ? (
                 <Check className="h-3.5 w-3.5 text-emerald-500 transition-scale animate-scale-up" aria-hidden="true" />
               ) : (
@@ -316,10 +316,10 @@ export default function DashboardPage() {
         <div className="absolute right-3 top-3 z-10">
           {isOwner ? (
             <RoomActionsMenu
-              room={room} 
-              isOwner={isOwner} 
+              room={room}
+              isOwner={isOwner}
               variant="card"
-              onUpdated={(updatedRoom) => {updateRoomLocally(updatedRoom)}}
+              onUpdated={(updatedRoom) => { updateRoomLocally(updatedRoom) }}
               onDeleted={handleRoomDeleted} />
           ) : (
             <button
@@ -348,13 +348,13 @@ export default function DashboardPage() {
 
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <h3 
+              <h3
                 className="line-clamp-1 text-base font-bold tracking-tight text-auth-title transition-colors group-hover:text-auth-btn"
                 aria-label={`Nombre de la sala: ${room.name}`}
               >
                 {room.name}
               </h3>
-              <p 
+              <p
                 className="text-xs text-auth-label"
                 aria-label={`Fecha de creación: Creado el ${formatDate(room.createdAt)}`}
               >
@@ -478,8 +478,9 @@ export default function DashboardPage() {
           </div>
           <form
             onSubmit={handleJoinRoom}
-            className="flex w-full max-w-md items-center gap-2.5"
+            className="flex w-full max-w-md justify-end gap-2.5 flex-col md:flex-row"
           >
+            <div>
             <label htmlFor="invite-code" className="sr-only">
               Código de la sala
             </label>
@@ -490,9 +491,11 @@ export default function DashboardPage() {
               value={inviteCode}
               disabled={isJoining}
               onChange={(e) => setInviteCode(e.target.value)}
-              aria-required="true" // Added aria-required for accessibility
-              className="h-14 flex-1 rounded-xl border border-auth-input-border bg-auth-input-bg/40 px-4 text-sm text-auth-title transition placeholder:text-auth-label focus:border-transparent focus:outline-none focus:ring-2 focus:ring-auth-btn"
+              aria-required="true"
+              className="h-14 w-full flex-1 rounded-xl border border-auth-input-border bg-auth-input-bg/40 px-4 text-sm text-auth-title transition placeholder:text-auth-label focus:border-transparent focus:outline-none focus:ring-2 focus:ring-auth-btn"
             />
+            </div>
+
             <button
               type="submit"
               disabled={!inviteCode.trim() || isJoining}
@@ -510,8 +513,8 @@ export default function DashboardPage() {
             <p
               className="text-sm font-medium text-auth-btn"
               role="status">
-                {connectionMessage}
-              </p>
+              {connectionMessage}
+            </p>
           )}
         </div>
       </section>

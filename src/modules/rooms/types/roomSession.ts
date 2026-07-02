@@ -14,6 +14,7 @@ export interface RoomParticipant {
   isMicOn: boolean
   isScreenSharing?: boolean
   isSpeaking?: boolean
+  isScreenSpeaking?: boolean
   videoStream?: MediaStream | null
   screenStream?: MediaStream | null
 }
