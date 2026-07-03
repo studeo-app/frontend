@@ -80,6 +80,7 @@ export function ChatPanel({
   onClose,
 }: ChatPanelProps) {
   const [draft, setDraft] = useState('')
+  const [srAnnouncement, setSrAnnouncement] = useState('')
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const userHasScrolledRef = useRef(false)
   const historyLoadRequestedRef = useRef(false)
@@ -93,6 +94,16 @@ export function ChatPanel({
   useEffect(() => {
     heightsRef.current = heights
   }, [heights])
+
+  // Limpiar el anuncio para permitir que mensajes consecutivos idénticos sean anunciados
+  useEffect(() => {
+    if (srAnnouncement) {
+      const timer = setTimeout(() => {
+        setSrAnnouncement('')
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [srAnnouncement])
 
   // Estado del scroll del viewport
   const [scrollState, setScrollState] = useState({
@@ -357,6 +368,16 @@ export function ChatPanel({
       scrollToBottom('instant')
     } else {
       const messageAddedToBottom = prev.length > 0 && curr[curr.length - 1]?.id !== prev[prev.length - 1]?.id
+      if (messageAddedToBottom) {
+        const lastMsg = curr[curr.length - 1]
+        if (lastMsg) {
+          const isOwn = lastMsg.userId === currentUserId
+          const announcement = isOwn
+            ? `Tú dijiste: ${lastMsg.text}`
+            : `${lastMsg.displayName || 'Alguien'} dice: ${lastMsg.text}`
+          setSrAnnouncement(announcement)
+        }
+      }
       const lastMessageIsOwn = curr[curr.length - 1]?.userId === currentUserId
       if (messageAddedToBottom && (isAtBottom.current || lastMessageIsOwn)) {
         scrollToBottom('smooth')
@@ -389,6 +410,7 @@ export function ChatPanel({
         ${isOpen ? 'translate-y-0 opacity-100 md:w-[320px]' : 'pointer-events-none translate-y-4 opacity-0 md:w-0 md:translate-y-0'}
       `}
     >
+      <div className="sr-only" aria-live="polite" aria-atomic="true">{srAnnouncement}</div>
       <aside
         aria-label="Chat de sala"
         className="flex h-full w-full shrink-0 flex-col border border-auth-input-border bg-auth-surface md:w-[320px] md:border-y-0 md:border-r-0"
