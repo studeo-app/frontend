@@ -1,4 +1,4 @@
-import { ChevronRight, Loader2 } from 'lucide-react'
+import { ChevronRight, Loader2, Send, Smile } from 'lucide-react'
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react'
 import type { RoomChatMessage } from '../types/roomSession'
 
@@ -17,6 +17,240 @@ interface ChatPanelProps {
 const MAX_MESSAGE_LENGTH = 150
 const GAP = 12 // Spacing between messages (corresponds to space-y-3 which is 12px)
 const BUFFER = 500 // Render buffer in pixels (viewport safety margin)
+const EMOJI_PICKER_ID = 'room-chat-emoji-picker'
+
+interface EmojiOption {
+  emoji: string
+  label: string
+}
+
+interface EmojiCategory {
+  id: string
+  label: string
+  emojis: EmojiOption[]
+}
+
+const EMOJI_CATEGORIES: EmojiCategory[] = [
+  {
+    id: 'faces',
+    label: 'Caras y emociones',
+    emojis: [
+      { emoji: '😀', label: 'cara sonriendo' },
+      { emoji: '😃', label: 'cara feliz' },
+      { emoji: '😄', label: 'cara muy feliz' },
+      { emoji: '😁', label: 'cara radiante' },
+      { emoji: '😆', label: 'risa fuerte' },
+      { emoji: '😅', label: 'risa con alivio' },
+      { emoji: '😂', label: 'risa con lagrimas' },
+      { emoji: '🤣', label: 'risa en el suelo' },
+      { emoji: '🙂', label: 'sonrisa suave' },
+      { emoji: '🙃', label: 'cara al reves' },
+      { emoji: '😉', label: 'guino' },
+      { emoji: '😊', label: 'sonrisa timida' },
+      { emoji: '🥰', label: 'cara con corazones' },
+      { emoji: '😍', label: 'ojos de corazon' },
+      { emoji: '🤩', label: 'ojos de estrella' },
+      { emoji: '😘', label: 'beso' },
+      { emoji: '😋', label: 'sabroso' },
+      { emoji: '😛', label: 'lengua fuera' },
+      { emoji: '😜', label: 'broma' },
+      { emoji: '🤪', label: 'cara loca' },
+      { emoji: '🤗', label: 'abrazo' },
+      { emoji: '🤭', label: 'risa tapada' },
+      { emoji: '🤫', label: 'silencio' },
+      { emoji: '🤔', label: 'pensando' },
+      { emoji: '🫡', label: 'saludo' },
+      { emoji: '😐', label: 'neutral' },
+      { emoji: '😑', label: 'sin expresion' },
+      { emoji: '🙄', label: 'ojos en blanco' },
+      { emoji: '😴', label: 'dormido' },
+      { emoji: '🥳', label: 'fiesta' },
+      { emoji: '😎', label: 'genial' },
+      { emoji: '🤓', label: 'nerd' },
+      { emoji: '😮', label: 'sorpresa' },
+      { emoji: '😲', label: 'asombro' },
+      { emoji: '🥺', label: 'suplica' },
+      { emoji: '😢', label: 'triste' },
+      { emoji: '😭', label: 'llanto fuerte' },
+      { emoji: '😱', label: 'susto' },
+      { emoji: '😤', label: 'resoplido' },
+      { emoji: '😡', label: 'enojo' },
+    ],
+  },
+  {
+    id: 'gestures',
+    label: 'Gestos y manos',
+    emojis: [
+      { emoji: '👋', label: 'saludar con la mano' },
+      { emoji: '🤚', label: 'mano levantada' },
+      { emoji: '✋', label: 'alto con la mano' },
+      { emoji: '👌', label: 'ok con la mano' },
+      { emoji: '🤌', label: 'gesto de precision' },
+      { emoji: '✌️', label: 'victoria' },
+      { emoji: '🤞', label: 'dedos cruzados' },
+      { emoji: '🤟', label: 'te quiero con la mano' },
+      { emoji: '🤘', label: 'rock' },
+      { emoji: '🤙', label: 'llamame' },
+      { emoji: '👈', label: 'apuntar izquierda' },
+      { emoji: '👉', label: 'apuntar derecha' },
+      { emoji: '👆', label: 'apuntar arriba' },
+      { emoji: '👇', label: 'apuntar abajo' },
+      { emoji: '👍', label: 'pulgar arriba' },
+      { emoji: '👎', label: 'pulgar abajo' },
+      { emoji: '✊', label: 'puno levantado' },
+      { emoji: '👊', label: 'puno al frente' },
+      { emoji: '🤛', label: 'puno izquierdo' },
+      { emoji: '🤜', label: 'puno derecho' },
+      { emoji: '👏', label: 'aplausos' },
+      { emoji: '🙌', label: 'manos arriba' },
+      { emoji: '🫶', label: 'corazon con manos' },
+      { emoji: '🤝', label: 'apreton de manos' },
+      { emoji: '🙏', label: 'manos juntas' },
+      { emoji: '✍️', label: 'escribiendo' },
+      { emoji: '💪', label: 'brazo fuerte' },
+    ],
+  },
+  {
+    id: 'hearts',
+    label: 'Corazones y simbolos',
+    emojis: [
+      { emoji: '❤️', label: 'corazon rojo' },
+      { emoji: '🧡', label: 'corazon naranja' },
+      { emoji: '💛', label: 'corazon amarillo' },
+      { emoji: '💚', label: 'corazon verde' },
+      { emoji: '💙', label: 'corazon azul' },
+      { emoji: '💜', label: 'corazon morado' },
+      { emoji: '🖤', label: 'corazon negro' },
+      { emoji: '🤍', label: 'corazon blanco' },
+      { emoji: '🤎', label: 'corazon cafe' },
+      { emoji: '💔', label: 'corazon roto' },
+      { emoji: '💕', label: 'dos corazones' },
+      { emoji: '💞', label: 'corazones girando' },
+      { emoji: '💓', label: 'corazon latiendo' },
+      { emoji: '💗', label: 'corazon creciendo' },
+      { emoji: '💖', label: 'corazon brillante' },
+      { emoji: '💘', label: 'corazon con flecha' },
+      { emoji: '💯', label: 'cien puntos' },
+      { emoji: '💥', label: 'explosion' },
+      { emoji: '💫', label: 'mareo brillante' },
+      { emoji: '💬', label: 'globo de mensaje' },
+      { emoji: '💭', label: 'pensamiento' },
+      { emoji: '💤', label: 'sueno' },
+    ],
+  },
+  {
+    id: 'celebration',
+    label: 'Celebracion y naturaleza',
+    emojis: [
+      { emoji: '🎉', label: 'confeti' },
+      { emoji: '🎊', label: 'bola de confeti' },
+      { emoji: '🎈', label: 'globo' },
+      { emoji: '🎁', label: 'regalo' },
+      { emoji: '🏆', label: 'trofeo' },
+      { emoji: '🥇', label: 'medalla de oro' },
+      { emoji: '🥈', label: 'medalla de plata' },
+      { emoji: '🥉', label: 'medalla de bronce' },
+      { emoji: '⭐', label: 'estrella' },
+      { emoji: '🌟', label: 'estrella brillante' },
+      { emoji: '✨', label: 'destellos' },
+      { emoji: '⚡', label: 'rayo' },
+      { emoji: '🔥', label: 'fuego' },
+      { emoji: '🌈', label: 'arcoiris' },
+      { emoji: '☀️', label: 'sol' },
+      { emoji: '🌙', label: 'luna' },
+      { emoji: '☁️', label: 'nube' },
+      { emoji: '🌧️', label: 'lluvia' },
+      { emoji: '❄️', label: 'copo de nieve' },
+      { emoji: '🌊', label: 'ola' },
+      { emoji: '🍀', label: 'trebol' },
+      { emoji: '🌻', label: 'girasol' },
+      { emoji: '🌹', label: 'rosa' },
+    ],
+  },
+  {
+    id: 'food',
+    label: 'Comida y bebidas',
+    emojis: [
+      { emoji: '🍕', label: 'pizza' },
+      { emoji: '🍔', label: 'hamburguesa' },
+      { emoji: '🍟', label: 'papas fritas' },
+      { emoji: '🌮', label: 'taco' },
+      { emoji: '🍣', label: 'sushi' },
+      { emoji: '🍩', label: 'dona' },
+      { emoji: '🍪', label: 'galleta' },
+      { emoji: '🎂', label: 'pastel' },
+      { emoji: '🍫', label: 'chocolate' },
+      { emoji: '🍿', label: 'palomitas' },
+      { emoji: '☕', label: 'cafe' },
+      { emoji: '🧃', label: 'jugo' },
+    ],
+  },
+  {
+    id: 'activities',
+    label: 'Actividades y estudio',
+    emojis: [
+      { emoji: '🎮', label: 'videojuego' },
+      { emoji: '🎧', label: 'audifonos' },
+      { emoji: '🎤', label: 'microfono' },
+      { emoji: '🎬', label: 'claqueta' },
+      { emoji: '🎨', label: 'paleta de pintura' },
+      { emoji: '🎲', label: 'dado' },
+      { emoji: '⚽', label: 'futbol' },
+      { emoji: '🏀', label: 'baloncesto' },
+      { emoji: '🏈', label: 'futbol americano' },
+      { emoji: '⚾', label: 'beisbol' },
+      { emoji: '🎾', label: 'tenis' },
+      { emoji: '📚', label: 'libros' },
+      { emoji: '📖', label: 'libro abierto' },
+      { emoji: '📝', label: 'nota' },
+      { emoji: '✏️', label: 'lapiz' },
+      { emoji: '📌', label: 'chincheta' },
+      { emoji: '📎', label: 'clip' },
+      { emoji: '📅', label: 'calendario' },
+      { emoji: '⏰', label: 'alarma' },
+      { emoji: '⌛', label: 'reloj de arena' },
+      { emoji: '💡', label: 'idea' },
+      { emoji: '🔎', label: 'lupa' },
+      { emoji: '🔒', label: 'candado' },
+      { emoji: '💻', label: 'computador' },
+      { emoji: '📱', label: 'celular' },
+    ],
+  },
+  {
+    id: 'symbols',
+    label: 'Estados y avisos',
+    emojis: [
+      { emoji: '✅', label: 'confirmado' },
+      { emoji: '☑️', label: 'casilla marcada' },
+      { emoji: '✔️', label: 'marca de verificacion' },
+      { emoji: '❌', label: 'equis' },
+      { emoji: '❎', label: 'boton de equis' },
+      { emoji: '⚠️', label: 'advertencia' },
+      { emoji: '🚫', label: 'prohibido' },
+      { emoji: '❗', label: 'exclamacion' },
+      { emoji: '❓', label: 'pregunta' },
+      { emoji: '⁉️', label: 'exclamacion y pregunta' },
+    ],
+  },
+  {
+    id: 'travel',
+    label: 'Lugares y viajes',
+    emojis: [
+      { emoji: '🚀', label: 'cohete' },
+      { emoji: '✈️', label: 'avion' },
+      { emoji: '🚗', label: 'carro' },
+      { emoji: '🚲', label: 'bicicleta' },
+      { emoji: '🚌', label: 'bus' },
+      { emoji: '🚆', label: 'tren' },
+      { emoji: '🏠', label: 'casa' },
+      { emoji: '🏫', label: 'escuela' },
+      { emoji: '🏢', label: 'edificio' },
+      { emoji: '🌎', label: 'mundo' },
+      { emoji: '🧭', label: 'brujula' },
+      { emoji: '📍', label: 'pin de ubicacion' },
+    ],
+  },
+]
 
 
 
@@ -80,7 +314,9 @@ export function ChatPanel({
   onClose,
 }: ChatPanelProps) {
   const [draft, setDraft] = useState('')
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false)
   const [srAnnouncement, setSrAnnouncement] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const userHasScrolledRef = useRef(false)
   const historyLoadRequestedRef = useRef(false)
@@ -398,6 +634,23 @@ export function ChatPanel({
     })
   }
 
+  const insertEmoji = (emoji: string) => {
+    const input = inputRef.current
+    const selectionStart = input?.selectionStart ?? draft.length
+    const selectionEnd = input?.selectionEnd ?? draft.length
+    const nextDraft = `${draft.slice(0, selectionStart)}${emoji}${draft.slice(selectionEnd)}`.slice(
+      0,
+      MAX_MESSAGE_LENGTH,
+    )
+    const nextCursor = Math.min(selectionStart + emoji.length, MAX_MESSAGE_LENGTH)
+
+    setDraft(nextDraft)
+    requestAnimationFrame(() => {
+      input?.focus()
+      input?.setSelectionRange(nextCursor, nextCursor)
+    })
+  }
+
   const isAtLimit = draft.length >= MAX_MESSAGE_LENGTH
   const charsLeft = MAX_MESSAGE_LENGTH - draft.length
 
@@ -562,10 +815,73 @@ export function ChatPanel({
       {/* Input */}
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-1.5 border-t border-auth-input-border p-2.5 sm:p-3"
+        className="relative flex flex-col gap-1.5 border-t border-auth-input-border p-2.5 sm:p-3"
       >
         <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setIsEmojiPickerOpen((isOpen) => !isOpen)}
+            disabled={connectionStatus !== 'connected'}
+            aria-controls={EMOJI_PICKER_ID}
+            aria-expanded={isEmojiPickerOpen}
+            aria-haspopup="dialog"
+            aria-label={isEmojiPickerOpen ? 'Ocultar selector de emojis' : 'Mostrar selector de emojis'}
+            title="Emojis"
+            className="
+              flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-auth-input-border
+              bg-auth-input-bg text-auth-label transition-colors hover:border-auth-btn hover:text-auth-title
+              disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer sm:h-10 sm:w-10
+            "
+          >
+            <Smile className="h-4 w-4" aria-hidden="true" />
+          </button>
+          {isEmojiPickerOpen && (
+            <div
+              id={EMOJI_PICKER_ID}
+              role="dialog"
+              aria-label="Selector de emojis del chat"
+              className="absolute bottom-full left-2 right-2 z-10 mb-2 max-h-64 overflow-y-auto rounded-xl border border-auth-input-border bg-auth-input-bg p-2 shadow-2xl sm:left-3 sm:right-3"
+            >
+              {EMOJI_CATEGORIES.map((category, categoryIndex) => {
+                const categoryHeadingId = `${EMOJI_PICKER_ID}-${category.id}`
+                return (
+                  <section
+                    key={category.id}
+                    aria-labelledby={categoryHeadingId}
+                    className={categoryIndex > 0 ? 'mt-3' : undefined}
+                  >
+                    <h3
+                      id={categoryHeadingId}
+                      className="mb-1.5 px-1 text-[10px] font-semibold uppercase text-auth-label/70"
+                    >
+                      {category.label}
+                    </h3>
+                    <div
+                      className="grid grid-cols-8 gap-1"
+                      role="list"
+                      aria-label={`Emojis de ${category.label}`}
+                    >
+                      {category.emojis.map(({ emoji, label }) => (
+                        <button
+                          key={`${category.id}-${emoji}`}
+                          type="button"
+                          onClick={() => insertEmoji(emoji)}
+                          disabled={draft.length >= MAX_MESSAGE_LENGTH}
+                          className="flex aspect-square min-h-8 items-center justify-center rounded-lg text-lg transition-colors hover:bg-auth-surface focus:outline-none focus:ring-2 focus:ring-auth-btn disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                          aria-label={`Insertar emoji ${label}`}
+                          title={label}
+                        >
+                          <span aria-hidden="true">{emoji}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )
+              })}
+            </div>
+          )}
           <input
+            ref={inputRef}
             disabled={connectionStatus !== 'connected'}
             type="text"
             value={draft}
@@ -585,12 +901,14 @@ export function ChatPanel({
             type="submit"
             disabled={!draft.trim() || connectionStatus !== 'connected'}
             className="
-              shrink-0 rounded-xl bg-auth-btn px-3 py-2.5 text-sm font-semibold text-auth-btn-text sm:px-4 sm:py-2
+              flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-auth-btn text-sm font-semibold text-auth-btn-text sm:h-10 sm:w-10
               transition-all hover:brightness-110 active:scale-[0.98]
               disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer
             "
+            aria-label="Enviar mensaje"
+            title="Enviar"
           >
-            Enviar
+            <Send className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
