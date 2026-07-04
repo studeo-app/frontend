@@ -571,6 +571,7 @@ export function ChatPanel({
             value={draft}
             maxLength={MAX_MESSAGE_LENGTH}
             onChange={(e) => setDraft(e.target.value)}
+            aria-label="Escribir un mensaje en el chat"
             placeholder={
               connectionStatus === 'connected' ? 'Escribir un mensaje...' : 'Sin conexión'
             }

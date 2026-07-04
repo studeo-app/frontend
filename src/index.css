@@ -147,11 +147,6 @@ input:focus-visible:not(.auth-input) {
   }
 }
 
-
-body {
-  font-size: 10px;
-}
-
 * {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--auth-btn-bg) 72%, transparent)
@@ -176,4 +171,12 @@ body {
 
 *::-webkit-scrollbar-thumb:hover {
   background: var(--auth-btn-bg);
+}
+
+/* Global placeholder styling for high contrast */
+input::placeholder,
+textarea::placeholder,
+.placeholder\:text-muted-foreground::placeholder {
+  opacity: 0.85 !important;
+  color: var(--auth-label) !important;
 }

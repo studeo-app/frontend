@@ -193,7 +193,7 @@ export default function RoomLobbyPage() {
               <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-auth-input-border bg-auth-bg/95 px-2.5 py-1.5 text-center text-xs text-auth-label opacity-0 shadow-lg backdrop-blur-sm transition-opacity duration-150 group-hover:opacity-100">
                 {micMonitoring ? 'Escuchándote · clic para desactivar' : 'Escucharme'}
                 {!micMonitoring && (
-                  <span className="mt-0.5 block text-[10px] text-amber-400">⚠ Usa audífonos para evitar eco</span>
+                  <span className="mt-0.5 block text-xs text-amber-700 font-medium">⚠ Usa audífonos para evitar eco</span>
                 )}
               </div>
             </div>
