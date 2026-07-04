@@ -228,7 +228,7 @@ export default function LandingPage() {
       <ScrollReveal variant="scale" className="mt-20 sm:mt-28">
         <section
           aria-labelledby="cta-heading"
-          className="relative overflow-hidden rounded-2xl border border-auth-input-border bg-gradient-to-r from-auth-btn/95 to-auth-btn p-8 text-auth-btn-text shadow-lg shadow-auth-btn/20 sm:p-10"
+          className="relative overflow-hidden rounded-2xl border border-auth-input-border bg-auth-btn bg-gradient-to-r from-auth-btn/95 to-auth-btn p-8 text-auth-btn-text shadow-lg shadow-auth-btn/20 sm:p-10"
         >
           <div className="relative z-10 flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-2">

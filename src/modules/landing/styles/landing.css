@@ -80,17 +80,23 @@
 }
 
 .landing-shimmer-text {
-  background: linear-gradient(
-    90deg,
-    var(--auth-btn-bg) 0%,
-    var(--auth-link) 50%,
-    var(--auth-btn-bg) 100%
-  );
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: landing-shimmer 4s linear infinite;
+  color: var(--auth-btn-bg); /* Fallback for WAVE and non-compliant parsers */
+}
+
+@supports (-webkit-background-clip: text) or (background-clip: text) {
+  .landing-shimmer-text {
+    background: linear-gradient(
+      90deg,
+      var(--auth-btn-bg) 0%,
+      var(--auth-link) 50%,
+      var(--auth-btn-bg) 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: landing-shimmer 4s linear infinite;
+  }
 }
 
 .landing-card-hover {

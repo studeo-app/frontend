@@ -16,7 +16,7 @@ export function DeviceSelect({ label, value, options, onChange }: DeviceSelectPr
     <div className="min-w-0 flex-1">
       <label
         htmlFor={selectId}
-        className="mb-2 block font-auth text-[11px] font-medium uppercase tracking-widest text-auth-label"
+        className="mb-2 block font-auth text-xs font-medium uppercase tracking-widest text-auth-label"
       >
         {label}
       </label>

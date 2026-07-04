@@ -11,12 +11,12 @@
   --popover: 0 0% 100%;
   --popover-foreground: 210 63% 11%;
 
-  /* Brand — #4D41DF / #FFFFFF */
-  --primary: 244 66% 56%;
+  /* Brand — #362bb1 / #FFFFFF */
+  --primary: 244 61% 43%;
   --primary-foreground: 0 0% 100%;
 
   /* Accent / links */
-  --secondary: 244 66% 56%;
+  --secondary: 244 61% 43%;
   --secondary-foreground: 0 0% 100%;
 
   /* States — labels #464555, input text #777587 */

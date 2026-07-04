@@ -8,15 +8,15 @@
   --auth-surface: #ffffff;
   --auth-input-bg: #eff4ff;
   --auth-input-border: #d4dff0;
-  --auth-icon: #464555;
-  --auth-label: #464555;
+  --auth-icon: #353442;
+  --auth-label: #353442;
   --auth-title: #0b1c30;
   --auth-input-text: #0B1C30;
-  --auth-link: #4d41df;
-  --auth-btn-bg: #4d41df;
+  --auth-link: #362bb1;
+  --auth-btn-bg: #362bb1;
   --auth-btn-text: #ffffff;
   --auth-google-bg: #ffffff;
-  --auth-google-text: #4d41df;
+  --auth-google-text: #362bb1;
   --auth-error: #93000a;
   --auth-font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
     Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -32,9 +32,9 @@
   --auth-title: #e4e1ee;
   --auth-input-text: #e4e1ee;
   --auth-link: #41eec2;
-  --auth-btn-bg: #6c63ff;
-  --auth-btn-text: #ffffff;
+  --auth-btn-bg: #8277ff;
+  --auth-btn-text: #0b0d14;
   --auth-google-bg: #ffffff;
   --auth-google-text: #2000a4;
-  --auth-error: #93000a;
+  --auth-error: #ffb4ab;
 }

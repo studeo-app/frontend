@@ -3,7 +3,6 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useForm } from "@/shared/hooks/useForm";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
 import { Input } from "@/shared/components/ui/Input";
-import { Button } from "@/shared/components/ui/Button";
 import { Card } from "@/shared/components/ui/Card";
 import { SuccessModal } from "@/shared/components/ui/SuccessModal";
 import { ErrorModal } from "@/shared/components/ui/ErrorModal";
@@ -629,23 +628,23 @@ export default function ProfilePage() {
           </div>
           <div className="w-full md:w-auto flex items-center justify-center md:justify-end gap-2 shrink-0">
             {!isEditingMode ? (
-              <Button
+              <button
                 type="button"
                 onClick={() => setIsEditingMode(true)}
                 className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] bg-auth-btn text-auth-btn-text focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
               >
                 Editar Perfil
-              </Button>
+              </button>
             ) : (
               <>
-                <Button
+                <button
                   type="button"
                   onClick={handleCancelEdit}
                   className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all border border-auth-input-border hover:bg-auth-input-bg text-auth-label focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
                 >
                   Cancelar
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
                   form="profile-form"
                   disabled={isSavingProfile || !isDirty || hasValidationErrors}
@@ -672,7 +671,7 @@ export default function ProfilePage() {
                       <span>Guardar Cambios</span>
                     </>
                   )}
-                </Button>
+                </button>
               </>
             )}
             {isEditingMode && (!isDirty || hasValidationErrors) && (
@@ -789,7 +788,7 @@ export default function ProfilePage() {
               </div>
               {/* Real-time username states */}
               {usernameFormatValid && usernameHasChanged && isEditingMode && (
-                <div className="mt-1 px-1 text-[11px]" aria-live="polite">
+                <div className="mt-1 px-1 text-xs" aria-live="polite">
                   {checkingUsername && (
                     <span className="text-auth-label">Comprobando disponibilidad...</span>
                   )}
@@ -804,7 +803,7 @@ export default function ProfilePage() {
                   )}
                 </div>
               )}
-              <p className="text-[11px] text-auth-label">
+              <p className="text-xs text-auth-label">
                 Este nombre será visible para otros estudiantes en las salas de estudio.
               </p>
             </div>
@@ -836,7 +835,7 @@ export default function ProfilePage() {
                 )}
               </div>
               {authProvider === "google" && (
-                <p className="mt-1 flex items-start gap-1 text-[11px] leading-tight text-auth-label">
+                <p className="mt-1 flex items-start gap-1 text-xs leading-tight text-auth-label">
                   <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
                   Autenticado con Google. No se puede modificar el correo.
                 </p>
@@ -860,13 +859,13 @@ export default function ProfilePage() {
                 </p>
               </div>
               <div>
-                <Button
+                <button
                   type="submit"
                   disabled={!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmNewPassword || passwordLoading}
                   className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text font-semibold text-xs focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
                 >
                   {passwordLoading ? "Actualizando..." : "Actualizar Contraseña"}
-                </Button>
+                </button>
               </div>
             </div>
 
@@ -995,7 +994,7 @@ export default function ProfilePage() {
         >
           Eliminar cuenta permanentemente
         </button>
-        <p className="text-[10px] text-auth-label">
+        <p className="text-xs text-auth-label">
           Se borrarán todos tus datos de forma definitiva e irreversible.
         </p>
       </div>
@@ -1011,7 +1010,7 @@ export default function ProfilePage() {
             <CheckCircle2 className="h-5 w-5 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
             <div>
               <p className="text-xs font-bold text-auth-title">Cambios detectados</p>
-              <p className="text-[11px] text-auth-label">No olvides guardar tu progreso.</p>
+              <p className="text-xs text-auth-label">No olvides guardar tu progreso.</p>
             </div>
           </div>
           <button
