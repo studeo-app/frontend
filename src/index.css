@@ -173,10 +173,10 @@ input:focus-visible:not(.auth-input) {
   background: var(--auth-btn-bg);
 }
 
-/* Global placeholder styling for high contrast */
+/* Global placeholder styling: readable, but visually distinct from typed input. */
 input::placeholder,
 textarea::placeholder,
 .placeholder\:text-muted-foreground::placeholder {
-  opacity: 0.85 !important;
+  opacity: 0.58 !important;
   color: var(--auth-label) !important;
 }

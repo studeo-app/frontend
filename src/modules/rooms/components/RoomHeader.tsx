@@ -1,6 +1,7 @@
-import { Check, Copy, MessageSquare, Settings, Users, UserPlus, X } from 'lucide-react'
+import { Check, Copy, MessageSquare, Settings, Users, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import type { Room } from '@/types/room'
+import { BaseModal } from '@/shared/components/ui/BaseModal'
 import { RoomActionsMenu } from './RoomActionsMenu'
 import type { RoomSidebarPanel } from '../types/roomSession'
 
@@ -71,7 +72,7 @@ export function RoomHeader({
                 key={id}
                 type="button"
                 title={label}
-                aria-label={label}
+                aria-label={id === 'chat' && chatHasUnread ? 'Abrir chat, hay mensajes nuevos' : label}
                 aria-pressed={isActive}
                 onClick={() => onPanelChange?.(isActive ? null : id)}
                 className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn ${
@@ -83,9 +84,10 @@ export function RoomHeader({
                 <Icon className="h-4 w-4" aria-hidden="true" />
                 {id === 'chat' && chatHasUnread && !isActive && (
                   <span
-                    className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-auth-link"
-                    aria-hidden="true"
-                  />
+                    className="absolute -right-1 -top-1 rounded-full bg-auth-link px-1.5 py-0.5 text-[9px] font-bold leading-none text-auth-btn-text shadow-sm"
+                  >
+                    Nuevo
+                  </span>
                 )}
               </button>
             )
@@ -120,60 +122,64 @@ export function RoomHeader({
         </button>
       </div>
 
-      {/* MODAL DE INVITACIÓN */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          {/* Capa invisible trasera para cerrar al hacer clic fuera */}
-          <div className="absolute inset-0 cursor-default" onClick={() => setIsModalOpen(false)} />
-          
-          {/* Contenedor del Modal */}
-          <div className="relative w-full max-w-sm rounded-2xl border border-auth-input-border bg-auth-input-bg p-5 shadow-2xl animate-scale-up z-10">
-            {/* Botón cerrar (X) */}
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(false)}
-              className="absolute right-4 top-4 text-auth-label hover:text-auth-title transition cursor-pointer"
+      <BaseModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Invitar miembro a la sala"
+        describedBy="room-invite-description"
+      >
+        <div className="space-y-4">
+          <p id="room-invite-description" className="text-sm leading-relaxed text-auth-label">
+            Comparte este código con tu equipo para que puedan unirse a la sesión de Studeo.
+          </p>
+
+          <div className="rounded-2xl border border-auth-input-border bg-auth-input-bg/40 p-3">
+            <label
+              htmlFor="room-invite-code"
+              className="mb-2 block text-xs font-semibold uppercase tracking-wider text-auth-label"
             >
-              <X className="h-4 w-4" />
-            </button>
+              Código de sala
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="room-invite-code"
+                type="text"
+                readOnly
+                value={roomCode}
+                aria-label={`Código de invitación ${roomCode}`}
+                className="h-11 min-w-0 flex-1 rounded-xl border border-auth-input-border bg-auth-surface px-3 text-center font-mono text-base font-bold tracking-[0.2em] text-auth-title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
+                onFocus={(event) => event.currentTarget.select()}
+              />
 
-            <h3 className="text-sm font-semibold text-auth-title mb-1">
-              Invitar miembro a la sala
-            </h3>
-            <p className="text-xs text-auth-label mb-4">
-              Comparte este código con tu equipo para que puedan unirse a la sesión de Studeo.
-            </p>
-
-            {/* Selector e indicador del código */}
-            <div className="flex items-center gap-2 rounded-xl border border-auth-input-border bg-auth-surface p-2">
-              <span className="flex-1 text-center font-mono text-base font-bold tracking-wider text-auth-title select-all">
-                {roomCode}
-              </span>
-              
               <button
                 type="button"
                 onClick={handleCopy}
+                aria-label={copied ? 'Código copiado al portapapeles' : 'Copiar código de invitación'}
                 className={`
-                  flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition cursor-pointer
+                  inline-flex h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-semibold transition cursor-pointer
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2
                   ${copied ? 'bg-emerald-500 text-white' : 'bg-auth-btn text-auth-btn-text hover:brightness-110'}
                 `}
               >
                 {copied ? (
                   <>
-                    <Check className="h-3.5 w-3.5 animate-scale-up" />
+                    <Check className="h-3.5 w-3.5 animate-scale-up" aria-hidden="true" />
                     <span>Copiado</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="h-3.5 w-3.5" />
+                    <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Copiar</span>
                   </>
                 )}
               </button>
             </div>
+            <p className="sr-only" aria-live="polite">
+              {copied ? 'Código de sala copiado.' : ''}
+            </p>
           </div>
         </div>
-      )}
+      </BaseModal>
     </header>
   )
 }

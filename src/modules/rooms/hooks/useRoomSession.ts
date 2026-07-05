@@ -15,6 +15,7 @@ import { readLobbyMediaState, writeLobbyMediaState } from '../utils/lobbyMediaSt
 import { createRoomAudioConstraints } from '../utils/roomMediaConstraints'
 import { playSynthesizedSound } from '../utils/roomSounds'
 import type {
+  LeaveRoomOptions,
   LocalMediaState,
   RoomChatMessage,
   RoomParticipant,
@@ -184,6 +185,10 @@ function cleanIceServerValue(value: string): string {
   return value.trim().replace(/^["']+|["']+$/g, '')
 }
 
+function isTurnIceServerUrl(url: string): boolean {
+  return /^turns?:/i.test(url)
+}
+
 function isLikelyMobileDevice(): boolean {
   if (typeof navigator === 'undefined') return false
 
@@ -212,13 +217,18 @@ function getScreenShareFailureMessage(err: unknown): string | null {
     : 'No pudimos iniciar la captura de pantalla. Revisa los permisos del navegador e intentalo de nuevo.'
 }
 
+function isPermissionDeniedMediaError(err: unknown): boolean {
+  const name = err instanceof DOMException ? err.name : (err as { name?: string })?.name
+  return name === 'NotAllowedError' || name === 'PermissionDeniedError'
+}
+
 function getPeerConnectionConfig(): RTCConfiguration {
-  const turnUrls = (import.meta.env.VITE_TURN_URL as string | undefined)
+  const configuredUrls = (import.meta.env.VITE_TURN_URL as string | undefined)
     ?.split(',')
     .map(cleanIceServerValue)
     .filter(Boolean)
 
-  if (!turnUrls?.length) {
+  if (!configuredUrls?.length) {
     return {
       iceServers: defaultIceServers,
       bundlePolicy: 'max-bundle',
@@ -231,16 +241,26 @@ function getPeerConnectionConfig(): RTCConfiguration {
   const credential = cleanIceServerValue(
     (import.meta.env.VITE_TURN_CREDENTIAL as string | undefined) ?? '',
   )
+  const turnUrls = configuredUrls.filter(isTurnIceServerUrl)
+  const nonTurnUrls = configuredUrls.filter((url) => !isTurnIceServerUrl(url))
+  const iceServers: RTCIceServer[] = [...defaultIceServers]
+
+  if (nonTurnUrls.length > 0) {
+    iceServers.push({ urls: nonTurnUrls })
+  }
+
+  if (turnUrls.length > 0) {
+    if (username && credential) {
+      iceServers.push({ urls: turnUrls, username, credential })
+    } else {
+      console.warn(
+        '[WebRTC] TURN server ignored because VITE_TURN_USERNAME and VITE_TURN_CREDENTIAL are required for turn/turns URLs.',
+      )
+    }
+  }
 
   return {
-    iceServers: [
-      ...defaultIceServers,
-      {
-        urls: turnUrls,
-        ...(username ? { username } : {}),
-        ...(credential ? { credential } : {}),
-      },
-    ],
+    iceServers,
     bundlePolicy: 'max-bundle',
   }
 }
@@ -1056,6 +1076,28 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
 
     const nextMedia = { ...localMediaRef.current }
     let grantedAnyDevice = false
+    const applyRequestedStream = async (requestedStream: MediaStream) => {
+      const newAudioTrack = requestedStream.getAudioTracks()[0] ?? null
+      if (newAudioTrack) {
+        localStreamRef.current!.getAudioTracks().forEach((track) => {
+          localStreamRef.current?.removeTrack(track)
+          track.stop()
+        })
+        newAudioTrack.enabled = true
+        localStreamRef.current!.addTrack(newAudioTrack)
+        await replaceOutgoingAudioTrack(newAudioTrack)
+        nextMedia.isMicOn = true
+        grantedAnyDevice = true
+      }
+
+      const newVideoTrack = requestedStream.getVideoTracks()[0] ?? null
+      if (newVideoTrack) {
+        await replaceLocalCameraTrack(newVideoTrack, true)
+        nextMedia.isCameraOn = true
+        grantedAnyDevice = true
+      }
+    }
+
     try {
       console.info('[RoomPermissions] getUserMedia:calling', {
         kind,
@@ -1076,25 +1118,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         videoTracks: requestedStream.getVideoTracks().length,
       })
 
-      const newAudioTrack = requestedStream.getAudioTracks()[0] ?? null
-      if (newAudioTrack) {
-        localStreamRef.current.getAudioTracks().forEach((track) => {
-          localStreamRef.current?.removeTrack(track)
-          track.stop()
-        })
-        newAudioTrack.enabled = true
-        localStreamRef.current.addTrack(newAudioTrack)
-        await replaceOutgoingAudioTrack(newAudioTrack)
-        nextMedia.isMicOn = true
-        grantedAnyDevice = true
-      }
-
-      const newVideoTrack = requestedStream.getVideoTracks()[0] ?? null
-      if (newVideoTrack) {
-        await replaceLocalCameraTrack(newVideoTrack, true)
-        nextMedia.isCameraOn = true
-        grantedAnyDevice = true
-      }
+      await applyRequestedStream(requestedStream)
     } catch (err: any) {
       console.error('[WebRTC] request device access failed:', err)
       console.info('[RoomPermissions] getUserMedia:rejected', {
@@ -1102,9 +1126,34 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         name: err?.name ?? null,
         message: err?.message ?? null,
       })
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      if (kind === 'both' && !isPermissionDeniedMediaError(err)) {
+        const fallbackRequests: Promise<void>[] = []
+        if (wantsAudio) {
+          fallbackRequests.push(
+            navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+              .then(applyRequestedStream)
+              .catch((fallbackErr) => {
+                console.warn('[WebRTC] fallback microphone request failed:', fallbackErr)
+              }),
+          )
+        }
+        if (wantsVideo) {
+          fallbackRequests.push(
+            navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+              .then(applyRequestedStream)
+              .catch((fallbackErr) => {
+                console.warn('[WebRTC] fallback camera request failed:', fallbackErr)
+              }),
+          )
+        }
+        await Promise.all(fallbackRequests)
+      }
+
+      if (grantedAnyDevice) {
+        setMediaError(null)
+      } else if (isPermissionDeniedMediaError(err)) {
         setMediaError('permissions')
-      } else {
+      } else if (kind === 'both') {
         setMediaError('hardware')
       }
     }
@@ -1231,6 +1280,24 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           navigator.mediaDevices?.getUserMedia &&
           (canAutoRequestAudio || canAutoRequestVideo)
         ) {
+          const applyInitialStream = (stream: MediaStream) => {
+            stream.getAudioTracks().forEach((track) => {
+              track.enabled = initialMedia.isMicOn
+              localStreamRef.current?.addTrack(track)
+            })
+
+            const [videoTrack] = stream.getVideoTracks()
+            if (videoTrack) {
+              cameraTrackRef.current = videoTrack
+              if (initialMedia.isCameraOn) {
+                localStreamRef.current?.addTrack(videoTrack)
+              } else {
+                videoTrack.stop()
+                cameraTrackRef.current = null
+              }
+            }
+          }
+
           try {
             const grantedStream = await navigator.mediaDevices.getUserMedia({
               audio: canAutoRequestAudio
@@ -1244,23 +1311,17 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
                 : false,
             })
 
-            localStreamRef.current = grantedStream
-            cameraTrackRef.current = grantedStream.getVideoTracks()[0] ?? null
+            localStreamRef.current = new MediaStream()
+            applyInitialStream(grantedStream)
 
-            const hasAudio = grantedStream.getAudioTracks().length > 0
-            const hasVideo = grantedStream.getVideoTracks().length > 0
+            const hasAudio = localStreamRef.current.getAudioTracks().length > 0
+            const hasVideo = localStreamRef.current.getVideoTracks().length > 0
             const nextMicOn = hasAudio && initialMedia.isMicOn
             const nextCameraOn = hasVideo && initialMedia.isCameraOn
 
-            grantedStream.getAudioTracks().forEach((track) => {
+            localStreamRef.current.getAudioTracks().forEach((track) => {
               track.enabled = nextMicOn
             })
-
-            if (!nextCameraOn && cameraTrackRef.current) {
-              cameraTrackRef.current.stop()
-              grantedStream.removeTrack(cameraTrackRef.current)
-              cameraTrackRef.current = null
-            }
 
             nextMedia = {
               ...initialMedia,
@@ -1272,11 +1333,52 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
             console.error('[WebRTC] getUserMedia failed for granted devices:', err)
             localStreamRef.current = new MediaStream()
             cameraTrackRef.current = null
-            setMediaError(
-              err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
-                ? null
-                : 'hardware',
-            )
+
+            if (!isPermissionDeniedMediaError(err)) {
+              const fallbackRequests: Promise<void>[] = []
+              if (canAutoRequestAudio) {
+                fallbackRequests.push(
+                  navigator.mediaDevices.getUserMedia({
+                    audio: createRoomAudioConstraints(lobbyMediaPrefs?.selectedMicId),
+                    video: false,
+                  })
+                    .then(applyInitialStream)
+                    .catch((fallbackErr) => {
+                      console.warn('[WebRTC] initial microphone fallback failed:', fallbackErr)
+                    }),
+                )
+              }
+              if (canAutoRequestVideo) {
+                fallbackRequests.push(
+                  navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: createCameraConstraints(
+                      lobbyMediaPrefs?.selectedCameraId,
+                      cameraFacingModeRef.current,
+                    ),
+                  })
+                    .then(applyInitialStream)
+                    .catch((fallbackErr) => {
+                      console.warn('[WebRTC] initial camera fallback failed:', fallbackErr)
+                    }),
+                )
+              }
+              await Promise.all(fallbackRequests)
+            }
+
+            const hasAudio = localStreamRef.current.getAudioTracks().length > 0
+            const hasVideo = localStreamRef.current.getVideoTracks().length > 0
+            nextMedia = {
+              ...initialMedia,
+              isMicOn: hasAudio && initialMedia.isMicOn,
+              isCameraOn: hasVideo && initialMedia.isCameraOn,
+            }
+
+            if (hasAudio || hasVideo || isPermissionDeniedMediaError(err)) {
+              setMediaError(null)
+            } else {
+              setMediaError('hardware')
+            }
           }
         }
 
@@ -1734,7 +1836,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         newTrack = stream.getVideoTracks()[0] ?? null
       } catch (err: any) {
         console.error('[WebRTC] re-acquire camera failed:', err)
-        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        if (isPermissionDeniedMediaError(err)) {
           setMediaError('permissions')
         } else {
           setMediaError('hardware')
@@ -2008,7 +2110,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     socket.emit(ROOM_SOCKET_EVENTS.REACTION_SEND, { roomId, emoji })
   }, [roomId])
 
-  const leaveRoom = useCallback(() => {
+  const leaveRoom = useCallback((options?: LeaveRoomOptions) => {
     playSynthesizedSound('hangup')
     const socket = getSocket()
     if (socket?.connected) {
@@ -2016,7 +2118,10 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     }
     disconnectSocket()
     setTimeout(() => {
-      navigate('/dashboard')
+      navigate('/dashboard', {
+        replace: options?.replace,
+        state: options?.state,
+      })
     }, 150)
   }, [navigate])
 

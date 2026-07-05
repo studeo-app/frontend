@@ -51,6 +51,11 @@ export interface RoomSessionState {
 
 export type RoomSidebarPanel = 'participants' | 'chat' | 'settings' | null
 
+export interface LeaveRoomOptions {
+  replace?: boolean
+  state?: unknown
+}
+
 export interface RoomSessionActions {
   toggleMic: () => void
   toggleCamera: () => void
@@ -60,7 +65,7 @@ export interface RoomSessionActions {
   switchCamera: () => void
   sendMessage: (text: string) => void
   sendReaction: (emoji: RoomReactionEmoji) => void
-  leaveRoom: () => void
+  leaveRoom: (options?: LeaveRoomOptions) => void
   loadMoreHistory: () => void
   retry: () => void
   muteParticipant: (uid: string) => void

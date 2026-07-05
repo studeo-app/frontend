@@ -15,7 +15,7 @@ import { checkEmailAvailability } from "@/modules/users/api/usersApi";
 import { getApiErrorMessage } from "@/shared/api/apiError";
 import { auth } from "@/config/firebase.config";
 import useDocumentTitle from "@/shared/hooks/useDocumentTitle";
-import { AlertCircle, CheckCircle2, RefreshCw, Save, UserX, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Eye, EyeOff, RefreshCw, UserX } from "lucide-react";
 
 export default function ProfilePage() {
   useDocumentTitle("Perfil - Studeo");
@@ -50,9 +50,6 @@ export default function ProfilePage() {
   const [isReauthOpen, setIsReauthOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<"update" | "delete" | null>(null);
 
-  // Toast banner dismissed state
-  const [toastDismissed, setToastDismissed] = useState(false);
-
   // Password change state
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
@@ -75,6 +72,11 @@ export default function ProfilePage() {
   );
 
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [visiblePasswordFields, setVisiblePasswordFields] = useState({
+    currentPassword: false,
+    newPassword: false,
+    confirmNewPassword: false,
+  });
 
   const initialUsername = profile?.username ?? "";
   const initialEmail = profile?.email ?? firebaseUser?.email ?? "";
@@ -205,6 +207,13 @@ export default function ProfilePage() {
     setPasswordErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
+  const togglePasswordVisibility = (field: keyof typeof visiblePasswordFields) => {
+    setVisiblePasswordFields((prev) => ({
+      ...prev,
+      [field]: !prev[field],
+    }));
+  };
+
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -300,7 +309,7 @@ export default function ProfilePage() {
 
   const resolveProfileUpdateError = (err: unknown): string => {
     const firebaseErr = err as { code?: string; message?: string };
-    let friendlyMsg = getApiErrorMessage(
+    const friendlyMsg = getApiErrorMessage(
       err,
       "No pudimos guardar tus cambios. Inténtalo de nuevo."
     );
@@ -344,7 +353,6 @@ export default function ProfilePage() {
       setSuccessMessage("Tus cambios se han guardado correctamente.");
       setIsSuccessOpen(true);
       setShowErrors(false);
-      setToastDismissed(false);
       setIsEditingMode(false);
     } catch (err: unknown) {
       const firebaseErr = err as { code?: string; message?: string };
@@ -627,7 +635,7 @@ export default function ProfilePage() {
             </div>
           </div>
           <div className="w-full md:w-auto flex items-center justify-center md:justify-end gap-2 shrink-0">
-            {!isEditingMode ? (
+            {!isEditingMode && (
               <button
                 type="button"
                 onClick={() => setIsEditingMode(true)}
@@ -635,51 +643,6 @@ export default function ProfilePage() {
               >
                 Editar Perfil
               </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all border border-auth-input-border hover:bg-auth-input-bg text-auth-label focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  form="profile-form"
-                  disabled={isSavingProfile || !isDirty || hasValidationErrors}
-                  aria-describedby={(!isDirty || hasValidationErrors) ? "save-disabled-desc" : undefined}
-                  className="w-full sm:w-auto h-10 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 bg-auth-btn text-auth-btn-text focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2 focus-visible:outline-none"
-                >
-                  {isSavingProfile ? (
-                    <>
-                      <svg
-                        className="animate-spin h-4 w-4 text-current"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        role="status"
-                        aria-label="Guardando..."
-                      >
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.37 0 0 5.37 0 12h4z" />
-                      </svg>
-                      <span>Guardando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4" aria-hidden="true" />
-                      <span>Guardar Cambios</span>
-                    </>
-                  )}
-                </button>
-              </>
-            )}
-            {isEditingMode && (!isDirty || hasValidationErrors) && (
-              <span className="sr-only" id="save-disabled-desc">
-                {!isDirty
-                  ? "No disponible: no se han realizado cambios en el perfil."
-                  : "No disponible: corrige los errores de validación en el formulario antes de guardar."}
-              </span>
             )}
             {isSavingProfile && (
               <div className="sr-only" aria-live="assertive">
@@ -875,18 +838,33 @@ export default function ProfilePage() {
                 <label htmlFor="currentPassword" className="block text-xs font-semibold text-auth-label">
                   Contraseña Actual
                 </label>
-                <Input
-                  id="currentPassword"
-                  name="currentPassword"
-                  type="password"
-                  value={passwordForm.currentPassword}
-                  onChange={handlePasswordFormChange}
-                  error={passwordErrors.currentPassword || undefined}
-                  className="h-11 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
-                  placeholder="••••••••"
-                  required
-                  aria-required="true" // Added aria-required for accessibility
-                />
+                <div className="relative">
+                  <Input
+                    id="currentPassword"
+                    name="currentPassword"
+                    type={visiblePasswordFields.currentPassword ? "text" : "password"}
+                    value={passwordForm.currentPassword}
+                    onChange={handlePasswordFormChange}
+                    error={passwordErrors.currentPassword || undefined}
+                    className="h-11 rounded-xl bg-auth-input-bg/40 pr-12 focus:bg-auth-input-bg/80 transition"
+                    placeholder="••••••••"
+                    required
+                    aria-required="true" // Added aria-required for accessibility
+                  />
+                  <button
+                    type="button"
+                    onClick={() => togglePasswordVisibility("currentPassword")}
+                    aria-label={visiblePasswordFields.currentPassword ? "Ocultar contraseña actual" : "Mostrar contraseña actual"}
+                    aria-pressed={visiblePasswordFields.currentPassword}
+                    className="absolute right-3 top-5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-auth-label transition hover:bg-auth-input-bg hover:text-auth-title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn cursor-pointer"
+                  >
+                    {visiblePasswordFields.currentPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Nueva Contraseña */}
@@ -894,20 +872,35 @@ export default function ProfilePage() {
                 <label htmlFor="newPassword" className="block text-xs font-semibold text-auth-label">
                   Nueva Contraseña
                 </label>
-                <Input
-                  id="newPassword"
-                  name="newPassword"
-                  type="password"
-                  value={passwordForm.newPassword}
-                  onChange={handlePasswordFormChange}
-                  onFocus={() => setPasswordFocused(true)}
-                  onBlur={() => setPasswordFocused(false)}
-                  error={passwordErrors.newPassword || undefined}
-                  className="h-11 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
-                  placeholder="••••••••"
-                  required
-                  aria-required="true" // Added aria-required for accessibility
-                />
+                <div className="relative">
+                  <Input
+                    id="newPassword"
+                    name="newPassword"
+                    type={visiblePasswordFields.newPassword ? "text" : "password"}
+                    value={passwordForm.newPassword}
+                    onChange={handlePasswordFormChange}
+                    onFocus={() => setPasswordFocused(true)}
+                    onBlur={() => setPasswordFocused(false)}
+                    error={passwordErrors.newPassword || undefined}
+                    className="h-11 rounded-xl bg-auth-input-bg/40 pr-12 focus:bg-auth-input-bg/80 transition"
+                    placeholder="••••••••"
+                    required
+                    aria-required="true" // Added aria-required for accessibility
+                  />
+                  <button
+                    type="button"
+                    onClick={() => togglePasswordVisibility("newPassword")}
+                    aria-label={visiblePasswordFields.newPassword ? "Ocultar nueva contraseña" : "Mostrar nueva contraseña"}
+                    aria-pressed={visiblePasswordFields.newPassword}
+                    className="absolute right-3 top-5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-auth-label transition hover:bg-auth-input-bg hover:text-auth-title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn cursor-pointer"
+                  >
+                    {visiblePasswordFields.newPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
                 
                 {/* Real-time Password Rules */}
                 <div
@@ -945,18 +938,33 @@ export default function ProfilePage() {
                 <label htmlFor="confirmNewPassword" className="block text-xs font-semibold text-auth-label">
                   Confirmar Nueva Contraseña
                 </label>
-                <Input
-                  id="confirmNewPassword"
-                  name="confirmNewPassword"
-                  type="password"
-                  value={passwordForm.confirmNewPassword}
-                  onChange={handlePasswordFormChange}
-                  error={passwordErrors.confirmNewPassword || undefined}
-                  className="h-11 rounded-xl bg-auth-input-bg/40 focus:bg-auth-input-bg/80 transition"
-                  placeholder="••••••••"
-                  required
-                  aria-required="true" // Added aria-required for accessibility
-                />
+                <div className="relative">
+                  <Input
+                    id="confirmNewPassword"
+                    name="confirmNewPassword"
+                    type={visiblePasswordFields.confirmNewPassword ? "text" : "password"}
+                    value={passwordForm.confirmNewPassword}
+                    onChange={handlePasswordFormChange}
+                    error={passwordErrors.confirmNewPassword || undefined}
+                    className="h-11 rounded-xl bg-auth-input-bg/40 pr-12 focus:bg-auth-input-bg/80 transition"
+                    placeholder="••••••••"
+                    required
+                    aria-required="true" // Added aria-required for accessibility
+                  />
+                  <button
+                    type="button"
+                    onClick={() => togglePasswordVisibility("confirmNewPassword")}
+                    aria-label={visiblePasswordFields.confirmNewPassword ? "Ocultar confirmación de contraseña" : "Mostrar confirmación de contraseña"}
+                    aria-pressed={visiblePasswordFields.confirmNewPassword}
+                    className="absolute right-3 top-5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-auth-label transition hover:bg-auth-input-bg hover:text-auth-title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn cursor-pointer"
+                  >
+                    {visiblePasswordFields.confirmNewPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
                 
                 {/* Password Match Confirmation */}
                 {!!passwordForm.confirmNewPassword && (
@@ -981,6 +989,67 @@ export default function ProfilePage() {
         </Card>
       )}
 
+      {isEditingMode && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="sticky bottom-4 z-30 rounded-2xl border border-auth-input-border bg-auth-surface/95 p-4 shadow-xl backdrop-blur-md animate-scale-up"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <CheckCircle2
+                className={`mt-0.5 h-5 w-5 shrink-0 ${
+                  hasValidationErrors
+                    ? "text-amber-500"
+                    : "text-emerald-500 fill-emerald-500/10"
+                }`}
+                aria-hidden="true"
+              />
+              <div>
+                <p className="text-sm font-bold text-auth-title">
+                  {isDirty ? "Cambios pendientes" : "Modo edición"}
+                </p>
+                <p className="text-xs leading-relaxed text-auth-label">
+                  {!isDirty
+                    ? "Realiza un cambio para habilitar el guardado o cancela la edición."
+                    : hasValidationErrors
+                    ? "Corrige los errores del formulario antes de guardar."
+                    : "Puedes guardar o cancelar los cambios realizados en tu perfil."}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                aria-label="Cancelar edición del perfil"
+                className="h-10 cursor-pointer rounded-xl border border-auth-input-border px-4 text-sm font-semibold text-auth-title transition hover:bg-auth-input-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                form="profile-form"
+                disabled={isSavingProfile || !isDirty || hasValidationErrors}
+                aria-label="Guardar cambios del perfil"
+                aria-describedby={(!isDirty || hasValidationErrors) ? "save-disabled-desc" : undefined}
+                className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-auth-btn px-5 text-sm font-semibold text-auth-btn-text shadow-md transition hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2"
+              >
+                {isSavingProfile ? "Guardando..." : "Guardar"}
+              </button>
+              {(!isDirty || hasValidationErrors) && (
+                <span className="sr-only" id="save-disabled-desc">
+                  {!isDirty
+                    ? "No disponible: no se han realizado cambios en el perfil."
+                    : "No disponible: corrige los errores de validación en el formulario antes de guardar."}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Discreet account deletion section at bottom */}
       <div className="pt-8 border-t border-auth-input-border/40 flex flex-col items-center gap-2">
         <button
@@ -998,31 +1067,6 @@ export default function ProfilePage() {
           Se borrarán todos tus datos de forma definitiva e irreversible.
         </p>
       </div>
-
-      {/* Floating Changes Detected Banner */}
-      {isEditingMode && isDirty && !toastDismissed && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 flex items-center justify-between gap-4 rounded-xl border border-auth-input-border bg-auth-surface p-4 shadow-2xl animate-scale-up min-w-[320px]"
-        >
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-emerald-500 fill-emerald-500/10" aria-hidden="true" />
-            <div>
-              <p className="text-xs font-bold text-auth-title">Cambios detectados</p>
-              <p className="text-xs text-auth-label">No olvides guardar tu progreso.</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setToastDismissed(true)}
-            aria-label="Cerrar aviso"
-            className="rounded-lg p-1 text-auth-label hover:bg-auth-input-bg hover:text-auth-title transition cursor-pointer focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:outline-none"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-      )}
 
       {/* Confirmation modal for saving changes */}
       <ConfirmModal

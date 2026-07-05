@@ -1,4 +1,4 @@
-import { ChevronRight, Loader2, Send, Smile } from 'lucide-react'
+import { ArrowDown, ChevronRight, Loader2, Send, Smile } from 'lucide-react'
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react'
 import type { RoomChatMessage } from '../types/roomSession'
 
@@ -316,6 +316,7 @@ export function ChatPanel({
   const [draft, setDraft] = useState('')
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false)
   const [srAnnouncement, setSrAnnouncement] = useState('')
+  const [hasNewMessagesBelow, setHasNewMessagesBelow] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const userHasScrolledRef = useRef(false)
@@ -386,6 +387,9 @@ export function ChatPanel({
     const { scrollTop, scrollHeight, clientHeight } = container
     // Consideramos que está al final si dista menos de 100px del límite
     isAtBottom.current = scrollHeight - scrollTop - clientHeight < 100
+    if (isAtBottom.current) {
+      setHasNewMessagesBelow(false)
+    }
 
     setScrollState({
       scrollTop,
@@ -491,6 +495,7 @@ export function ChatPanel({
     historyLoadRequestedRef.current = false
     historyAnchorRef.current = null
     isAtBottom.current = true
+    setHasNewMessagesBelow(false)
 
     const frameId = requestAnimationFrame(() => {
       scrollToBottom('instant')
@@ -616,7 +621,10 @@ export function ChatPanel({
       }
       const lastMessageIsOwn = curr[curr.length - 1]?.userId === currentUserId
       if (messageAddedToBottom && (isAtBottom.current || lastMessageIsOwn)) {
+        setHasNewMessagesBelow(false)
         scrollToBottom('smooth')
+      } else if (messageAddedToBottom) {
+        setHasNewMessagesBelow(true)
       }
     }
 
@@ -631,6 +639,7 @@ export function ChatPanel({
     setDraft('')
     requestAnimationFrame(() => {
       scrollToBottom('smooth')
+      inputRef.current?.focus()
     })
   }
 
@@ -654,6 +663,13 @@ export function ChatPanel({
   const isAtLimit = draft.length >= MAX_MESSAGE_LENGTH
   const charsLeft = MAX_MESSAGE_LENGTH - draft.length
 
+  const handleJumpToLatestMessage = () => {
+    setHasNewMessagesBelow(false)
+    isAtBottom.current = true
+    scrollToBottom('smooth')
+    inputRef.current?.focus()
+  }
+
   return (
     <div
       className={`
@@ -665,8 +681,9 @@ export function ChatPanel({
     >
       <div className="sr-only" aria-live="polite" aria-atomic="true">{srAnnouncement}</div>
       <aside
+        id="chat-panel"
         aria-label="Chat de sala"
-        className="flex h-full w-full shrink-0 flex-col border border-auth-input-border bg-auth-surface md:w-[320px] md:border-y-0 md:border-r-0"
+        className="relative flex h-full w-full shrink-0 flex-col border border-auth-input-border bg-auth-surface md:w-[320px] md:border-y-0 md:border-r-0"
       >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-auth-input-border px-4 py-3">
@@ -811,6 +828,24 @@ export function ChatPanel({
           </ul>
         )}
       </div>
+
+      {hasNewMessagesBelow && (
+        <button
+          type="button"
+          onClick={handleJumpToLatestMessage}
+          aria-label="Ir a mensajes nuevos"
+          title="Ir a mensajes nuevos"
+          className="
+            absolute bottom-[74px] left-4 z-20 inline-flex h-10 w-10 items-center justify-center
+            rounded-full border border-auth-input-border bg-auth-btn text-auth-btn-text shadow-xl
+            cursor-pointer transition hover:brightness-110 active:scale-95
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn
+            focus-visible:ring-offset-2 focus-visible:ring-offset-auth-surface
+          "
+        >
+          <ArrowDown className="h-5 w-5" aria-hidden="true" />
+        </button>
+      )}
 
       {/* Input */}
       <form

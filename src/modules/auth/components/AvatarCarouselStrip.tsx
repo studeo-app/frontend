@@ -55,16 +55,6 @@ export const AvatarCarouselStrip: React.FC<AvatarCarouselStripProps> = ({
     });
   };
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      scrollByDirection(-1);
-    } else if (event.key === "ArrowRight") {
-      event.preventDefault();
-      scrollByDirection(1);
-    }
-  };
-
   return (
     <div
       className="relative mx-auto w-full min-w-0 max-w-[15.5rem] sm:max-w-[17rem] rounded-xl overflow-hidden"
@@ -123,9 +113,8 @@ export const AvatarCarouselStrip: React.FC<AvatarCarouselStripProps> = ({
 
       <div
         ref={scrollRef}
-        tabIndex={0}
-        onKeyDown={handleKeyDown}
-        aria-label="Desplazar opciones de avatar con las flechas izquierda y derecha"
+        role="group"
+        aria-label="Opciones de avatar disponibles"
         className="
           flex w-full min-w-0 flex-nowrap items-center gap-3
           overflow-x-auto overflow-y-hidden overscroll-x-contain

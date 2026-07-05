@@ -269,10 +269,17 @@ export default function DashboardPage() {
   const isTrulyEmpty = !loading && !error && rooms.length === 0;
   const hasSearch = searchQuery.trim().length > 0;
   const totalVisibleRooms = ownedRooms.length + memberRooms.length;
+  const parsedInviteCode = parseRoomCodeFromInput(inviteCode);
+  const hasInviteCodeValue = inviteCode.trim().length > 0;
+  const isInviteCodeValid = isValidRoomCode(parsedInviteCode);
+  const inviteCodeBorderClass = !hasInviteCodeValue
+    ? "border-auth-input-border focus:ring-auth-btn"
+    : isInviteCodeValid
+      ? "border-auth-btn focus:ring-auth-btn"
+      : "border-auth-error focus:ring-auth-error";
 
   const RoomCard = ({ room, isOwner }: { room: Room; isOwner: boolean }) => (
     <article
-      role="region"
       aria-label={`Sala ${room.name}`}
       className="group flex h-full flex-col overflow-hidden rounded-2xl border border-auth-input-border bg-auth-surface shadow-sm transition-all duration-300 hover:border-auth-btn/20 hover:shadow-md"
     >
@@ -366,7 +373,10 @@ export default function DashboardPage() {
           <div className="flex flex-nowrap items-center gap-2 pt-1.5">
             <button
               type="button"
-              onClick={() => handleOpenMembers(room)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenMembers(room);
+              }}
               className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-auth-input-border/50 bg-auth-input-bg/70 px-2.5 py-1 text-xs font-medium text-auth-label transition hover:border-auth-btn/40 hover:text-auth-title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn"
               aria-label={`Ver miembros de ${room.name}`}
               title="Ver miembros"
@@ -396,7 +406,11 @@ export default function DashboardPage() {
         </div>
 
         <button
-          onClick={() => navigate(`/room/${room.id}/lobby`)}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/room/${room.id}/lobby`);
+          }}
           aria-label={`Entrar a la sala ${room.name}`}
           className="h-10 w-full cursor-pointer rounded-xl bg-auth-btn text-sm font-semibold text-auth-btn-text shadow-sm transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2"
         >
@@ -490,15 +504,22 @@ export default function DashboardPage() {
               placeholder="Código de la sala"
               value={inviteCode}
               disabled={isJoining}
-              onChange={(e) => setInviteCode(e.target.value)}
+              onChange={(e) => {
+                setInviteCode(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6));
+                if (joinErrorTitle === "Código inválido") {
+                  setJoinError(null);
+                }
+              }}
               aria-required="true"
-              className="h-14 w-full flex-1 rounded-xl border border-auth-input-border bg-auth-input-bg/40 px-4 text-sm text-auth-title transition placeholder:text-auth-label focus:border-transparent focus:outline-none focus:ring-2 focus:ring-auth-btn"
+              aria-invalid={hasInviteCodeValue && !isInviteCodeValid}
+              maxLength={6}
+              className={`h-14 w-full flex-1 rounded-xl border bg-auth-input-bg/40 px-4 text-sm font-semibold tracking-[0.08em] text-auth-title transition focus:outline-none focus:ring-2 ${inviteCodeBorderClass}`}
             />
             </div>
 
             <button
               type="submit"
-              disabled={!inviteCode.trim() || isJoining}
+              disabled={!isInviteCodeValid || isJoining}
               className="flex h-14 cursor-pointer items-center gap-2 rounded-xl bg-auth-btn px-5 text-sm font-semibold text-auth-btn-text shadow-md transition hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn focus-visible:ring-offset-2"
             >
               <span>{isJoining ? "Uniendo" : "Unirse"}</span>

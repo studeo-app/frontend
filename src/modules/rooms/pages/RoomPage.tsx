@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { AlertCircle, CameraOff, Loader2, Mic, RefreshCw, ShieldAlert, Video } from 'lucide-react'
+import { AlertCircle, CameraOff, Loader2, Mic, PhoneOff, RefreshCw, ShieldAlert, Video } from 'lucide-react'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { getSocket } from '@/config/socket.config'
 import useDocumentTitle from '@/shared/hooks/useDocumentTitle'
@@ -31,7 +31,6 @@ export type RoomMediaStatus =
   | 'no_camera'
   | 'no_mic'
   | 'reconnecting'
-  | 'error_hardware'
   | 'error_webrtc'
 
 type PermissionPromptTarget = 'microphone' | 'camera'
@@ -125,6 +124,8 @@ export default function RoomPage() {
   const [showMutedByHostWarning, setShowMutedByHostWarning] = useState(false)
   const [permissionPromptTarget, setPermissionPromptTarget] = useState<PermissionPromptTarget | null>(null)
   const [showMissingPermissionsModal, setShowMissingPermissionsModal] = useState(false)
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
+  const [showHardwareIssueModal, setShowHardwareIssueModal] = useState(false)
 
   const handleRequestMute = useCallback((uid: string) => {
     const participant = session.participants.find((p) => p.id === uid)
@@ -149,7 +150,6 @@ export default function RoomPage() {
   const mediaStatus = useMemo<RoomMediaStatus>(() => {
     if (showReconnecting) return 'reconnecting'
 
-    if (mediaError === 'hardware') return 'error_hardware'
     if (mediaError === 'webrtc') return 'error_webrtc'
 
     if (session.connectionStatus === 'connecting') {
@@ -198,6 +198,12 @@ export default function RoomPage() {
     hasShownMissingPermissionsRef.current = true
     setShowMissingPermissionsModal(true)
   }, [permissionWarnings.camera, permissionWarnings.microphone, session.connectionStatus])
+
+  useEffect(() => {
+    if (mediaError === 'hardware') {
+      setShowHardwareIssueModal(true)
+    }
+  }, [mediaError])
 
   const loadMembers = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!roomId) return
@@ -266,8 +272,10 @@ export default function RoomPage() {
       if (payload.roomId !== roomId) return
 
       if (payload.uid === firebaseUser?.uid) {
-        actions.leaveRoom()
-        navigate('/dashboard', { replace: true, state: createRoomKickedDashboardState() })
+        actions.leaveRoom({
+          replace: true,
+          state: createRoomKickedDashboardState(),
+        })
         return
       }
 
@@ -420,21 +428,16 @@ export default function RoomPage() {
               </div>
             )}
 
-            {(mediaStatus === 'error_hardware' || mediaStatus === 'error_webrtc') && (
+            {mediaStatus === 'error_webrtc' && (
               <div className="flex flex-1 flex-col items-center justify-center bg-auth-bg text-center p-6 select-none animate-fade-in">
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/10 text-red-500 mb-6 shadow-lg shadow-red-500/5">
-                  {mediaStatus === 'error_hardware' && <CameraOff className="h-8 w-8" />}
-                  {mediaStatus === 'error_webrtc' && <AlertCircle className="h-8 w-8" />}
+                  <AlertCircle className="h-8 w-8" />
                 </div>
                 <h3 className="text-xl font-bold text-auth-title mb-2">
-                  {mediaStatus === 'error_hardware' && 'Error de hardware'}
-                  {mediaStatus === 'error_webrtc' && 'Conexión fallida'}
+                  Conexión fallida
                 </h3>
                 <p className="text-sm text-auth-label max-w-md mb-6 leading-relaxed">
-                  {mediaStatus === 'error_hardware' &&
-                    'Tu cámara o micrófono podrían estar desconectados, deshabilitados o en uso por otra aplicación. Por favor verifica tus dispositivos y haz clic en Reintentar.'}
-                  {mediaStatus === 'error_webrtc' &&
-                    'No se pudo establecer la conexión de red en tiempo real. Esto puede debido a un firewall restrictivo o a una desconexión temporal de red.'}
+                  No se pudo establecer la conexión de red en tiempo real. Esto puede deberse a un firewall restrictivo o a una desconexión temporal de red.
                 </p>
                 <button
                   type="button"
@@ -449,7 +452,6 @@ export default function RoomPage() {
 
             {mediaStatus !== 'requesting_permissions' &&
               mediaStatus !== 'webrtc_connecting' &&
-              mediaStatus !== 'error_hardware' &&
               mediaStatus !== 'error_webrtc' && (
                 <VideoGrid
                   participants={session.participants}
@@ -473,7 +475,7 @@ export default function RoomPage() {
               onToggleCamera={handleCameraControl}
               onToggleScreenShare={actions.toggleScreenShare}
               onSendReaction={actions.sendReaction}
-              onLeave={actions.leaveRoom}
+              onLeave={() => setShowLeaveConfirm(true)}
               disabled={mediaStatus === 'requesting_permissions' || mediaStatus === 'webrtc_connecting'}
               showMicPermissionWarning={permissionWarnings.microphone}
               showCameraPermissionWarning={permissionWarnings.camera}
@@ -531,7 +533,7 @@ export default function RoomPage() {
                 onClick={() => setActivePanel('chat')}
                 aria-expanded="false" // Button is only visible when chat is closed
                 aria-controls="chat-panel" // Links to the chat panel element id
-                aria-label="Mostrar panel de chat" // Clear label for screen readers
+                aria-label={chatHasUnread ? 'Mostrar panel de chat, hay mensajes nuevos' : 'Mostrar panel de chat'}
                 className="
                   pointer-events-auto absolute left-0 top-1/2 z-40 hidden -translate-x-full -translate-y-1/2
                   h-40 w-8 shrink-0 cursor-pointer
@@ -546,8 +548,11 @@ export default function RoomPage() {
                   className="text-xs font-bold tracking-widest uppercase whitespace-nowrap"
                   style={{ writingMode: 'vertical-lr', transform: 'rotate(180deg)' }}
                 >
-                  Mostrar Chat
+                  {chatHasUnread ? 'Chat Nuevo' : 'Mostrar Chat'}
                 </span>
+                {chatHasUnread && (
+                  <span className="absolute right-1 top-3 h-2.5 w-2.5 rounded-full bg-auth-link" aria-hidden="true" />
+                )}
               </button>
             )}
           </div>
@@ -573,6 +578,45 @@ export default function RoomPage() {
           >
             Entendido
           </Button>
+        </div>
+      </BaseModal>
+      <BaseModal
+        isOpen={showHardwareIssueModal}
+        onClose={() => setShowHardwareIssueModal(false)}
+        title="Error de hardware"
+      >
+        <div className="space-y-6 text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-red-500/10 text-red-500 shadow-lg shadow-red-500/5">
+            <CameraOff className="h-10 w-10" aria-hidden="true" />
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm leading-relaxed text-auth-label">
+              Tu camara o microfono podrian estar desconectados, deshabilitados, ocupados por otra aplicacion o no disponibles en este momento.
+            </p>
+            <p className="text-sm font-medium leading-relaxed text-auth-title">
+              Puedes continuar normalmente a la llamada. Si deseas usar audio o video, revisa tus dispositivos y vuelve a intentarlo.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowHardwareIssueModal(false)}
+              className="w-full cursor-pointer"
+            >
+              Continuar a la llamada
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setShowHardwareIssueModal(false)
+                actions.retry()
+              }}
+              className="w-full cursor-pointer"
+            >
+              Reintentar
+            </Button>
+          </div>
         </div>
       </BaseModal>
 
@@ -661,6 +705,52 @@ export default function RoomPage() {
           'No pudimos iniciar la captura de pantalla en este dispositivo.'
         }
       />
+
+      <BaseModal
+        isOpen={showLeaveConfirm}
+        onClose={() => setShowLeaveConfirm(false)}
+        title="Salir de la sala"
+        role="alertdialog"
+        describedBy="leave-room-description"
+      >
+        <div className="flex flex-col items-center py-2 text-center">
+          <div
+            className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-auth-error/10 text-auth-error animate-pop-in"
+            aria-hidden="true"
+          >
+            <PhoneOff className="h-8 w-8" aria-hidden="true" />
+          </div>
+
+          <p
+            id="leave-room-description"
+            className="mb-6 text-sm font-medium leading-relaxed text-auth-title"
+          >
+            ¿Estás seguro que quieres salirte de la sala?
+          </p>
+
+          <div className="flex w-full gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowLeaveConfirm(false)}
+              className="w-full cursor-pointer"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setShowLeaveConfirm(false)
+                actions.leaveRoom()
+              }}
+              aria-label="Confirmar salida de la sala"
+              className="w-full cursor-pointer bg-auth-error text-white hover:brightness-110 shadow-auth-error/20"
+            >
+              Salir
+            </Button>
+          </div>
+        </div>
+      </BaseModal>
 
       <ConfirmModal
         isOpen={Boolean(muteConfirmTarget)}
