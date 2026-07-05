@@ -141,24 +141,31 @@ export function ParticipantsPanel({
                       )}
                       
                       {isOwner && !online.isLocal && (
-                        <div className="flex items-center gap-1 ml-1 rounded-lg bg-auth-input-bg/40 p-0.5 border border-auth-input-border/30">
+                        <div
+                          className="ml-1 flex flex-col items-stretch gap-1 rounded-lg border border-auth-input-border/30 bg-auth-input-bg/40 p-1"
+                          aria-label={`Acciones de anfitrión para ${primaryLabel}`}
+                        >
                           {online.isMicOn && (
                             <button
                               type="button"
                               onClick={() => onMuteParticipant?.(online.id)}
-                              className="p-1 rounded hover:bg-auth-btn hover:text-auth-btn-text text-auth-label transition cursor-pointer"
-                              title="Silenciar micrófono"
+                              className="inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-[10px] font-semibold text-auth-label transition hover:bg-auth-btn hover:text-auth-btn-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn cursor-pointer"
+                              aria-label={`Silenciar micrófono de ${primaryLabel}`}
+                              title={`Silenciar micrófono de ${primaryLabel}`}
                             >
-                              <MicOff className="h-3.5 w-3.5" />
+                              <MicOff className="h-3.5 w-3.5" aria-hidden="true" />
+                              <span>Silenciar</span>
                             </button>
                           )}
                           <button
                             type="button"
                             onClick={() => onKickParticipant?.(online.id)}
-                            className="p-1 rounded hover:bg-red-600 hover:text-white text-auth-label transition cursor-pointer"
-                            title="Expulsar de la sala"
+                            className="inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-[10px] font-semibold text-auth-label transition hover:bg-red-600 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 cursor-pointer"
+                            aria-label={`Expulsar a ${primaryLabel} de la sala`}
+                            title={`Expulsar a ${primaryLabel} de la sala`}
                           >
-                            <UserMinus className="h-3.5 w-3.5" />
+                            <UserMinus className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span>Expulsar</span>
                           </button>
                         </div>
                       )}
@@ -202,24 +209,31 @@ export function ParticipantsPanel({
                   )}
 
                   {isOwner && !participant.isLocal && (
-                    <div className="flex items-center gap-1 ml-1 rounded-lg bg-auth-input-bg/40 p-0.5 border border-auth-input-border/30">
+                    <div
+                      className="ml-1 flex flex-col items-stretch gap-1 rounded-lg border border-auth-input-border/30 bg-auth-input-bg/40 p-1"
+                      aria-label={`Acciones de anfitrión para ${participant.displayName}`}
+                    >
                       {participant.isMicOn && (
                         <button
                           type="button"
                           onClick={() => onMuteParticipant?.(participant.id)}
-                          className="p-1 rounded hover:bg-auth-btn hover:text-auth-btn-text text-auth-label transition cursor-pointer"
-                          title="Silenciar micrófono"
+                          className="inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-[10px] font-semibold text-auth-label transition hover:bg-auth-btn hover:text-auth-btn-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn cursor-pointer"
+                          aria-label={`Silenciar micrófono de ${participant.displayName}`}
+                          title={`Silenciar micrófono de ${participant.displayName}`}
                         >
-                          <MicOff className="h-3.5 w-3.5" />
+                          <MicOff className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>Silenciar</span>
                         </button>
                       )}
                       <button
                         type="button"
                         onClick={() => onKickParticipant?.(participant.id)}
-                        className="p-1 rounded hover:bg-red-600 hover:text-white text-auth-label transition cursor-pointer"
-                        title="Expulsar de la sala"
+                        className="inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-[10px] font-semibold text-auth-label transition hover:bg-red-600 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 cursor-pointer"
+                        aria-label={`Expulsar a ${participant.displayName} de la sala`}
+                        title={`Expulsar a ${participant.displayName} de la sala`}
                       >
-                        <UserMinus className="h-3.5 w-3.5" />
+                        <UserMinus className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>Expulsar</span>
                       </button>
                     </div>
                   )}

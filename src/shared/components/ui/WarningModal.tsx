@@ -21,12 +21,12 @@ export const WarningModal: React.FC<WarningModalProps> = ({
     <BaseModal
       isOpen={isOpen}
       onClose={onClose}
+      role="alertdialog"
+      labelledBy={titleId}
+      describedBy={descriptionId}
     >
       <div
         className="flex flex-col items-center py-4 text-center"
-        role="alertdialog"
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
       >
         <div
           className="

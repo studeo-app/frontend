@@ -1,5 +1,5 @@
-import { ArrowLeft, Headphones, Mic, MicOff, User, Video, VideoOff } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { ArrowLeft, Headphones, Loader2, Mic, MicOff, User, Video, VideoOff } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import useDocumentTitle from '@/shared/hooks/useDocumentTitle'
 import { DeviceSelect } from '../components/DeviceSelect'
@@ -40,6 +40,10 @@ export default function RoomLobbyPage() {
     joinRoom,
   } = useRoomLobby(roomId)
   const previewVideoRef = useRef<HTMLVideoElement | null>(null)
+  const [isJoiningRoom, setIsJoiningRoom] = useState(false)
+
+  const isLobbyLoading = loadingRoom || loadingParticipants
+  const isJoinDisabled = isLobbyLoading || isJoiningRoom
 
   useDocumentTitle(`Lobby - ${roomName}`)
 
@@ -48,6 +52,12 @@ export default function RoomLobbyPage() {
       previewVideoRef.current.srcObject = localStream
     }
   }, [localStream])
+
+  const handleJoinRoom = () => {
+    if (isJoinDisabled) return
+    setIsJoiningRoom(true)
+    joinRoom()
+  }
 
   return (
     <div className="mx-auto flex h-dvh min-h-0 w-full max-w-2xl flex-col items-center justify-start overflow-y-auto overscroll-contain px-4 py-4 animate-fade-in sm:px-6 sm:py-6 md:max-w-4xl">
@@ -219,15 +229,20 @@ export default function RoomLobbyPage() {
 
       <button
         type="button"
-        onClick={joinRoom}
+        onClick={handleJoinRoom}
+        disabled={isJoinDisabled}
+        aria-busy={isLobbyLoading || isJoiningRoom}
         className="
           w-full rounded-xl bg-auth-btn py-3.5 text-sm font-semibold text-auth-btn-text sm:py-3 md:py-4 md:text-base lg:py-4.5 lg:text-lg
-          transition-all hover:brightness-110 active:scale-[0.98] cursor-pointer
+          inline-flex items-center justify-center gap-2 transition-all hover:brightness-110 active:scale-[0.98] cursor-pointer disabled:pointer-events-none disabled:opacity-60
           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-auth-btn
           focus-visible:ring-offset-2 focus-visible:ring-offset-auth-bg
         "
       >
-        Entrar a la sala
+        {(isLobbyLoading || isJoiningRoom) && (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        )}
+        {isLobbyLoading || isJoiningRoom ? 'Cargando...' : 'Entrar a la sala'}
       </button>
     </div>
   )
