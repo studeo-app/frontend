@@ -118,7 +118,6 @@ export default function RoomPage() {
   const getIdToken = useAuthStore((s) => s.getIdToken)
   const [members, setMembers] = useState<RoomMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(false)
-  const [removedMemberUids, setRemovedMemberUids] = useState<Set<string>>(() => new Set())
   const [muteConfirmTarget, setMuteConfirmTarget] = useState<{ uid: string; displayName: string } | null>(null)
   const [kickConfirmTarget, setKickConfirmTarget] = useState<{ uid: string; displayName: string } | null>(null)
   const [showMutedByHostWarning, setShowMutedByHostWarning] = useState(false)
@@ -279,8 +278,7 @@ export default function RoomPage() {
         return
       }
 
-      setRemovedMemberUids((prev) => new Set(prev).add(payload.uid))
-      setMembers((prev) => prev.filter((member) => member.uid !== payload.uid))
+      loadMembers({ showLoading: false })
     }
     const handleRoomMemberMuted = (payload: { roomId: string; uid: string }) => {
       if (payload.roomId !== roomId) return
@@ -294,21 +292,7 @@ export default function RoomPage() {
       socket.off(ROOM_SOCKET_EVENTS.ROOM_MEMBER_REMOVED, handleRoomMemberRemoved)
       socket.off('roomMemberMuted', handleRoomMemberMuted)
     }
-  }, [roomId, session.connectionStatus, firebaseUser?.uid, actions, navigate])
-
-  useEffect(() => {
-    setRemovedMemberUids(new Set())
-  }, [roomId])
-
-  const visibleMembers = useMemo(
-    () => members.filter((member) => !removedMemberUids.has(member.uid)),
-    [members, removedMemberUids],
-  )
-
-  const visibleOnlineParticipants = useMemo(
-    () => session.participants.filter((participant) => !removedMemberUids.has(participant.id)),
-    [removedMemberUids, session.participants],
-  )
+  }, [roomId, session.connectionStatus, firebaseUser?.uid, actions, navigate, loadMembers])
 
   const roomName = room?.name ?? session.roomName
   const isOwner = room?.ownerUid === firebaseUser?.uid
@@ -506,8 +490,8 @@ export default function RoomPage() {
             />
 
             <ParticipantsPanel
-              members={visibleMembers}
-              onlineParticipants={visibleOnlineParticipants}
+              members={members}
+              onlineParticipants={session.participants}
               loadingMembers={loadingMembers}
               isOpen={activePanel === 'participants'}
               onClose={() => setActivePanel(null)}
@@ -791,7 +775,7 @@ export default function RoomPage() {
           kickConfirmTarget ? (
             <span>
               ¿Estás seguro de que deseas expulsar a{' '}
-              <strong>{kickConfirmTarget.displayName}</strong> de la sala? Esta acción no se puede deshacer.
+              <strong>{kickConfirmTarget.displayName}</strong> de la llamada? Seguirá apareciendo como miembro de la sala.
             </span>
           ) : (
             ''
