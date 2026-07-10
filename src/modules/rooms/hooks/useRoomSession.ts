@@ -841,7 +841,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         if (message.type === 'error') {
           console.error('[Captions] local worker error:', message.message)
           localCaptionsBusyRef.current = false
-          stopLocalCaptions({ emitClear: true })
+          stopLocalCaptions({ emitClear: false })
           setLocalCaptionsState({
             enabled: false,
             status: 'error',
@@ -855,7 +855,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         event.preventDefault()
         console.error('[Captions] local worker crashed')
         localCaptionsBusyRef.current = false
-        stopLocalCaptions({ emitClear: true })
+        stopLocalCaptions({ emitClear: false })
         setLocalCaptionsState({
           enabled: false,
           status: 'error',
@@ -868,7 +868,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         event.preventDefault()
         console.error('[Captions] local worker message error')
         localCaptionsBusyRef.current = false
-        stopLocalCaptions({ emitClear: true })
+        stopLocalCaptions({ emitClear: false })
         setLocalCaptionsState({
           enabled: false,
           status: 'error',
@@ -2479,29 +2479,39 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     }
 
     void (async () => {
-      const audioTrack = localStreamRef.current?.getAudioTracks()[0] ?? null
-      const hasActiveMic =
-        Boolean(audioTrack) &&
-        audioTrack?.readyState === 'live' &&
-        audioTrack.enabled &&
-        localMediaRef.current.isMicOn
+      try {
+        const audioTrack = localStreamRef.current?.getAudioTracks()[0] ?? null
+        const hasActiveMic =
+          Boolean(audioTrack) &&
+          audioTrack?.readyState === 'live' &&
+          audioTrack.enabled &&
+          localMediaRef.current.isMicOn
 
-      if (!hasActiveMic) {
-        setLocalCaptionsState({ enabled: false, status: 'loading', error: null, model: null })
-        const granted = await requestDeviceAccess('microphone')
-        if (!granted) {
-          stopLocalCaptions({ emitClear: true })
-          setLocalCaptionsState({
-            enabled: false,
-            status: 'error',
-            error: 'Activa el microfono para generar subtitulos locales.',
-            model: null,
-          })
-          return
+        if (!hasActiveMic) {
+          setLocalCaptionsState({ enabled: false, status: 'loading', error: null, model: null })
+          const granted = await requestDeviceAccess('microphone')
+          if (!granted) {
+            setLocalCaptionsState({
+              enabled: false,
+              status: 'error',
+              error: 'Activa el microfono para generar subtitulos locales.',
+              model: null,
+            })
+            return
+          }
         }
-      }
 
-      await startLocalCaptions()
+        await startLocalCaptions()
+      } catch (error) {
+        console.error('[Captions] activation flow failed:', error)
+        stopLocalCaptions({ emitClear: false })
+        setLocalCaptionsState({
+          enabled: false,
+          status: 'error',
+          error: 'No se pudieron activar los subtitulos locales.',
+          model: null,
+        })
+      }
     })()
   }, [requestDeviceAccess, setLocalCaptionsState, startLocalCaptions, stopLocalCaptions])
 

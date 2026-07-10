@@ -1,4 +1,6 @@
-import { Captions, Camera, ChevronRight, FlipHorizontal, Loader2, Volume2 } from 'lucide-react'
+import { useState } from 'react'
+import { Captions, Camera, ChevronRight, CircleHelp, FlipHorizontal, Loader2, Volume2 } from 'lucide-react'
+import { BaseModal } from '@/shared/components/ui/BaseModal'
 import type { LocalCaptionsState } from '../types/roomSession'
 
 interface RoomSettingsPanelProps {
@@ -29,6 +31,7 @@ export function RoomSettingsPanel({
   onToggleLocalCaptions,
   onClose, 
 }: RoomSettingsPanelProps) {
+  const [isCaptionHelpOpen, setIsCaptionHelpOpen] = useState(false)
   const isCaptionsBusy = localCaptions.status === 'loading'
   const captionsStatusLabel =
     isCaptionsBusy
@@ -88,7 +91,18 @@ export function RoomSettingsPanel({
           </section>
 
           <section className="space-y-3">
-            <p className="text-xs font-medium text-auth-label">Accesibilidad</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-auth-label">Accesibilidad</p>
+              <button
+                type="button"
+                onClick={() => setIsCaptionHelpOpen(true)}
+                className="rounded-full p-1 text-auth-label transition hover:bg-auth-input-bg hover:text-auth-title"
+                aria-label="Cómo funcionan los subtítulos"
+                title="Cómo funcionan los subtítulos"
+              >
+                <CircleHelp className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
 
             <button
               type="button"
@@ -178,6 +192,27 @@ export function RoomSettingsPanel({
           </section>
         </div>
       </aside>
+
+      <BaseModal
+        isOpen={isCaptionHelpOpen}
+        onClose={() => setIsCaptionHelpOpen(false)}
+        title="Cómo funcionan los subtítulos"
+      >
+        <div className="space-y-3 text-sm leading-relaxed text-auth-label">
+          <p>
+            Cuando activas los subtítulos, tu voz se convierte en texto para que todos en la sala puedan seguir la conversación con más comodidad.
+          </p>
+          <ul className="space-y-2 rounded-xl border border-auth-input-border bg-auth-input-bg/70 p-3 text-sm">
+            <li>• Quien los activa puede generar subtítulos para toda la llamada.</li>
+            <li>• Todos los participantes verán el texto sobre la tarjeta del usuario que está hablando.</li>
+            <li>• Puedes desactivarlos en cualquier momento si prefieres una llamada más sencilla.</li>
+          </ul>
+          <div className="rounded-xl border border-auth-btn/20 bg-auth-btn/10 p-3 text-sm text-auth-title">
+            <p className="font-semibold">Consejo</p>
+            <p className="mt-1">Habla con un ritmo claro y mantén el micrófono activado para que los subtítulos salgan mejor.</p>
+          </div>
+        </div>
+      </BaseModal>
     </div>
   )
 }

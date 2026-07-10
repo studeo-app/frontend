@@ -212,6 +212,7 @@ export default function RoomPage() {
       setCaptionsToast({
         type: 'success',
         message: 'Subtítulos activados',
+        detail: 'Tu voz se convertirá en texto y todos en la sala podrán verlo.',
       })
       timeoutId = window.setTimeout(() => {
         setCaptionsToast(null)

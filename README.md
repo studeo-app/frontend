@@ -199,6 +199,45 @@ Limitaciones conocidas:
 - En navegadores moviles sin `getDisplayMedia`, una web no puede capturar pantalla.
 - iOS/iPadOS suele requerir app nativa para captura de pantalla del sistema.
 
+## Subtítulos en la sala
+
+Los subtítulos son un flujo local y en tiempo real para la llamada. El usuario que los activa es quien genera el texto; todos los participantes de la sala pueden ver los subtítulos sobre la tarjeta del usuario que está hablando.
+
+### Requisitos y condiciones
+
+- Debe haber un micrófono activo y permisos concedidos para audio.
+- El navegador debe soportar `AudioContext` y `Worker` (la transcripción local se ejecuta en un worker del frontend).
+- En móviles, la compatibilidad puede variar según el navegador y el sistema operativo; si falla la activación, la sala no debe cerrarse ni interrumpirse.
+
+### Cómo activarlos
+
+1. Entrar a una sala y abrir los ajustes de la sala.
+2. Buscar la opción “Subtítulos”.
+3. Activarla desde el interruptor.
+4. Si el navegador pide permisos de micrófono, aceptarlos.
+5. Si la activación falla, aparecerá un toast indicando que no se pudieron activar los subtítulos, pero la llamada seguirá activa.
+
+### Comportamiento real
+
+- El texto se genera en el cliente que activó los subtítulos.
+- El frontend envía un evento de `caption:update` por Socket.IO al backend en tiempo real.
+- El backend lo reenvía a la sala para que todos lo vean.
+- Los subtítulos se muestran en la interfaz sobre el tile del participante correspondiente.
+- Al desactivar los subtítulos o al producirse un error de inicio, se limpia el estado local y se emite el clear correspondiente.
+
+### QA recomendado
+
+- Probar en desktop y móvil con micrófono habilitado.
+- Confirmar que un participante sin subtítulos activados puede ver los subtítulos del que sí los activó.
+- Confirmar que, si el navegador bloquea el micrófono o falla el worker, aparece el toast de error y la llamada sigue operativa.
+
+### Troubleshooting
+
+- Si no aparecen subtítulos, verificar que el micrófono esté activo y que el navegador haya concedido permisos de audio.
+- Si el botón no responde, probar recargando la sala y volviendo a entrar.
+- Si el navegador es muy restrictivo en móvil, puede fallar la activación inicial; en ese caso el sistema muestra un toast de error sin interrumpir la llamada.
+- Si los subtítulos se ven incorrectos, hablar con un ritmo más claro y evitar ruido ambiental fuerte.
+
 ## Integraciones
 
 | Integracion | Uso |
