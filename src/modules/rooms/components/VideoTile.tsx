@@ -217,11 +217,11 @@ export function VideoTile({
       {/* Etiqueta de nombre y micrófono */}
       {caption?.text && (
         <div
-          className="absolute bottom-12 left-3 right-3 z-20 rounded-xl bg-black/70 px-3 py-2 text-center text-xs font-medium leading-snug text-white shadow-lg backdrop-blur-sm sm:bottom-14 sm:text-sm"
+          className="pointer-events-none absolute bottom-11 left-2 right-2 z-20 rounded-lg border border-white/15 bg-black/80 px-2.5 py-2 text-center text-[11px] font-semibold leading-snug text-white shadow-lg shadow-black/30 backdrop-blur-sm sm:bottom-14 sm:left-3 sm:right-3 sm:text-sm"
           aria-live="polite"
           aria-label={`Subtitulo de ${displayName}: ${caption.text}`}
         >
-          <p className="max-h-10 overflow-hidden">{caption.text}</p>
+          <p className="max-h-14 overflow-hidden break-words">{caption.text}</p>
         </div>
       )}
 

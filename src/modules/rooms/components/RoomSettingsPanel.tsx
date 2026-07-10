@@ -148,7 +148,7 @@ export function RoomSettingsPanel({
               </button>
             ) : (
               <div className="rounded-xl border border-dashed border-auth-input-border bg-auth-input-bg/70 px-3 py-3 text-sm text-auth-label">
-                Los subtítulos locales no están disponibles en celulares para evitar fallos de audio y rendimiento.
+                Puedes ver subtítulos que envíen otros participantes, pero no puedes activarlos desde tu celular.
               </div>
             )}
           </section>
