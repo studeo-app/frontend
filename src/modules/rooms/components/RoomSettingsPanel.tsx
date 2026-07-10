@@ -1,13 +1,16 @@
-import { Camera, FlipHorizontal, Volume2, ChevronRight } from 'lucide-react'
+import { Captions, Camera, ChevronRight, FlipHorizontal, Loader2, Volume2 } from 'lucide-react'
+import type { LocalCaptionsState } from '../types/roomSession'
 
 interface RoomSettingsPanelProps {
   isOpen?: boolean
   outputVolume: number
   mirrorLocalVideo: boolean
   cameraFacingMode: 'user' | 'environment'
+  localCaptions: LocalCaptionsState
   onOutputVolumeChange: (volume: number) => void
   onToggleMirrorLocalVideo: () => void
   onSwitchCamera: () => void
+  onToggleLocalCaptions: () => void
   onClose?: () => void 
 }
 
@@ -19,11 +22,23 @@ export function RoomSettingsPanel({
   outputVolume,
   mirrorLocalVideo,
   cameraFacingMode,
+  localCaptions,
   onOutputVolumeChange,
   onToggleMirrorLocalVideo,
   onSwitchCamera,
+  onToggleLocalCaptions,
   onClose, 
 }: RoomSettingsPanelProps) {
+  const isCaptionsBusy = localCaptions.status === 'loading' || localCaptions.status === 'transcribing'
+  const captionsStatusLabel =
+    isCaptionsBusy
+      ? 'Cargando...'
+      : localCaptions.status === 'unsupported'
+        ? 'No disponible en este navegador'
+        : localCaptions.status === 'error'
+          ? 'No se pudo activar'
+          : null
+
   return (
     <div
       className={`
@@ -70,6 +85,50 @@ export function RoomSettingsPanel({
               onChange={(event) => onOutputVolumeChange(Number(event.target.value))}
               className="w-full accent-auth-btn"
             />
+          </section>
+
+          <section className="space-y-3">
+            <p className="text-xs font-medium text-auth-label">Accesibilidad</p>
+
+            <button
+              type="button"
+              onClick={onToggleLocalCaptions}
+              aria-label={localCaptions.enabled ? 'Desactivar subtítulos' : 'Activar subtítulos'}
+              aria-pressed={localCaptions.enabled}
+              aria-describedby={captionsStatusLabel ? 'local-captions-status' : undefined}
+              className="flex w-full items-center justify-between gap-3 rounded-xl border border-auth-input-border bg-auth-input-bg px-3 py-2.5 text-left transition hover:border-auth-btn/40"
+            >
+              <span className="flex min-w-0 items-center gap-2 text-sm text-auth-title">
+                <Captions className="h-4 w-4 shrink-0 text-auth-label" aria-hidden="true" />
+                <span className="min-w-0">
+                  <span className="block truncate">Subtítulos</span>
+                  {captionsStatusLabel && (
+                    <span id="local-captions-status" className="mt-0.5 block truncate text-[11px] text-auth-label">
+                      {captionsStatusLabel}
+                    </span>
+                  )}
+                </span>
+              </span>
+              <span className="flex shrink-0 items-center gap-2">
+                {isCaptionsBusy && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-auth-btn" aria-hidden="true" />
+                )}
+                <span
+                  className={`
+                    relative h-6 w-11 rounded-full transition
+                    ${localCaptions.enabled ? 'bg-auth-btn' : 'bg-auth-input-border'}
+                  `}
+                  aria-hidden="true"
+                >
+                  <span
+                    className={`
+                      absolute top-1 h-4 w-4 rounded-full bg-white transition
+                      ${localCaptions.enabled ? 'left-6' : 'left-1'}
+                    `}
+                  />
+                </span>
+              </span>
+            </button>
           </section>
 
           <section className="space-y-3">

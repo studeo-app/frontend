@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import type { RoomParticipant } from '../types/roomSession'
+import type { RoomCaption, RoomParticipant } from '../types/roomSession'
 import { VideoTile } from './VideoTile'
 
 interface VideoGridProps {
   participants: RoomParticipant[]
+  captions?: RoomCaption[]
   mirrorLocalVideo?: boolean
   outputVolume?: number
   isOwner?: boolean
@@ -128,6 +129,7 @@ function getGridItemStyle(M: number, isMobile: boolean) {
 
 export function VideoGrid({
   participants,
+  captions = [],
   mirrorLocalVideo = true,
   outputVolume = 80,
   isOwner = false,
@@ -170,6 +172,27 @@ export function VideoGrid({
     })
     return tiles
   }, [participants])
+
+  const captionBySocketId = useMemo(() => {
+    const index = new Map<string, RoomCaption>()
+    captions.forEach((caption) => {
+      index.set(caption.socketId, caption)
+    })
+    return index
+  }, [captions])
+
+  const captionByParticipantId = useMemo(() => {
+    const index = new Map<string, RoomCaption>()
+    captions.forEach((caption) => {
+      if (caption.uid) {
+        index.set(caption.uid, caption)
+      }
+    })
+    return index
+  }, [captions])
+
+  const getCaptionForParticipant = (participant: RoomParticipant) =>
+    captionBySocketId.get(participant.socketId) ?? captionByParticipantId.get(participant.id)
 
   // 4. Estados de fijado (Pin) de mosaico
   const [pinnedTileId, setPinnedTileId] = useState<string | null>(null)
@@ -248,6 +271,7 @@ export function VideoGrid({
               onKick={() => onKickParticipant?.(pinnedTile.participant.id)}
               fullSize={true}
               prioritizeAvatar={true}
+              caption={getCaptionForParticipant(pinnedTile.participant)}
             />
           </div>
         </div>
@@ -287,6 +311,7 @@ export function VideoGrid({
                       onMute={() => onMuteParticipant?.(tile.participant.id)}
                       onKick={() => onKickParticipant?.(tile.participant.id)}
                       fullSize={true}
+                      caption={getCaptionForParticipant(tile.participant)}
                     />
                   </div>
                 ))}
@@ -349,6 +374,7 @@ export function VideoGrid({
                       onMute={() => onMuteParticipant?.(tile.participant.id)}
                       onKick={() => onKickParticipant?.(tile.participant.id)}
                       fullSize={true}
+                      caption={getCaptionForParticipant(tile.participant)}
                     />
                   </div>
                 ))}
@@ -441,6 +467,7 @@ export function VideoGrid({
                   onKick={() => onKickParticipant?.(slot.tile!.participant.id)}
                   fullSize={true}
                   prioritizeAvatar={index === 0}
+                  caption={getCaptionForParticipant(slot.tile.participant)}
                 />
               </div>
             )

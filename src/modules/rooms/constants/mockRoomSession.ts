@@ -60,7 +60,14 @@ export function createMockRoomSession(
       },
     ],
     messages: [],
+    captions: [],
     reactions: [],
+    localCaptions: {
+      enabled: false,
+      status: 'idle',
+      error: null,
+      model: null,
+    },
     loadingHistory: false,
     hasMoreHistory: false,
   }

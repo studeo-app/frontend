@@ -27,6 +27,31 @@ export interface RoomChatMessage {
   timestamp: string
 }
 
+export type LocalCaptionsStatus =
+  | 'idle'
+  | 'loading'
+  | 'active'
+  | 'transcribing'
+  | 'unsupported'
+  | 'error'
+
+export interface RoomCaption {
+  roomId: string
+  socketId: string
+  uid: string | null
+  username: string
+  text: string
+  isFinal: boolean
+  updatedAt: string
+}
+
+export interface LocalCaptionsState {
+  enabled: boolean
+  status: LocalCaptionsStatus
+  error: string | null
+  model: string | null
+}
+
 export interface LocalMediaState {
   isMicOn: boolean
   isCameraOn: boolean
@@ -39,7 +64,9 @@ export interface RoomSessionState {
   roomCode: string
   participants: RoomParticipant[]
   messages: RoomChatMessage[]
+  captions: RoomCaption[]
   reactions: RoomReaction[]
+  localCaptions: LocalCaptionsState
   localMedia: LocalMediaState
   mirrorLocalVideo: boolean
   outputVolume: number
@@ -63,6 +90,7 @@ export interface RoomSessionActions {
   toggleMirrorLocalVideo: () => void
   setOutputVolume: (volume: number) => void
   switchCamera: () => void
+  toggleLocalCaptions: () => void
   sendMessage: (text: string) => void
   sendReaction: (emoji: RoomReactionEmoji) => void
   leaveRoom: (options?: LeaveRoomOptions) => void

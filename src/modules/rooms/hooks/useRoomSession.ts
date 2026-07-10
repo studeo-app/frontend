@@ -17,6 +17,8 @@ import { playSynthesizedSound } from '../utils/roomSounds'
 import type {
   LeaveRoomOptions,
   LocalMediaState,
+  LocalCaptionsState,
+  RoomCaption,
   RoomChatMessage,
   RoomParticipant,
   RoomSessionActions,
@@ -77,6 +79,19 @@ interface WebRtcIceCandidatePayload {
   roomId: string
   candidate: RTCIceCandidateInit
 }
+
+interface RoomCaptionClearPayload {
+  roomId: string
+  socketId: string
+  uid: string | null
+  username: string
+  updatedAt: string
+}
+
+type LocalCaptionsWorkerMessage =
+  | { type: 'status'; status: 'loading' | 'ready' | 'transcribing'; message?: string; model?: string }
+  | { type: 'result'; text: string }
+  | { type: 'error'; message: string }
 
 interface SpeakingDetector {
   stream: MediaStream
@@ -152,6 +167,18 @@ function toRoomParticipants(
 const defaultIceServers: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
 const PEER_DISCONNECTED_GRACE_MS = 8_000
 const MAX_ICE_RESTART_ATTEMPTS_PER_PEER = 1
+const LOCAL_CAPTIONS_MODELS = [
+  'onnx-community/whisper-small',
+  'onnx-community/whisper-base',
+  'onnx-community/whisper-tiny',
+]
+const LOCAL_CAPTIONS_LANGUAGE = 'spanish'
+const LOCAL_CAPTIONS_SAMPLE_RATE = 16_000
+const LOCAL_CAPTIONS_CHUNK_SECONDS = 4
+const LOCAL_CAPTIONS_MIN_SECONDS = 0.75
+const LOCAL_CAPTIONS_SILENCE_MS = 650
+const LOCAL_CAPTIONS_VOICE_THRESHOLD = 0.006
+const LOCAL_CAPTIONS_CLEAR_MS = 5_000
 
 type MediaPermissionSnapshot = {
   microphone?: PermissionState | 'unsupported'
@@ -265,6 +292,50 @@ function getPeerConnectionConfig(): RTCConfiguration {
   }
 }
 
+function calculateRms(samples: Float32Array): number {
+  let sum = 0
+  for (let i = 0; i < samples.length; i++) {
+    sum += samples[i] * samples[i]
+  }
+  return Math.sqrt(sum / samples.length)
+}
+
+function downsampleAudio(input: Float32Array, inputSampleRate: number): Float32Array {
+  if (inputSampleRate === LOCAL_CAPTIONS_SAMPLE_RATE) return input
+
+  const ratio = inputSampleRate / LOCAL_CAPTIONS_SAMPLE_RATE
+  const outputLength = Math.floor(input.length / ratio)
+  const output = new Float32Array(outputLength)
+
+  for (let i = 0; i < outputLength; i++) {
+    const start = Math.floor(i * ratio)
+    const end = Math.min(Math.floor((i + 1) * ratio), input.length)
+    let sum = 0
+    for (let j = start; j < end; j++) {
+      sum += input[j]
+    }
+    output[i] = sum / Math.max(1, end - start)
+  }
+
+  return output
+}
+
+function mergeAudioChunks(chunks: Float32Array[], totalSamples: number): Float32Array {
+  const merged = new Float32Array(totalSamples)
+  let offset = 0
+
+  chunks.forEach((chunk) => {
+    merged.set(chunk, offset)
+    offset += chunk.length
+  })
+
+  return merged
+}
+
+function canProcessLocalCaptions(status: LocalCaptionsState['status']): boolean {
+  return status === 'active' || status === 'transcribing'
+}
+
 function createCameraConstraints(
   selectedCameraId?: string,
   facingMode: 'user' | 'environment' = 'user',
@@ -321,7 +392,14 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       },
     ],
     messages: [],
+    captions: [],
     reactions: [],
+    localCaptions: {
+      enabled: false,
+      status: 'idle',
+      error: null,
+      model: null,
+    },
     loadingHistory: false,
     hasMoreHistory: false,
   }))
@@ -362,6 +440,17 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   const audioContextRef = useRef<AudioContext | null>(null)
   const speakingDetectorsRef = useRef(new Map<string, SpeakingDetector>())
   const reactionTimeoutsRef = useRef(new Map<string, number>())
+  const captionClearTimeoutsRef = useRef(new Map<string, number>())
+  const localCaptionsStateRef = useRef<LocalCaptionsState>({ enabled: false, status: 'idle', error: null, model: null })
+  const localCaptionsWorkerRef = useRef<Worker | null>(null)
+  const localCaptionsAudioContextRef = useRef<AudioContext | null>(null)
+  const localCaptionsSourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
+  const localCaptionsProcessorRef = useRef<ScriptProcessorNode | null>(null)
+  const localCaptionsChunksRef = useRef<Float32Array[]>([])
+  const localCaptionsSampleCountRef = useRef(0)
+  const localCaptionsSilenceMsRef = useRef(0)
+  const localCaptionsBusyRef = useRef(false)
+  const localCaptionsLastTextRef = useRef('')
 
   const receiveReaction = useCallback((reaction: RoomReaction) => {
     if (reaction.roomId !== roomId) return
@@ -387,6 +476,56 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
 
     reactionTimeoutsRef.current.set(reaction.id, timeoutId)
   }, [roomId])
+
+  const setLocalCaptionsState = useCallback((next: LocalCaptionsState) => {
+    localCaptionsStateRef.current = next
+    setSession((prev) => ({
+      ...prev,
+      localCaptions: next,
+    }))
+  }, [])
+
+  const clearCaptionForSocket = useCallback((socketId: string) => {
+    const timeout = captionClearTimeoutsRef.current.get(socketId)
+    if (timeout) {
+      window.clearTimeout(timeout)
+      captionClearTimeoutsRef.current.delete(socketId)
+    }
+
+    setSession((prev) => ({
+      ...prev,
+      captions: prev.captions.filter((caption) => caption.socketId !== socketId),
+    }))
+  }, [])
+
+  const scheduleCaptionClear = useCallback((socketId: string) => {
+    const existingTimeout = captionClearTimeoutsRef.current.get(socketId)
+    if (existingTimeout) window.clearTimeout(existingTimeout)
+
+    const timeoutId = window.setTimeout(() => {
+      clearCaptionForSocket(socketId)
+    }, LOCAL_CAPTIONS_CLEAR_MS)
+
+    captionClearTimeoutsRef.current.set(socketId, timeoutId)
+  }, [clearCaptionForSocket])
+
+  const receiveCaption = useCallback((caption: RoomCaption) => {
+    if (caption.roomId !== roomId) return
+
+    setSession((prev) => ({
+      ...prev,
+      captions: [
+        ...prev.captions.filter((item) => item.socketId !== caption.socketId),
+        caption,
+      ].slice(-12),
+    }))
+    scheduleCaptionClear(caption.socketId)
+  }, [roomId, scheduleCaptionClear])
+
+  const receiveCaptionClear = useCallback((payload: RoomCaptionClearPayload) => {
+    if (payload.roomId !== roomId) return
+    clearCaptionForSocket(payload.socketId)
+  }, [clearCaptionForSocket, roomId])
 
   const closeSpeakingDetector = useCallback((socketId: string) => {
     const detector = speakingDetectorsRef.current.get(socketId)
@@ -554,6 +693,250 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       syncDetectorForStream(participant, 'screen', screenStream)
     })
   }, [closeSpeakingDetector])
+
+  const emitCaptionClear = useCallback(() => {
+    const socket = getSocket()
+    const localSocketId = socket?.id ?? roomUsersRef.current.find((user) => user.uid === firebaseUser?.uid)?.socketId
+    if (localSocketId) {
+      clearCaptionForSocket(localSocketId)
+    }
+    if (socket?.connected) {
+      socket.emit(ROOM_SOCKET_EVENTS.CAPTION_CLEAR, { roomId })
+    }
+  }, [clearCaptionForSocket, firebaseUser?.uid, roomId])
+
+  const emitCaptionUpdate = useCallback((text: string) => {
+    const socket = getSocket()
+    const localSocketId = socket?.id ?? roomUsersRef.current.find((user) => user.uid === firebaseUser?.uid)?.socketId
+    if (localSocketId) {
+      receiveCaption({
+        roomId,
+        socketId: localSocketId,
+        uid: firebaseUser?.uid ?? null,
+        username: localUser.displayName,
+        text,
+        isFinal: true,
+        updatedAt: new Date().toISOString(),
+      })
+    }
+    if (!socket?.connected) return
+
+    socket.emit(ROOM_SOCKET_EVENTS.CAPTION_UPDATE, {
+      roomId,
+      text,
+      isFinal: true,
+    })
+  }, [firebaseUser?.uid, localUser.displayName, receiveCaption, roomId])
+
+  const resetLocalCaptionBuffers = useCallback(() => {
+    localCaptionsChunksRef.current = []
+    localCaptionsSampleCountRef.current = 0
+    localCaptionsSilenceMsRef.current = 0
+  }, [])
+
+  const flushLocalCaptionAudio = useCallback(() => {
+    if (!canProcessLocalCaptions(localCaptionsStateRef.current.status)) return
+    if (localCaptionsBusyRef.current) return
+    if (localCaptionsSampleCountRef.current < LOCAL_CAPTIONS_MIN_SECONDS * LOCAL_CAPTIONS_SAMPLE_RATE) {
+      resetLocalCaptionBuffers()
+      return
+    }
+
+    const worker = localCaptionsWorkerRef.current
+    if (!worker) return
+
+    const audio = mergeAudioChunks(
+      localCaptionsChunksRef.current,
+      localCaptionsSampleCountRef.current,
+    )
+    resetLocalCaptionBuffers()
+    localCaptionsBusyRef.current = true
+    worker.postMessage({ type: 'transcribe', audio }, [audio.buffer])
+  }, [resetLocalCaptionBuffers])
+
+  const stopLocalCaptions = useCallback((options?: { emitClear?: boolean }) => {
+    localCaptionsProcessorRef.current?.disconnect()
+    localCaptionsSourceRef.current?.disconnect()
+    localCaptionsAudioContextRef.current?.close().catch(() => undefined)
+    localCaptionsWorkerRef.current?.postMessage({ type: 'dispose' })
+    localCaptionsWorkerRef.current?.terminate()
+
+    localCaptionsProcessorRef.current = null
+    localCaptionsSourceRef.current = null
+    localCaptionsAudioContextRef.current = null
+    localCaptionsWorkerRef.current = null
+    localCaptionsBusyRef.current = false
+    localCaptionsLastTextRef.current = ''
+    resetLocalCaptionBuffers()
+
+    if (options?.emitClear ?? true) {
+      emitCaptionClear()
+    }
+
+    setLocalCaptionsState({ enabled: false, status: 'idle', error: null, model: null })
+  }, [emitCaptionClear, resetLocalCaptionBuffers, setLocalCaptionsState])
+
+  const startLocalCaptions = useCallback(async () => {
+    if (localCaptionsStateRef.current.enabled) return
+
+    const audioTrack = localStreamRef.current?.getAudioTracks()[0]
+    if (
+      !audioTrack ||
+      audioTrack.readyState !== 'live' ||
+      !audioTrack.enabled ||
+      !localMediaRef.current.isMicOn
+    ) {
+      setLocalCaptionsState({
+        enabled: false,
+        status: 'error',
+        error: 'Activa el microfono para generar subtitulos locales.',
+        model: null,
+      })
+      return
+    }
+
+    if (!window.AudioContext || typeof Worker === 'undefined') {
+      setLocalCaptionsState({
+        enabled: false,
+        status: 'unsupported',
+        error: 'Este navegador no soporta subtitulos locales.',
+        model: null,
+      })
+      return
+    }
+
+    try {
+      setLocalCaptionsState({ enabled: true, status: 'loading', error: null, model: null })
+      resetLocalCaptionBuffers()
+
+      const worker = new Worker(
+        new URL('../workers/localCaptions.worker.ts', import.meta.url),
+        { type: 'module' },
+      )
+      localCaptionsWorkerRef.current = worker
+
+      worker.onmessage = (event: MessageEvent<LocalCaptionsWorkerMessage>) => {
+        const message = event.data
+        if (message.type === 'status') {
+          const current = localCaptionsStateRef.current
+          setLocalCaptionsState({
+            enabled: current.enabled,
+            status: message.status === 'ready' ? 'active' : message.status,
+            error: message.message ?? null,
+            model: message.model ?? current.model,
+          })
+          return
+        }
+
+        if (message.type === 'result') {
+          localCaptionsBusyRef.current = false
+          const text = message.text.trim()
+          if (text && text !== localCaptionsLastTextRef.current) {
+            localCaptionsLastTextRef.current = text
+            emitCaptionUpdate(text)
+          }
+          return
+        }
+
+        if (message.type === 'error') {
+          console.error('[Captions] local worker error:', message.message)
+          localCaptionsBusyRef.current = false
+          stopLocalCaptions({ emitClear: true })
+          setLocalCaptionsState({
+            enabled: false,
+            status: 'error',
+            error: message.message,
+            model: null,
+          })
+        }
+      }
+
+      worker.onerror = () => {
+        console.error('[Captions] local worker crashed')
+        localCaptionsBusyRef.current = false
+        stopLocalCaptions({ emitClear: true })
+        setLocalCaptionsState({
+          enabled: false,
+          status: 'error',
+          error: 'No se pudo iniciar el transcriptor local.',
+          model: null,
+        })
+      }
+
+      worker.postMessage({
+        type: 'init',
+        models: LOCAL_CAPTIONS_MODELS,
+        language: LOCAL_CAPTIONS_LANGUAGE,
+      })
+
+      const audioContext = new AudioContext()
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume()
+      }
+
+      const audioStream = new MediaStream([audioTrack])
+      const source = audioContext.createMediaStreamSource(audioStream)
+      const processor = audioContext.createScriptProcessor(4096, 1, 1)
+
+      processor.onaudioprocess = (event) => {
+        const input = event.inputBuffer.getChannelData(0)
+        event.outputBuffer.getChannelData(0).fill(0)
+        const captionsState = localCaptionsStateRef.current
+
+        if (
+          !captionsState.enabled ||
+          !canProcessLocalCaptions(captionsState.status) ||
+          !localMediaRef.current.isMicOn
+        ) {
+          resetLocalCaptionBuffers()
+          return
+        }
+
+        const rms = calculateRms(input)
+        const isVoiceActive = rms >= LOCAL_CAPTIONS_VOICE_THRESHOLD
+
+        if (isVoiceActive) {
+          const downsampled = downsampleAudio(input, audioContext.sampleRate)
+          localCaptionsChunksRef.current.push(downsampled)
+          localCaptionsSampleCountRef.current += downsampled.length
+          localCaptionsSilenceMsRef.current = 0
+        } else if (localCaptionsSampleCountRef.current > 0) {
+          localCaptionsSilenceMsRef.current += (input.length / audioContext.sampleRate) * 1000
+        }
+
+        const reachedChunkLimit =
+          localCaptionsSampleCountRef.current >= LOCAL_CAPTIONS_CHUNK_SECONDS * LOCAL_CAPTIONS_SAMPLE_RATE
+        const reachedSilence =
+          localCaptionsSilenceMsRef.current >= LOCAL_CAPTIONS_SILENCE_MS
+
+        if (reachedChunkLimit || reachedSilence) {
+          flushLocalCaptionAudio()
+        }
+      }
+
+      source.connect(processor)
+      processor.connect(audioContext.destination)
+
+      localCaptionsAudioContextRef.current = audioContext
+      localCaptionsSourceRef.current = source
+      localCaptionsProcessorRef.current = processor
+    } catch (error) {
+      console.error('[Captions] local captions failed:', error)
+      stopLocalCaptions({ emitClear: false })
+      setLocalCaptionsState({
+        enabled: false,
+        status: 'error',
+        error: 'No se pudieron activar los subtitulos locales.',
+        model: null,
+      })
+    }
+  }, [
+    emitCaptionUpdate,
+    flushLocalCaptionAudio,
+    resetLocalCaptionBuffers,
+    setLocalCaptionsState,
+    stopLocalCaptions,
+  ])
 
   useEffect(() => {
     if (!roomCode) return
@@ -1254,6 +1637,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   useEffect(() => {
     let cancelled = false
     const reactionTimeouts = reactionTimeoutsRef.current
+    const captionClearTimeouts = captionClearTimeoutsRef.current
 
     async function init() {
       try {
@@ -1522,6 +1906,10 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
 
         socket.on(ROOM_SOCKET_EVENTS.REACTION_NEW, receiveReaction)
 
+        socket.on(ROOM_SOCKET_EVENTS.CAPTION_UPDATE, receiveCaption)
+
+        socket.on(ROOM_SOCKET_EVENTS.CAPTION_CLEAR, receiveCaptionClear)
+
         socket.on(ROOM_SOCKET_EVENTS.WEBRTC_OFFER, async (payload: WebRtcOfferPayload) => {
           console.log(`[WebRTC] Socket received WEBRTC_OFFER from: ${payload.fromSocketId}`)
           if (cancelled || payload.roomId !== roomId) return
@@ -1640,6 +2028,10 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
             const nextMedia = { ...localMediaRef.current, isMicOn: false }
             localMediaRef.current = nextMedia
             writeLobbyMediaState(roomId, nextMedia)
+            if (localCaptionsStateRef.current.enabled) {
+              resetLocalCaptionBuffers()
+              emitCaptionClear()
+            }
             setSession((prev) => ({
               ...prev,
               localMedia: nextMedia,
@@ -1702,6 +2094,8 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         socket.off(ROOM_SOCKET_EVENTS.ROOM_USERS)
         socket.off(ROOM_SOCKET_EVENTS.MEDIA_STATUS)
         socket.off(ROOM_SOCKET_EVENTS.REACTION_NEW, receiveReaction)
+        socket.off(ROOM_SOCKET_EVENTS.CAPTION_UPDATE, receiveCaption)
+        socket.off(ROOM_SOCKET_EVENTS.CAPTION_CLEAR, receiveCaptionClear)
         socket.off(ROOM_SOCKET_EVENTS.WEBRTC_OFFER)
         socket.off(ROOM_SOCKET_EVENTS.WEBRTC_ANSWER)
         socket.off(ROOM_SOCKET_EVENTS.WEBRTC_ICE_CANDIDATE)
@@ -1710,6 +2104,9 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         socket.off('roomMemberMuted')
       }
       cleanupWebRtc()
+      stopLocalCaptions({ emitClear: true })
+      captionClearTimeouts.forEach((timeoutId) => window.clearTimeout(timeoutId))
+      captionClearTimeouts.clear()
       reactionTimeouts.forEach((timeoutId) => window.clearTimeout(timeoutId))
       reactionTimeouts.clear()
       disconnectSocket()
@@ -1718,6 +2115,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     cleanupWebRtc,
     createPeerConnection,
     emitJoinRoom,
+    emitCaptionClear,
     emitMediaStatus,
     firebaseUser?.uid,
     flushPendingIceCandidates,
@@ -1726,10 +2124,14 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     lobbyMediaPrefs,
     navigate,
     roomId,
+    receiveCaption,
+    receiveCaptionClear,
     receiveReaction,
     refreshMediaPermissions,
+    resetLocalCaptionBuffers,
     retryCount,
     setupNegotiationHandler,
+    stopLocalCaptions,
     syncPeerConnections,
   ])
 
@@ -1770,6 +2172,10 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     audioTracks.forEach((track) => {
       track.enabled = nextMic
     })
+    if (!nextMic && localCaptionsStateRef.current.enabled) {
+      resetLocalCaptionBuffers()
+      emitCaptionClear()
+    }
 
     const nextMedia = { ...session.localMedia, isMicOn: nextMic }
     localMediaRef.current = nextMedia
@@ -1782,7 +2188,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
       ),
     }))
     emitMediaStatus(nextMedia)
-  }, [emitMediaStatus, roomId, session.localMedia])
+  }, [emitCaptionClear, emitMediaStatus, resetLocalCaptionBuffers, roomId, session.localMedia])
 
   // FIX: toggleCamera ahora usa track.stop() para liberar el hardware (apaga el LED de la cámara)
   // y getUserMedia para adquirir un nuevo track al encender, en lugar de solo track.enabled
@@ -2052,6 +2458,39 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     }))
   }, [])
 
+  const toggleLocalCaptions = useCallback(() => {
+    if (localCaptionsStateRef.current.enabled) {
+      stopLocalCaptions({ emitClear: true })
+      return
+    }
+
+    void (async () => {
+      const audioTrack = localStreamRef.current?.getAudioTracks()[0] ?? null
+      const hasActiveMic =
+        Boolean(audioTrack) &&
+        audioTrack?.readyState === 'live' &&
+        audioTrack.enabled &&
+        localMediaRef.current.isMicOn
+
+      if (!hasActiveMic) {
+        setLocalCaptionsState({ enabled: false, status: 'loading', error: null, model: null })
+        const granted = await requestDeviceAccess('microphone')
+        if (!granted) {
+          stopLocalCaptions({ emitClear: true })
+          setLocalCaptionsState({
+            enabled: false,
+            status: 'error',
+            error: 'Activa el microfono para generar subtitulos locales.',
+            model: null,
+          })
+          return
+        }
+      }
+
+      await startLocalCaptions()
+    })()
+  }, [requestDeviceAccess, setLocalCaptionsState, startLocalCaptions, stopLocalCaptions])
+
   const switchCamera = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) return
 
@@ -2152,6 +2591,7 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
     toggleMirrorLocalVideo,
     setOutputVolume,
     switchCamera,
+    toggleLocalCaptions,
     sendMessage,
     sendReaction,
     leaveRoom,

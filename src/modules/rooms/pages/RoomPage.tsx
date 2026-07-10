@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { AlertCircle, CameraOff, Loader2, Mic, PhoneOff, RefreshCw, ShieldAlert, Video } from 'lucide-react'
+import { AlertCircle, CameraOff, CheckCircle2, Loader2, Mic, PhoneOff, RefreshCw, ShieldAlert, Video } from 'lucide-react'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { getSocket } from '@/config/socket.config'
 import useDocumentTitle from '@/shared/hooks/useDocumentTitle'
@@ -125,6 +125,7 @@ export default function RoomPage() {
   const [showMissingPermissionsModal, setShowMissingPermissionsModal] = useState(false)
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
   const [showHardwareIssueModal, setShowHardwareIssueModal] = useState(false)
+  const [showCaptionsToast, setShowCaptionsToast] = useState(false)
 
   const handleRequestMute = useCallback((uid: string) => {
     const participant = session.participants.find((p) => p.id === uid)
@@ -143,6 +144,7 @@ export default function RoomPage() {
   const hasBeenConnectedRef = useRef(false)
   const hasShownMissingPermissionsRef = useRef(false)
   const permissionRequestPointerLockRef = useRef(false)
+  const prevLocalCaptionsStatusRef = useRef(session.localCaptions.status)
   const [showReconnecting, setShowReconnecting] = useState(false)
   const [reconnectAttempts, setReconnectAttempts] = useState(0)
 
@@ -188,6 +190,26 @@ export default function RoomPage() {
       setReconnectAttempts((prev) => prev + 1)
     }
   }, [session.connectionStatus])
+
+  useEffect(() => {
+    const previousStatus = prevLocalCaptionsStatusRef.current
+    const currentStatus = session.localCaptions.status
+
+    if (
+      session.localCaptions.enabled &&
+      currentStatus === 'active' &&
+      previousStatus !== 'active'
+    ) {
+      setShowCaptionsToast(true)
+      const timeoutId = window.setTimeout(() => {
+        setShowCaptionsToast(false)
+      }, 3500)
+      prevLocalCaptionsStatusRef.current = currentStatus
+      return () => window.clearTimeout(timeoutId)
+    }
+
+    prevLocalCaptionsStatusRef.current = currentStatus
+  }, [session.localCaptions.enabled, session.localCaptions.status])
 
   useEffect(() => {
     if (session.connectionStatus !== 'connected') return
@@ -377,6 +399,16 @@ export default function RoomPage() {
 
   return (
     <div className="flex h-full w-full overflow-hidden">
+      {showCaptionsToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed left-1/2 top-5 z-[80] flex -translate-x-1/2 items-center gap-2 rounded-xl border border-auth-input-border bg-auth-surface px-4 py-3 text-sm font-semibold text-auth-title shadow-2xl"
+        >
+          <CheckCircle2 className="h-4 w-4 text-auth-btn" aria-hidden="true" />
+          Subtítulos activados
+        </div>
+      )}
       <div className="flex min-w-0 flex-1 flex-col">
         <RoomHeader
           roomName={roomName}
@@ -439,6 +471,7 @@ export default function RoomPage() {
               mediaStatus !== 'error_webrtc' && (
                 <VideoGrid
                   participants={session.participants}
+                  captions={session.captions}
                   mirrorLocalVideo={session.mirrorLocalVideo}
                   outputVolume={session.outputVolume}
                   isOwner={isOwner}
@@ -505,9 +538,11 @@ export default function RoomPage() {
               outputVolume={session.outputVolume}
               mirrorLocalVideo={session.mirrorLocalVideo}
               cameraFacingMode={session.cameraFacingMode}
+              localCaptions={session.localCaptions}
               onOutputVolumeChange={actions.setOutputVolume}
               onToggleMirrorLocalVideo={actions.toggleMirrorLocalVideo}
               onSwitchCamera={actions.switchCamera}
+              onToggleLocalCaptions={actions.toggleLocalCaptions}
               onClose={() => setActivePanel(null)}
             />
 
