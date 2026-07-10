@@ -2473,6 +2473,19 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
   }, [])
 
   const toggleLocalCaptions = useCallback(() => {
+    const isMobileEnvironment =
+      typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+
+    if (isMobileEnvironment) {
+      setLocalCaptionsState({
+        enabled: false,
+        status: 'unsupported',
+        error: 'Los subtítulos locales no están disponibles en celulares.',
+        model: null,
+      })
+      return
+    }
+
     if (localCaptionsStateRef.current.enabled) {
       stopLocalCaptions({ emitClear: true })
       return
