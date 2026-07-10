@@ -29,7 +29,7 @@ export function RoomSettingsPanel({
   onToggleLocalCaptions,
   onClose, 
 }: RoomSettingsPanelProps) {
-  const isCaptionsBusy = localCaptions.status === 'loading' || localCaptions.status === 'transcribing'
+  const isCaptionsBusy = localCaptions.status === 'loading'
   const captionsStatusLabel =
     isCaptionsBusy
       ? 'Cargando...'

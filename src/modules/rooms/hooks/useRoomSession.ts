@@ -851,7 +851,8 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
         }
       }
 
-      worker.onerror = () => {
+      worker.onerror = (event) => {
+        event.preventDefault()
         console.error('[Captions] local worker crashed')
         localCaptionsBusyRef.current = false
         stopLocalCaptions({ emitClear: true })
@@ -859,6 +860,19 @@ export function useRoomSession(roomId: string, roomCode?: string): UseRoomSessio
           enabled: false,
           status: 'error',
           error: 'No se pudo iniciar el transcriptor local.',
+          model: null,
+        })
+      }
+
+      worker.onmessageerror = (event) => {
+        event.preventDefault()
+        console.error('[Captions] local worker message error')
+        localCaptionsBusyRef.current = false
+        stopLocalCaptions({ emitClear: true })
+        setLocalCaptionsState({
+          enabled: false,
+          status: 'error',
+          error: 'No se pudo comunicar con el transcriptor local.',
           model: null,
         })
       }
