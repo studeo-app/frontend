@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { AlertCircle, CameraOff, Loader2, Mic, PhoneOff, RefreshCw, ShieldAlert, Video } from 'lucide-react'
+import { AlertCircle, CameraOff, CheckCircle2, Loader2, Mic, PhoneOff, RefreshCw, ShieldAlert, Video } from 'lucide-react'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { getSocket } from '@/config/socket.config'
 import useDocumentTitle from '@/shared/hooks/useDocumentTitle'
@@ -34,6 +34,11 @@ export type RoomMediaStatus =
   | 'error_webrtc'
 
 type PermissionPromptTarget = 'microphone' | 'camera'
+type CaptionsToast = {
+  type: 'success' | 'error'
+  message: string
+  detail?: string
+}
 
 function buildDeniedPermissionMessage(target: PermissionPromptTarget, showCombinedOption: boolean) {
   if (target === 'microphone') {
@@ -125,6 +130,7 @@ export default function RoomPage() {
   const [showMissingPermissionsModal, setShowMissingPermissionsModal] = useState(false)
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
   const [showHardwareIssueModal, setShowHardwareIssueModal] = useState(false)
+  const [captionsToast, setCaptionsToast] = useState<CaptionsToast | null>(null)
 
   const handleRequestMute = useCallback((uid: string) => {
     const participant = session.participants.find((p) => p.id === uid)
@@ -143,6 +149,8 @@ export default function RoomPage() {
   const hasBeenConnectedRef = useRef(false)
   const hasShownMissingPermissionsRef = useRef(false)
   const permissionRequestPointerLockRef = useRef(false)
+  const prevLocalCaptionsStatusRef = useRef(session.localCaptions.status)
+  const hasShownCaptionsToastRef = useRef(false)
   const [showReconnecting, setShowReconnecting] = useState(false)
   const [reconnectAttempts, setReconnectAttempts] = useState(0)
 
@@ -188,6 +196,59 @@ export default function RoomPage() {
       setReconnectAttempts((prev) => prev + 1)
     }
   }, [session.connectionStatus])
+
+  useEffect(() => {
+    const previousStatus = prevLocalCaptionsStatusRef.current
+    const currentStatus = session.localCaptions.status
+    let timeoutId: number | null = null
+
+    if (
+      session.localCaptions.enabled &&
+      currentStatus === 'active' &&
+      previousStatus !== 'active' &&
+      !hasShownCaptionsToastRef.current
+    ) {
+      hasShownCaptionsToastRef.current = true
+      setCaptionsToast({
+        type: 'success',
+        message: 'Subtítulos activados',
+        detail: 'Tu voz se convertirá en texto y todos en la sala podrán verlo.',
+      })
+      timeoutId = window.setTimeout(() => {
+        setCaptionsToast(null)
+      }, 3500)
+      prevLocalCaptionsStatusRef.current = currentStatus
+      return () => {
+        if (timeoutId) window.clearTimeout(timeoutId)
+      }
+    }
+
+    if (
+      !session.localCaptions.enabled &&
+      currentStatus === 'error' &&
+      previousStatus !== 'error'
+    ) {
+      hasShownCaptionsToastRef.current = false
+      setCaptionsToast({
+        type: 'error',
+        message: 'No se ha podido activar los subtítulos',
+        detail: 'Solo podrás ver los subtítulos de los demás.',
+      })
+      timeoutId = window.setTimeout(() => {
+        setCaptionsToast(null)
+      }, 5200)
+      prevLocalCaptionsStatusRef.current = currentStatus
+      return () => {
+        if (timeoutId) window.clearTimeout(timeoutId)
+      }
+    }
+
+    if (!session.localCaptions.enabled && currentStatus !== 'error') {
+      hasShownCaptionsToastRef.current = false
+    }
+
+    prevLocalCaptionsStatusRef.current = currentStatus
+  }, [session.localCaptions.enabled, session.localCaptions.status])
 
   useEffect(() => {
     if (session.connectionStatus !== 'connected') return
@@ -377,6 +438,27 @@ export default function RoomPage() {
 
   return (
     <div className="flex h-full w-full overflow-hidden">
+      {captionsToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed left-1/2 top-5 z-[80] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-start gap-2 rounded-xl border border-auth-input-border bg-auth-surface px-4 py-3 text-sm font-semibold text-auth-title shadow-2xl"
+        >
+          {captionsToast.type === 'success' ? (
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-auth-btn" aria-hidden="true" />
+          ) : (
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" aria-hidden="true" />
+          )}
+          <span className="min-w-0">
+            <span className="block">{captionsToast.message}</span>
+            {captionsToast.detail && (
+              <span className="mt-0.5 block text-xs font-medium text-auth-label">
+                {captionsToast.detail}
+              </span>
+            )}
+          </span>
+        </div>
+      )}
       <div className="flex min-w-0 flex-1 flex-col">
         <RoomHeader
           roomName={roomName}
@@ -439,6 +521,7 @@ export default function RoomPage() {
               mediaStatus !== 'error_webrtc' && (
                 <VideoGrid
                   participants={session.participants}
+                  captions={session.captions}
                   mirrorLocalVideo={session.mirrorLocalVideo}
                   outputVolume={session.outputVolume}
                   isOwner={isOwner}
@@ -505,9 +588,11 @@ export default function RoomPage() {
               outputVolume={session.outputVolume}
               mirrorLocalVideo={session.mirrorLocalVideo}
               cameraFacingMode={session.cameraFacingMode}
+              localCaptions={session.localCaptions}
               onOutputVolumeChange={actions.setOutputVolume}
               onToggleMirrorLocalVideo={actions.toggleMirrorLocalVideo}
               onSwitchCamera={actions.switchCamera}
+              onToggleLocalCaptions={actions.toggleLocalCaptions}
               onClose={() => setActivePanel(null)}
             />
 

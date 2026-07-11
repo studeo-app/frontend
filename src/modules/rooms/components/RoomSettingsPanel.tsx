@@ -1,29 +1,47 @@
-import { Camera, FlipHorizontal, Volume2, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
+import { Captions, Camera, ChevronRight, CircleHelp, FlipHorizontal, Loader2, Volume2 } from 'lucide-react'
+import { BaseModal } from '@/shared/components/ui/BaseModal'
+import type { LocalCaptionsState } from '../types/roomSession'
 
 interface RoomSettingsPanelProps {
   isOpen?: boolean
   outputVolume: number
   mirrorLocalVideo: boolean
   cameraFacingMode: 'user' | 'environment'
+  localCaptions: LocalCaptionsState
   onOutputVolumeChange: (volume: number) => void
   onToggleMirrorLocalVideo: () => void
   onSwitchCamera: () => void
+  onToggleLocalCaptions: () => void
   onClose?: () => void 
 }
 
 const isMobileDevice =
-  typeof navigator !== 'undefined' && /Mobi|Android/i.test(navigator.userAgent)
+  typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
 export function RoomSettingsPanel({
   isOpen = true,
   outputVolume,
   mirrorLocalVideo,
   cameraFacingMode,
+  localCaptions,
   onOutputVolumeChange,
   onToggleMirrorLocalVideo,
   onSwitchCamera,
+  onToggleLocalCaptions,
   onClose, 
 }: RoomSettingsPanelProps) {
+  const [isCaptionHelpOpen, setIsCaptionHelpOpen] = useState(false)
+  const isCaptionsBusy = localCaptions.status === 'loading'
+  const captionsStatusLabel =
+    isCaptionsBusy
+      ? 'Cargando...'
+      : localCaptions.status === 'unsupported'
+        ? 'No disponible en este navegador'
+        : localCaptions.status === 'error'
+          ? 'No se pudo activar'
+          : null
+
   return (
     <div
       className={`
@@ -73,6 +91,69 @@ export function RoomSettingsPanel({
           </section>
 
           <section className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-auth-label">Accesibilidad</p>
+              {!isMobileDevice && (
+                <button
+                  type="button"
+                  onClick={() => setIsCaptionHelpOpen(true)}
+                  className="rounded-full p-1 text-auth-label transition hover:bg-auth-input-bg hover:text-auth-title"
+                  aria-label="Cómo funcionan los subtítulos"
+                  title="Cómo funcionan los subtítulos"
+                >
+                  <CircleHelp className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+
+            {!isMobileDevice ? (
+              <button
+                type="button"
+                onClick={onToggleLocalCaptions}
+                aria-label={localCaptions.enabled ? 'Desactivar subtítulos' : 'Activar subtítulos'}
+                aria-pressed={localCaptions.enabled}
+                aria-describedby={captionsStatusLabel ? 'local-captions-status' : undefined}
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-auth-input-border bg-auth-input-bg px-3 py-2.5 text-left transition hover:border-auth-btn/40"
+              >
+                <span className="flex min-w-0 items-center gap-2 text-sm text-auth-title">
+                  <Captions className="h-4 w-4 shrink-0 text-auth-label" aria-hidden="true" />
+                  <span className="min-w-0">
+                    <span className="block truncate">Subtítulos</span>
+                    {captionsStatusLabel && (
+                      <span id="local-captions-status" className="mt-0.5 block truncate text-[11px] text-auth-label">
+                        {captionsStatusLabel}
+                      </span>
+                    )}
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2">
+                  {isCaptionsBusy && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-auth-btn" aria-hidden="true" />
+                  )}
+                  <span
+                    className={`
+                      relative h-6 w-11 rounded-full transition
+                      ${localCaptions.enabled ? 'bg-auth-btn' : 'bg-auth-input-border'}
+                    `}
+                    aria-hidden="true"
+                  >
+                    <span
+                      className={`
+                        absolute top-1 h-4 w-4 rounded-full bg-white transition
+                        ${localCaptions.enabled ? 'left-6' : 'left-1'}
+                      `}
+                    />
+                  </span>
+                </span>
+              </button>
+            ) : (
+              <div className="rounded-xl border border-dashed border-auth-input-border bg-auth-input-bg/70 px-3 py-3 text-sm text-auth-label">
+                Puedes ver subtítulos que envíen otros participantes, pero no puedes activarlos desde tu celular.
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-3">
             <p className="text-xs font-medium text-auth-label">Video</p>
 
             <button
@@ -119,6 +200,27 @@ export function RoomSettingsPanel({
           </section>
         </div>
       </aside>
+
+      <BaseModal
+        isOpen={isCaptionHelpOpen}
+        onClose={() => setIsCaptionHelpOpen(false)}
+        title="Cómo funcionan los subtítulos"
+      >
+        <div className="space-y-3 text-sm leading-relaxed text-auth-label">
+          <p>
+            Cuando activas los subtítulos, tu voz se convierte en texto para que todos en la sala puedan seguir la conversación con más comodidad.
+          </p>
+          <ul className="space-y-2 rounded-xl border border-auth-input-border bg-auth-input-bg/70 p-3 text-sm">
+            <li>• Quien los activa puede generar subtítulos para toda la llamada.</li>
+            <li>• Todos los participantes verán el texto sobre la tarjeta del usuario que está hablando.</li>
+            <li>• Puedes desactivarlos en cualquier momento si prefieres una llamada más sencilla.</li>
+          </ul>
+          <div className="rounded-xl border border-auth-btn/20 bg-auth-btn/10 p-3 text-sm text-auth-title">
+            <p className="font-semibold">Consejo</p>
+            <p className="mt-1">Habla con un ritmo claro y mantén el micrófono activado para que los subtítulos salgan mejor.</p>
+          </div>
+        </div>
+      </BaseModal>
     </div>
   )
 }
